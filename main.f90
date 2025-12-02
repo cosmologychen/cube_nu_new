@@ -5,7 +5,7 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 program CUBE
    use omp_lib
-   use variables
+use variables
    use power_nu
    implicit none
    save
@@ -72,7 +72,7 @@ program CUBE
       enddo
    endif
 #else
-   sim%cur_checkpoint=70
+   sim%cur_checkpoint=1
    call initialize
    call particle_initialization
    call buffer_grid

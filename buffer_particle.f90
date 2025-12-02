@@ -50,7 +50,11 @@ subroutine buffer_xvp(dox,dov)
     do iy=1,nt
       if (dox) &
       xp(:,idx_b_l(iy,iz,itx,ity,itz)+1:ppl0(iy,iz,itx,ity,itz))=&
+#ifdef ZIPX
       xp(:,myzl(iy,iz,ity,itz)+1:myzr(iy,iz,ity,itz))[inx,icy,icz]
+#else
+      xp(:,myzl(iy,iz,ity,itz)+1:myzr(iy,iz,ity,itz))[inx,icy,icz] - spread([int(ng,kind=4),0,0],dim=2, ncopies=(myzr(iy,iz,ity,itz)-myzl(iy,iz,ity,itz)))
+#endif
       if (dov) then
         vp(:,idx_b_l(iy,iz,itx,ity,itz)+1:ppl0(iy,iz,itx,ity,itz))=&
         vp(:,myzl(iy,iz,ity,itz)+1:myzr(iy,iz,ity,itz))[inx,icy,icz]
@@ -75,7 +79,7 @@ subroutine buffer_xvp(dox,dov)
     do iz=1,nt
     do iy=1,nt
       if (dox) &
-      xp(:,idx_b_l(iy,iz,itx,ity,itz)+1:ppl0(iy,iz,itx,ity,itz))=&
+      xp(:,idx_b_l(iy,iz,itx,ity,itz)+1:ppl0(iy,iz,itx,ity,itz))=& 
       xp(:,pprl(iy,iz,itx-1,ity,itz)+1:ppr0(iy,iz,itx-1,ity,itz))
       if (dov) then
         vp(:,idx_b_l(iy,iz,itx,ity,itz)+1:ppl0(iy,iz,itx,ity,itz))=&
@@ -105,7 +109,11 @@ subroutine buffer_xvp(dox,dov)
     do iy=1,nt
       if (dox) &
       xp(:,ppr0(iy,iz,itx,ity,itz)+1:idx_b_r(iy,iz,itx,ity,itz))=&
+#ifdef ZIPX
       xp(:,myzl(iy,iz,ity,itz)+1:myzr(iy,iz,ity,itz))[ipx,icy,icz]
+#else
+      xp(:,myzl(iy,iz,ity,itz)+1:myzr(iy,iz,ity,itz))[ipx,icy,icz] + spread([int(ng,kind=4),0,0],dim=2, ncopies=(myzr(iy,iz,ity,itz)-myzl(iy,iz,ity,itz)))
+#endif
       if (dov) then
         vp(:,ppr0(iy,iz,itx,ity,itz)+1:idx_b_r(iy,iz,itx,ity,itz))=&
         vp(:,myzl(iy,iz,ity,itz)+1:myzr(iy,iz,ity,itz))[ipx,icy,icz]
@@ -160,7 +168,11 @@ subroutine buffer_xvp(dox,dov)
     do iz=1,nt
       if (dox) &
       xp(:,idx_b_l(1-ncb,iz,itx,ity,itz)+1:idx_b_r(0,iz,itx,ity,itz))=&
+#ifdef ZIPX
       xp(:,mzl(iz,itx,itz)+1:mzr(iz,itx,itz))[icx,iny,icz]
+#else
+      xp(:,mzl(iz,itx,itz)+1:mzr(iz,itx,itz))[icx,iny,icz] - spread([0,int(ng,kind=4),0],dim=2, ncopies=(mzr(iz,itx,itz)-mzl(iz,itx,itz)))
+#endif
       if (dov) then
         vp(:,idx_b_l(1-ncb,iz,itx,ity,itz)+1:idx_b_r(0,iz,itx,ity,itz))=&
         vp(:,mzl(iz,itx,itz)+1:mzr(iz,itx,itz))[icx,iny,icz]
@@ -211,7 +223,11 @@ subroutine buffer_xvp(dox,dov)
     do iz=1,nt
       if (dox) &
       xp(:,idx_b_l(nt+1,iz,itx,ity,itz)+1:idx_b_r(nt+ncb,iz,itx,ity,itz))=&
+#ifdef ZIPX
       xp(:,mzl(iz,itx,itz)+1:mzr(iz,itx,itz))[icx,ipy,icz]
+#else
+      xp(:,mzl(iz,itx,itz)+1:mzr(iz,itx,itz))[icx,ipy,icz] + spread([0,int(ng,kind=4),0],dim=2, ncopies=(mzr(iz,itx,itz)-mzl(iz,itx,itz)))
+#endif
       if (dov) then
         vp(:,idx_b_l(nt+1,iz,itx,ity,itz)+1:idx_b_r(nt+ncb,iz,itx,ity,itz))=&
         vp(:,mzl(iz,itx,itz)+1:mzr(iz,itx,itz))[icx,ipy,icz]
@@ -262,7 +278,11 @@ subroutine buffer_xvp(dox,dov)
   do itx=1,nnt
     if (dox) &
     xp(:,idx_b_l(1-ncb,1-ncb,itx,ity,itz)+1:idx_b_r(nt+ncb,0,itx,ity,itz))=&
+#ifdef ZIPX
     xp(:,ml(itx,ity)+1:mr(itx,ity))[icx,icy,inz]
+#else
+    xp(:,ml(itx,ity)+1:mr(itx,ity))[icx,icy,inz] - spread([0,0,int(ng,kind=4)],dim=2, ncopies=(mr(itx,ity)-ml(itx,ity)))
+#endif
     if (dov) then
       vp(:,idx_b_l(1-ncb,1-ncb,itx,ity,itz)+1:idx_b_r(nt+ncb,0,itx,ity,itz))=&
       vp(:,ml(itx,ity)+1:mr(itx,ity))[icx,icy,inz]
@@ -309,7 +329,11 @@ subroutine buffer_xvp(dox,dov)
   do itx=1,nnt
     if (dox) &
     xp(:,idx_b_l(1-ncb,nt+1,itx,ity,itz)+1:idx_b_r(nt+ncb,nt+ncb,itx,ity,itz))=&
+#ifdef ZIPX
     xp(:,ml(itx,ity)+1:mr(itx,ity))[icx,icy,ipz]
+#else
+    xp(:,ml(itx,ity)+1:mr(itx,ity))[icx,icy,ipz] + spread([0,0,int(ng,kind=4)],dim=2, ncopies=(mr(itx,ity)-ml(itx,ity)))
+#endif
     if (dov) then
       vp(:,idx_b_l(1-ncb,nt+1,itx,ity,itz)+1:idx_b_r(nt+ncb,nt+ncb,itx,ity,itz))=&
       vp(:,ml(itx,ity)+1:mr(itx,ity))[icx,icy,ipz]

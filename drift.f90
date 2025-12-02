@@ -3,7 +3,6 @@ subroutine drift
    implicit none
 
 
-   !real,parameter :: weight_v=0.1 ! how previous-step vfield is mostly weighted
    integer i,j,k,l,np,ilayer,nlayer
    integer(8) idx,np_prev,ig(3),npcheck,ip,nzero,idx_ex_r(1-2*ncb:nt+2*ncb,1-2*ncb:nt+2*ncb)
    integer(4),allocatable :: rhoce(:,:,:),rholocal(:,:,:)
@@ -54,25 +53,24 @@ subroutine drift
                         nzero=idx_b_r(j,k,itx,ity,itz)-sum(rhoc(i:,j,k,itx,ity,itz))
                         do l=1,np
                            ip=nzero+l
-                           xq=((/i,j,k/)-1d0) + (int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
-                           !vreal=tan((pi*real(vp(:,ip)))/(nvbin-1)) / (sqrt(pi/2)/(sigma_vi*vrel_boost))
-                           !vreal=tan((pi*real(vp(:,ip)))/real(nvbin-1,kind=8)) / (sqrt(pi/2)/(sigma_vi*vrel_boost))
-                           !vreal=vreal+vfield(:,i,j,k,itx,ity,itz)
-                           !deltax=(real(dt_mid,kind=8)*vreal)/ratio_cs
-                           !deltax=(dt_mid*vreal)/ratio_cs
-
                            deltax=(dt_mid*vp(:,ip))/ratio_cs
-
-                           ig=ceiling(xq+deltax)
-                           !if (minval(ig) < 1-2*ncb .or. nt+2*ncb < maxval(ig)) then
-                           !  print*,i,j,k,nzero,l,ip
-                           !  print*,ig
-                           !  print*,vp(:,ip)
-                           !  print*,vp(:,ip+1)
-                           !  stop
-                           !endif
+#ifdef ZIPX
+                           xq=((/i,j,k/)-1d0) + (int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
+#else
+                           xq=xp(:,ip)/ratio_cs - ([itx,ity,itz]-1)*nt 
+#endif
+                           ig=ceiling(xq + deltax)
+                           if (minval(ig) < 1-2*ncb .or. maxval(ig) > nt+2*ncb) then
+                              print*, '  error: particle out of range',1-2*ncb,nt+2*ncb
+                              print*, '  ',ig
+                              print*, '  ',xp(:,ip)/ratio_cs
+                              print*, '  ',deltax
+                              print*, '  ',([itx,ity,itz]-1)*nt*ratio_cs
+                              print*, '  on',this_image(), itx,ity,itz
+                              print*,ip
+                              error stop
+                           endif
                            rhoce(ig(1),ig(2),ig(3))=rhoce(ig(1),ig(2),ig(3))+1
-                           !vfield_new(:,ig(1),ig(2),ig(3))=vfield_new(:,ig(1),ig(2),ig(3))+vreal
                         enddo
                      enddo
                   enddo
@@ -80,12 +78,7 @@ subroutine drift
                !$omp endparalleldo
             enddo ! ilayer
             sync all
-            !if (head) print*,'    density loop done'; sync all
-            ! vfield_new is kept the same as previous-step if the grid is empty.
-            ! vfield_new is at most weight_v weighted by previous-step for non-empty grids.
-            !vfield_new(1,:,:,:)=vfield_new(1,:,:,:)/(rhoce+weight_v)
-            !vfield_new(2,:,:,:)=vfield_new(2,:,:,:)/(rhoce+weight_v)
-            !vfield_new(3,:,:,:)=vfield_new(3,:,:,:)/(rhoce+weight_v)
+            
 
             call spine_tile(rhoce,idx_ex_r,pp_l,pp_r,ppe_l,ppe_r)
             overhead_tile=max(overhead_tile,idx_ex_r(nt+2*ncb,nt+2*ncb)/real(np_tile_max))
@@ -110,22 +103,20 @@ subroutine drift
                         nzero=idx_b_r(j,k,itx,ity,itz)-sum(rhoc(i:,j,k,itx,ity,itz))
                         do l=1,np
                            ip=nzero+l
-                           xq=((/i,j,k/)-1d0) + (int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
-                           !vreal=tan((pi*real(vp(:,ip)))/(nvbin-1)) / (sqrt(pi/2)/(sigma_vi*vrel_boost))
-                           !vreal=tan((pi*real(vp(:,ip)))/real(nvbin-1,kind=8)) / (sqrt(pi/2)/(sigma_vi*vrel_boost))
-                           !vreal=vreal+vfield(:,i,j,k,itx,ity,itz)
-                           !deltax=(real(dt_mid,kind=8)*vreal)/ratio_cs
-                           !deltax=(dt_mid*vreal)/ratio_cs
-
                            deltax=(dt_mid*vp(:,ip))/ratio_cs
-
-                           ig=ceiling(xq+deltax)
+#ifdef ZIPX
+                           xq=((/i,j,k/)-1d0) + (int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
+#else
+                           xq=xp(:,ip)/ratio_cs - ([itx,ity,itz]-1)*nt 
+#endif
+                           ig=ceiling(xq + deltax)
                            rholocal(ig(1),ig(2),ig(3))=rholocal(ig(1),ig(2),ig(3))+1
                            idx=idx_ex_r(ig(2),ig(3))-sum(rhoce(ig(1):,ig(2),ig(3)))+rholocal(ig(1),ig(2),ig(3))
-                           !xp_new(:,idx)=xp(:,ip)+nint(dt_mid*vreal/(x_resolution*ratio_cs))
+#ifdef ZIPX       
                            xp_new(:,idx)=xp(:,ip)+nint(dt_mid*vp(:,ip)/(x_resolution*ratio_cs))
-                           !vreal=vreal-vfield_new(:,ig(1),ig(2),ig(3))
-                           !vp_new(:,idx)=nint(real(nvbin-1)*atan(sqrt(pi/2)/(sigma_vi*vrel_boost)*vreal)/pi,kind=izipv)
+#else
+                           xp_new(:,idx)=xp(:,ip)+deltax*ratio_cs
+#endif
                            vp_new(:,idx)=vp(:,ip)
 #         ifdef PID
                            pid_new(idx)=pid(ip)
@@ -208,71 +199,7 @@ subroutine drift
    ! calculate std of the velocity field
    !cum=cumsum6(rhoc)
    call spine_image(rhoc,idx_b_l,idx_b_r,ppl0,pplr,pprl,ppr0,ppl,ppr)
-#ifdef old
-   sum_c=0; sum_r=0; sum_s=0
-   do itz=1,nnt
-      do ity=1,nnt
-         do itx=1,nnt
-            !$omp paralleldo default(shared) schedule(dynamic)&
-            !$omp& private(k,j,i,np,nzero,l,ip) &
-            !$omp& reduction(+:sum_c,sum_r,sum_s)
-            do k=1,nt
-               do j=1,nt
-                  do i=1,nt
-                     sum_c=sum_c+sum(vfield(:,i,j,k,itx,ity,itz)**2)
-                     np=rhoc(i,j,k,itx,ity,itz)
-                     nzero=idx_b_r(j,k,itx,ity,itz)-sum(rhoc(i:,j,k,itx,ity,itz))
-                     do l=1,np
-                        ip=nzero+l
-                        !vreal=tan(pi*real(vp(:,ip))/real(nvbin-1))/(sqrt(pi/2)/(sigma_vi*vrel_boost))
-                        !sum_r=sum_r+sum(vreal**2)
-                        !vreal=vreal+vfield(:,i,j,k,itx,ity,itz)
-                        !sum_s=sum_s+sum(vreal**2)
-                     enddo
-                  enddo
-               enddo
-            enddo
-            !$omp endparalleldo
-         enddo
-      enddo
-   enddo
-   sync all
-   std_vsim_c=sum_c
-   std_vsim_res=sum_r
-   std_vsim=sum_s
-
-   if (head) then
-      do i=2,nn**3
-         std_vsim_c=std_vsim_c+std_vsim_c[i]
-         std_vsim_res=std_vsim_res+std_vsim_res[i]
-         std_vsim=std_vsim+std_vsim[i]
-      enddo
-   endif
-   sync all
-   ! broadcast
-   std_vsim_c=std_vsim_c[1]
-   std_vsim_res=std_vsim_res[1]
-   std_vsim=std_vsim[1]
-   sync all
-
-   ! divide
-   std_vsim=sqrt(std_vsim/sim%npglobal)
-   std_vsim_c=sqrt(std_vsim_c/nc/nc/nc/nn/nn/nn)
-   std_vsim_res=sqrt(std_vsim_res/sim%npglobal)
-
-   ! set sigma_vi_new according to particle statistics
-   sigma_vi_new=std_vsim_res/sqrt(3.)
-   if (head) then
-      print*,'  std_vsim    ',std_vsim*sim%vsim2phys,'km/s'
-      print*,'  std_vsim_c  ',std_vsim_c*sim%vsim2phys,'km/s'
-      print*,'  std_vsim_res',std_vsim_res*sim%vsim2phys,'km/s'
-      print*,'  sigma_vi    ',sigma_vi,'(simulation unit)'
-      print*,'  sigma_vi_new',sigma_vi_new,'(simulation unit)'
-      write(77) sim%a-da,real([std_vsim,std_vsim_c,std_vsim_res])*sim%vsim2phys
-   endif
-   sync all
-#endif
-
+   
    if (head) then
       do i=1,nn**3
          overhead_tile=max(overhead_tile,overhead_tile[i])

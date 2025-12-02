@@ -7,7 +7,7 @@ subroutine initialize
 
    include 'fftw3.f'
 
-   logical,parameter :: read_Gks=.true.
+   logical,parameter :: read_Gks=.false.
    integer i,j,k,l
    istep=0; tictoc=0; tcat=0;
    sync all

@@ -41,16 +41,23 @@ module variables
 
    real,allocatable :: Gk1(:,:,:),Gk2(:,:,:),Gk3_2(:,:,:),Gk3_4(:,:,:)
    real,allocatable :: Gk3_6(:,:,:),Gk3_8(:,:,:),Gk3_12(:,:,:),Gk3_16(:,:,:),Gk0(:,:,:) ! Green's functions
-   !integer(izipx) xp(3,np_image_max)[nn,nn,*], xp_new(3,np_tile_max)
-   !integer(izipv) vp(3,np_image_max)[nn,nn,*], vp_new(3,np_tile_max)
-   !integer(4) rhoc(1-ncb:nt+ncb,1-ncb:nt+ncb,1-ncb:nt+ncb,nnt,nnt,nnt)[nn,nn,*]
-   !real(4) vfield(3,1-ncb:nt+ncb,1-ncb:nt+ncb,1-ncb:nt+ncb,nnt,nnt,nnt)[nn,nn,*]
-   integer(izipx),allocatable :: xp(:,:)[:,:,:],xp_new(:,:)
-   real(4),allocatable :: vp(:,:)[:,:,:],vp_new(:,:)
+
    integer(4),allocatable :: rhoc(:,:,:,:,:,:)[:,:,:]
-   !real(4),allocatable :: vfield(:,:,:,:,:,:,:)[:,:,:]
+#ifdef ZIPX
+   integer(izipx),allocatable :: xp(:,:)[:,:,:],xp_new(:,:)
+#else
+   real(4),allocatable :: xp(:,:)[:,:,:],xp_new(:,:)
+#endif
+
+
+#ifdef ZIPV
+   integer(izipv),allocatable :: vp(:,:)[:,:,:],vp_new(:,:)
+   real(4),allocatable :: vfield(:,:,:,:,:,:,:)[:,:,:]
+#else
+   real(4),allocatable :: vp(:,:)[:,:,:],vp_new(:,:)
+#endif
+
 #ifdef PID
-   !integer(izipi) pid(np_image_max)[nn,nn,*], pid_new(np_tile_max)
    integer(izipi),allocatable :: pid(:)[:,:,:],pid_new(:)
 #endif
 
@@ -128,6 +135,7 @@ contains
       sync all
    endsubroutine
 
+! #ifdef ZIPX
    subroutine spine_tile(rhoce,idx_ex_r,pp_l,pp_r,ppe_l,ppe_r)
       !! make a particle index (cumulative sumation) on tile
       !! used in update_particle, initial_conditions
@@ -244,6 +252,7 @@ contains
       enddo
       !$omp endparalleldo
    endsubroutine
+! #endif
 
    real function interp_sigmav(aa,rr)
       implicit none

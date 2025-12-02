@@ -1,15 +1,15 @@
 #!/bin/bash
-#PBS -N 675_900_353
+#PBS -N C2400512_0.1_1
 #PBS -l nodes=1:ppn=64
 #PBS -l mem=300gb
-#PBS -q normal
+#PBS -q debug
 #PBS -j oe
-#PBS -o ./run.log
+#PBS -o ./cic.log
 
 
 
 cd $PBS_O_WORKDIR
-date > ./run.log
+date > ./cic.log
 export FC='ifort'
 export XFLAG_NO_OMP='-O3 -fpp -q -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt'
 export XFLAG='-O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt'
@@ -17,17 +17,18 @@ export OFLAG_NO_OMP=$XFLAG_NO_OMP' -c'
 export OFLAG=$XFLAG' -c'
 export FFTFLAG='-I/opt/intel2018update3/mkl/include/fftw -mkl'
 export OMP_STACKSIZE=20000M
-export OMP_NUM_THREADS=32
-export FOR_COARRAY_NUM_IMAGES=8
+export OMP_NUM_THREADS=64
+export FOR_COARRAY_NUM_IMAGES=1
 ulimit
 ulimit -s unlimited
 ulimit -u unlimited 
 ulimit -v unlimited 
 
-make clean &&make > make.log 
+# make clean &&make > make.log 
 cd utilities && make clean && make > make.log && cd .. 
+make
 echo make done
-#make
+
 echo ""
 echo ""
 echo ""
@@ -47,9 +48,11 @@ echo "Start Running"
 #umask 002
 # IC="./utilities/ic.x"        &&echo "Running $IC"   &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $IC"   > cafconfig.txt &&$IC   && echo "Finish $IC"
 # cic="./utilities/cicpower.x" &&echo "Running $cic"  &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $cic"  > cafconfig.txt &&$cic  && echo "Finish $cic"
-MAIN="./main.x"              &&echo "Running $MAIN" &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $MAIN" > cafconfig.txt &&$MAIN && echo "Finish $MAIN"
-#CIC="./utilities/cicpower.x" &&echo "Running $CIC"  &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $CIC"  > cafconfig.txt &&$CIC  && echo "Finish $CIC"
-# # OCIC="./utilities/cicpower.x" &&echo "Running $OCIC"  &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $OCIC"  > cafconfig.txt &&$OCIC  && echo "Finish $OCIC"
-# FOF="./utilities/gadget_snap_fof.x" &&echo "Running $FOF"  &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $FOF"  > cafconfig.txt &&$FOF  && echo "Finish $FOF"
+# MAIN="./main.x"              &&echo "Running $MAIN" &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $MAIN" > cafconfig.txt &&$MAIN && echo "Finish $MAIN"
+# CIC="./utilities/cicpower.x" &&echo "Running $CIC"  &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $CIC"  > cafconfig.txt &&$CIC  && echo "Finish $CIC"
+OCIC="./utilities/cicpower.x" &&echo "Running $OCIC"  &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $OCIC"  > cafconfig.txt &&$OCIC  && echo "Finish $OCIC"
+# FOF="./utilities/fof.x" &&echo "Running $FOF"  &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $FOF"  > cafconfig.txt &&$FOF  && echo "Finish $FOF"
+echo "Finish ALL"
+DSP="./utilities/dsp.x" &&echo "Running $DSP"  &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $DSP"  > cafconfig.txt &&$DSP  && echo "Finish $DSP"
 echo "Finish ALL"
 date

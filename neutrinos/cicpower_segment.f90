@@ -259,7 +259,7 @@ contains
 
       integer i,j,k,l,ilayer,n,idx1(3),idx2(3),ix,iy,iz,i1,i2,i3,itile,cur_checkpoint
       integer(8) ip,nplocal,npglobal,nzero,np
-      real pos1(3),dx1(3),dx2(3),xpos(ndim)
+      real pos1(3),dx1(3),dx2(3),xpos(ndim),nbb
       real(4),allocatable :: rho_grid(:,:,:)[:,:,:]
       ! real(8),save :: rho8[*]
       real xi_log(6,0:ngbin),kmin,xi_real(6),xi_cdm_log(6,0:npbin)
@@ -274,7 +274,7 @@ contains
 
       if (head) print*, ' global_power'
       ! if (head) print*,'size_rhoc',size(rho_grid)
-      rho_grid=0; nzero=0
+      rho_grid=0; nzero=0; nbb = nfg
       do itz=1,nnt
          do ity=1,nnt
             do itx=1,nnt
@@ -294,8 +294,15 @@ contains
                               print*,image,'rhoc',maxval(rhoc(:,:,:,ix,iy,iz)),minval(rhoc(:,:,:,ix,iy,iz))
                               error stop
                            endif
+#ifdef ZIPX
                            pos1=nt*((/itx,ity,itz/)-1)+ ((/i,j,k/)-1) + (int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
                            pos1=pos1*real(nfg)/real(nc) - 0.5
+#else
+                           pos1=xp(:,ip)*real(nfg)/real(ng) - 0.5
+                           if ( pos1(1) == nbb ) pos1(1)= 0
+                           if ( pos1(2) == nbb ) pos1(2)= 0
+                           if ( pos1(3) == nbb ) pos1(3)= 0
+#endif
                            idx1=floor(pos1)+1; idx2=idx1+1
                            dx1=idx1-pos1;      dx2=1-dx1
                            if (minval(idx1)< 0 .or. maxval(idx2)>nfg+1) then
@@ -303,7 +310,9 @@ contains
                               print*,image,'tile',ix,iy,iz,i,j,k,ipm2
                               print*,image,'range',0,nfg+1
                               print*,image,'xp', xp(:,ip)
+#ifdef ZIPX
                               print*,image,'xp_real',  ([i,j,k]-1)+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
+#endif
                               print*,image,'xpos',pos1
                               print*,image,'idx',idx1,idx2
                               error stop
@@ -831,7 +840,7 @@ contains
 
       integer i,j,k,l,ilayer,n,idx1(3),idx2(3),ix,iy,iz,i1,i2,i3,itile,cur_checkpoint
       integer(8) ip,nplocal,npglobal,nzero,np
-      real pos1(3),dx1(3),dx2(3),xpos(ndim)
+      real pos1(3),dx1(3),dx2(3),xpos(ndim),nbb
       real(4),allocatable :: rho_grid(:,:,:)[:,:,:]
       ! real(8),save :: rho8[*]
       real xi_log(6,0:ncbin),kmin,xi_real(6)
@@ -845,7 +854,7 @@ contains
 
       if (head) print*, ' coarse_power'
       ! if (head) print*,'size_rhoc',size(rho_grid)
-      rho_grid=0; nzero=0
+      rho_grid=0; nzero=0; nbb = nw
       do itz=1,nnt
          do ity=1,nnt
             do itx=1,nnt
@@ -865,8 +874,15 @@ contains
                               print*,image,'rhoc',maxval(rhoc(:,:,:,ix,iy,iz)),minval(rhoc(:,:,:,ix,iy,iz))
                               error stop
                            endif
+#ifdef ZIPX
                            pos1=nt*((/itx,ity,itz/)-1)+ ((/i,j,k/)-1) + (int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
                            pos1=pos1*real(nw)/real(nc) - 0.5
+#else
+                           pos1=xp(:,ip)*real(nw)/real(ng) - 0.5
+                           if ( pos1(1) == nbb ) pos1(1)= 0
+                           if ( pos1(2) == nbb ) pos1(2)= 0
+                           if ( pos1(3) == nbb ) pos1(3)= 0
+#endif
                            idx1=floor(pos1)+1; idx2=idx1+1
                            dx1=idx1-pos1;      dx2=1-dx1
                            if (minval(idx1)< 0 .or. maxval(idx2)>nw+1) then
@@ -874,7 +890,9 @@ contains
                               print*,image,'tile',ix,iy,iz,i,j,k,ipm2
                               print*,image,'range',1-ngb,ngp+ngb,1-ncb,nt+ncb
                               print*,image,'xp', xp(:,ip)
+#ifdef ZIPX
                               print*,image,'xp_real',  ([i,j,k]-1)+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
+#endif
                               print*,image,'xpos',pos1
                               print*,image,'idx',idx1,idx2
                               error stop
@@ -951,6 +969,7 @@ contains
             j = j+1
          enddo
          xi_cdm = 0
+         print*, 'j',xicoarse(2,j) , k_coarse_max,maxval(xicoarse(2,:))/1.731
          if(any(ieee_is_nan(xicoarse(5,1:j))) .or. any(xicoarse(5,1:j)<0)) then
 
             use_CAMB = .true.
@@ -1099,27 +1118,29 @@ contains
 
                i = i+1
             enddo
+            i = i-1
             xi_cdm(:,i:) = 0
             ! do j =1,i
             ! print*,xi_cdm(2,j),xi_cdm(5,j)
             ! enddo
          endif
+         if(head .and. any(ieee_is_nan(xi_cdm(5,1:i)))) then
+            print*,''
+            print*,''
+            print*,''
+            print*,'coarse_power err ',i,k_coarse_max
+            print*,'i1,i2,i3',i1,i2,i3,i
+            print*,'ks',xicoarse(2,i1),xicoarse(2,i2),xicoarse(2,i3),xi_cdm(2,i-1),kh_lin(i-1)
+            print*,'xi_coarse',xicoarse(5,1:i)
+            print*,'k_coarse',xicoarse(2,1:i)
+            print*,'xi_cdm',xi_cdm(5,1:i)
+            print*,'kh',kh_lin(:i)
+            error stop 'coarse_power err '
+         endif
       endif
       sync all
       xi_cdm(5,1:) = xi_cdm(5,1:)[1]
-      use_CAMB = use_CAMB[1]
-      if(head .and. any(ieee_is_nan(xi_cdm(5,1:i)))) then
-         print*,''
-         print*,''
-         print*,''
-         print*,'coarse_power err ',i,k_coarse_max
-         print*,'xi_coarse',xicoarse(5,1:i)
-         print*,'xi_cdm',xi_cdm(5,1:i)
-         print*,'k_coarse',xicoarse(2,1:i)
-         print*,'kh',kh_lin(:i)
-         error stop 'coarse_power err '
-      endif
-
+      use_CAMB = use_CAMB[1]  
    endsubroutine coarse_power
 
    subroutine standard_power
@@ -1129,7 +1150,7 @@ contains
 
       integer i,j,k,l,ilayer,n,nntc,idx1(3),idx2(3),ix,iy,iz,i1,i2,i3,itile,cur_checkpoint,tcpu
       integer(8) nlast,ip,nplocal,npglobal,nzero,np
-      real pos1(3),dx1(3),dx2(3),xpos(ndim)
+      real pos1(3),dx1(3),dx2(3),xpos(ndim),nbb
       real rho_th(-ngb:ngp+ngb+1,-ngb:ngp+ngb+1,-ngb:ngp+ngb+1)
       ! real,allocatable :: rho_th(:,:,:),rho_s(:,:,:)
       integer,parameter :: nlayer=3 ! thread save for CIC intepolation
@@ -1142,6 +1163,7 @@ contains
       if (head) print*, ' standard_power'
       xitile_avange = 0
       nntc = 0
+      nbb = ngp+ngb
       sync all
 
       ! print*,'********************** standard_avange0 *******************'
@@ -1203,18 +1225,29 @@ contains
                            print*,image,'rhoc',maxval(rhoc(:,:,:,ix,iy,iz)),minval(rhoc(:,:,:,ix,iy,iz))
                            error stop
                         endif
+#ifdef ZIPX
                         pos1=([i,j,k]-1)+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
                         pos1=pos1*ratio_cs-0.5
+#else
+                        pos1=xp(:,ip) - (ixyz2(1:3,ipm2)-1)*ngp - 0.5
+                        if ( pos1(1) == nbb ) pos1(1)= -ngb
+                        if ( pos1(2) == nbb ) pos1(2)= -ngb
+                        if ( pos1(3) == nbb ) pos1(3)= -ngb
+#endif
                         idx1=floor(pos1)+1; idx2=idx1+1
                         dx1=idx1-pos1;      dx2=1-dx1
                         if (minval(idx1)< -ngb .or. maxval(idx2)>ngp+ngb+1) then
-                           print*,'mass assignment out of range in standard_power'
-                           print*,image,'tile',ix,iy,iz,i,j,k,ipm2
-                           print*,image,'range',1-ngb,ngp+ngb
-                           print*,image,'xp', xp(:,ip)
-                           print*,image,'xp_real',  ([i,j,k]-1)+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
-                           print*,image,'xpos',pos1
-                           print*,image,'idx',idx1,idx2
+                           print*,ip,'mass assignment out of range in standard_power'
+                           print*,ip,image,'tile',ix,iy,iz,i,j,k,ipm2
+                           print*,ip,image,'range',1-ngb,ngp+ngb
+                           print*,ip,image,'xp', xp(:,ip)
+#ifdef ZIPX
+                           print*,ip,image,'xp_real',  ([i,j,k]-1)+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
+#else
+                           print*,ip,image,'tile_shift',(ixyz2(1:3,ipm2)-1)*ngp
+#endif
+                           print*,ip,image,'xpos',pos1
+                           print*,ip,image,'idx',idx1,idx2
                            error stop
                         endif
                         rho_th(idx1(1),idx1(2),idx1(3))=rho_th(idx1(1),idx1(2),idx1(3))+dx1(1)*dx1(2)*dx1(3)
@@ -1573,7 +1606,7 @@ contains
 
       integer i,j,k,l,ilayer,n,nnsc,idx1(3),idx2(3),ix,iy,iz,i1,i2,i3,itile,cur_checkpoint,tcpu
       integer(8) nlast,ip,nplocal,npglobal,nzero,np,inest
-      real pos1(3),dx1(3),dx2(3),xpos(ndim),nc1(3),nc2(3)
+      real pos1(3),dx1(3),dx2(3),xpos(ndim),nc1(3),nc2(3),nbb
       real rho_th(-nfb(cic_iapm):nfp(cic_iapm)+nfb(cic_iapm)+1,-nfb(cic_iapm):nfp(cic_iapm)+nfb(cic_iapm)+1,-nfb(cic_iapm):nfp(cic_iapm)+nfb(cic_iapm)+1)
       ! real(8) klast,dk
       integer,parameter :: nlayer=3
@@ -1586,6 +1619,7 @@ contains
       if (head) print*, ' fine_power'
       xitile_avange = 0
       nnsc = 0
+      nbb = nfp(cic_iapm)+nfb(cic_iapm)
       ! sync all
 
 
@@ -1626,8 +1660,15 @@ contains
                            print*,image,'rhoc',maxval(rhoc(:,:,:,ix,iy,iz)),minval(rhoc(:,:,:,ix,iy,iz))
                            error stop
                         endif
+#ifdef ZIPX
                         pos1=((/i,j,k/)-1) + (int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
                         pos1=pos1*ratio_cs*ratio_sf(cic_iapm) - (ixyz3(1:3,ipm3)-1)*nfp(cic_iapm)-0.5
+#else
+                        pos1=xp(:,ip)*ratio_sf(cic_iapm) - ((ixyz3(4:6,ipm3)-1)*nnt+(ixyz3(1:3,ipm3)-1))*nfp(cic_iapm) - 0.5
+                        if ( pos1(1) == nbb ) pos1(1)= -nfb(cic_iapm)
+                        if ( pos1(2) == nbb ) pos1(2)= -nfb(cic_iapm)
+                        if ( pos1(3) == nbb ) pos1(3)= -nfb(cic_iapm)
+#endif
                         ! print*,i,j,k,np,l,pos1
                         idx1=floor(pos1)+1; idx2=idx1+1
                         dx1=idx1-pos1;      dx2=1-dx1
@@ -1636,7 +1677,9 @@ contains
                            print*,image,'tile',ixyz3(:,ipm3),ipm3
                            print*,image,'range',-nfb(cic_iapm),nfp(cic_iapm)+nfb(cic_iapm)+1
                            print*,image,'xp', xp(:,ip)
+#ifdef ZIPX
                            print*,image,'xp_real',  ([i,j,k]-1)+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
+#endif
                            print*,image,'xpos',pos1
                            print*,image,'idx',idx1,idx2
                            print*,image,'pars',ratio_cs,ratio_sf(cic_iapm),nfp(cic_iapm),(ixyz3(1:3,ipm3)-1)

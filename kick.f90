@@ -379,12 +379,12 @@ contains
       integer i,j,k,ilayer,np,l,idx(3),ip1,ip2,ipenz,ipeny,ipenx,nz,ny,nx,iz,iy,ix,n_iter,i_iter
       integer ll(:),hoc(1-ratio_sf(pm%iapm):,1-ratio_sf(pm%iapm):,1-ratio_sf(pm%iapm):)!,ip_local(:)
       integer(8) ip,nzero,ip_local(:)
-      real xvec(3),rvec(3),rmag,fpp(3),pp_range,xf(:,:),vf(:,:),af(:,:),f2max_t,vmax_t(:)
+      real xvec(3),rvec(3),rmag,fpp(3),pp_range,xf(:,:),vf(:,:),af(:,:),f2max_t,vmax_t(:),nbb
 
       call system_clock(tteam1,tteam_rate)
       iapm=pm%iapm
       pp_range=apm3(iapm); rcp=ratio_sf(iapm); npgrid=ntt*rcp
-      hoc=0; ll=0; ip1=0; af=0; f2max_t=0; vmax_t=0
+      hoc=0; ll=0; ip1=0; af=0; f2max_t=0; vmax_t=0; nbb = npgrid+rcp
       do k=pm%nc1(3)-1,pm%nc2(3)+1
          do j=pm%nc1(2)-1,pm%nc2(2)+1
             do i=pm%nc1(1)-1,pm%nc2(1)+1
@@ -392,15 +392,34 @@ contains
                nzero=idx_b_r(j,k,pm%tile1(1),pm%tile1(2),pm%tile1(3))-sum(rhoc(i:,j,k,pm%tile1(1),pm%tile1(2),pm%tile1(3)))
                do l=1,np
                   ip=nzero+l; ip1=ip1+1; ip_local(ip1)=ip
+#ifdef ZIPX
                   xvec=[i,j,k]-1+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
+#else
+                  xvec = xp(:,ip)/ratio_cs - (pm%tile1(:)-1)*nt
+#endif
                   xf(:,ip1)=xvec*ratio_cs
                   !vf(:,ip1)=tan(pi*real(vp(:,ip))/real(nvbin-1))/(sqrt(pi/2)/(sigma_vi*vrel_boost))
                   vf(:,ip1)=vp(:,ip)
-                  idx=floor(rcp*(xvec-pm%utile_shift*ntt))+1
+
+                  xvec = rcp*(xvec-pm%utile_shift*ntt)
+#ifndef ZIPX           
+                  if ( xvec(1) == nbb ) xvec(1)= 1-rcp
+                  if ( xvec(2) == nbb ) xvec(2)= 1-rcp
+                  if ( xvec(3) == nbb ) xvec(3)= 1-rcp 
+#endif
+                  idx=floor(xvec)+1
                   if (minval(idx)<1-rcp .or. maxval(idx)>npgrid+rcp) then
-                     print*,'out of bound'
-                     print*,i,j,k,xvec
-                     print*,npgrid,idx
+                     print*,ip,'out of bound',1-rcp,npgrid+rcp,npgrid,nbb
+                     print*,ip,'ijk',i,j,k
+                     print*,ip,'xp',xp(:,ip)
+                     print*,ip,'xvec',xp(:,ip)/ratio_cs - (pm%tile1(:)-1)*nt
+                     print*,ip,'xf',xf(:,ip1)
+                     print*,ip,'xfg',xp(:,ip)/ratio_cs - (pm%tile1(:)-1)*nt-pm%utile_shift*ntt
+                     print*,ip,'xff',xvec
+                     print*,ip,'idx',idx
+                     print*,ip,'tile',pm%tile1,pm%utile_shift
+                     print*,ip,'nc1',pm%nc1
+                     print*,ip,'nc2',pm%nc2
                      error stop
                   endif
                   ll(ip1)=hoc(idx(1),idx(2),idx(3))
@@ -525,19 +544,18 @@ contains
       integer(4) itile,iteam,iapm,i_0,j_0,k_0,i_n(4),j_n(4),k_n(4),tteam1,tteam2,tteam_rate
       integer i,j,k,l,np,idx0(ndim,p+1),ilayer,i1,i2,i3,ix,iy,iz,n1(ndim),n2(ndim)
       integer(8) ip,nzero
-      real(8) xpos(ndim)
+      real(8) xpos(ndim),nbb
       real dx(ndim,p+1),l3(ndim),dv(ndim),vreal(ndim),f2max_t,vmax_t(:)
       !equivalence(density,density_k)
 
       call system_clock(tteam1,tteam_rate)
-      iapm=pm%iapm; density=0
+      iapm=pm%iapm; density=0; nbb=pm%nphy+pm%nex-1
       do iz=pm%tile1(3),pm%tile2(3) ! interpolate particles to density field
          do iy=pm%tile1(2),pm%tile2(2)
             do ix=pm%tile1(1),pm%tile2(1)
                !print*,ix,iy,iz
                rho_th=0
                do ilayer=0,nlayer-1
-                  !print*,ilayer
                   !$omp paralleldo default(shared) num_threads(nnest) schedule(dynamic,1)&
                   !$omp& private(k,j,i,np,nzero,l,ip,xpos,idx0,l3,dx,i3,i2,i1)
                   do k=pm%nc1(3)-pm%nloop+ilayer,pm%nc2(3)+pm%nloop,nlayer
@@ -548,8 +566,28 @@ contains
                            nzero=idx_b_r(j,k,ix,iy,iz)-sum(rhoc(i:,j,k,ix,iy,iz))
                            do l=1,np
                               ip=nzero+l
+#ifdef ZIPX
                               xpos=([i,j,k]-1)+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
                               xpos=xpos*ratio_cs/pm%gridsize-pm%utile_shift*nfp(iapm)
+#else
+                              xpos = (xp(:,ip)-([ix,iy,iz]-1)*nt*ratio_cs)   &
+                                    /pm%gridsize-pm%utile_shift*nfp(iapm)  
+                              
+                              if ( xpos(1) == nbb ) xpos(1)= 1-pm%nex
+                              if ( xpos(2) == nbb ) xpos(2)= 1-pm%nex
+                              if ( xpos(3) == nbb ) xpos(3)= 1-pm%nex 
+
+                              ! xpos = xp(:,ip)-([ix,iy,iz]-1)*nt*ratio_cs
+                              ! xpos = xpos/pm%gridsize-pm%utile_shift*nfp(iapm)
+                              ! ! if (minval(xpos) < -pm%nex .or. maxval(xpos) > pm%nphy+pm%nex) then
+                              ! !    print*,'particle out of range'
+                              ! !    print*,'tile',ix,iy,iz,i,j,k,l
+                              ! !    print*,'xp',xp(:,ip)
+                              ! !    print*,'xpos',xpos
+                              ! !    error stop
+                              ! ! endif
+                              ! xpos = modulo(xpos+spread(real(pm%nex),dim=1,ncopies=3),real(pm%nphy+2*pm%nex))-spread(real(pm%nex),dim=1,ncopies=3)
+#endif
                               idx0(:,2)=floor(xpos)+1
                               idx0(:,1)=idx0(:,2)-1
                               idx0(:,3)=idx0(:,2)+1
@@ -559,13 +597,28 @@ contains
                               dx(:,2)=1-dx(:,1)-dx(:,3)
                               if (minval(idx0)<1-pm%nex .or. maxval(idx0)>pm%nphy+pm%nex) then
                                  print*,'mass assignment out of range'
-                                 print*,ix,iy,iz,i,j,k
-                                 print*,pm%nex,pm%nphy
-                                 print*,pm%utile_shift, nfp(iapm)
-                                 print*, xp(:,ip)
-                                 print*,  ([i,j,k]-1)+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
-                                 print*,'xpos',xpos
-                                 print*,'idx0',idx0
+                                 print*,ip,ix,iy,iz,i,j,k
+                                 print*,ip,pm%nex,pm%nphy
+                                 print*,ip,pm%utile_shift, nfp(iapm)
+                                 print*,ip, xp(:,ip)
+#ifdef ZIPX
+                                 print*,ip,  'tile shift',([i,j,k]-1)+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
+! #else
+!                                  print*, ([ix,iy,iz]-1)*nt*ratio_cs
+!                                  print*,ip,'a',  (xp(:,ip)-([ix,iy,iz]-1)*nt*ratio_cs)
+!                                  print*,ip,'b',  (xp(:,ip)-([ix,iy,iz]-1)*nt*ratio_cs) &
+!                                                  /pm%gridsize-pm%utile_shift*nfp(iapm) &
+!                                                  +spread(real(pm%nex-1),dim=1,ncopies=3)
+!                                  print*,ip, modulo(                                           &
+!                                                       (xp(:,ip)-([ix,iy,iz]-1)*nt*ratio_cs)   &
+!                                                       /pm%gridsize-pm%utile_shift*nfp(iapm)   &
+!                                                       +spread(real(pm%nex-1),dim=1,ncopies=3),&
+!                                                       real(pm%nphy+2*pm%nex-2)                &
+!                                                    )  
+
+#endif
+                                 print*,ip,'xpos',xpos
+                                 print*,ip,'idx0',idx0
                                  error stop
                               endif
                               do i3=1,p+1
@@ -644,7 +697,7 @@ contains
       !    close(11)
       !    error stop
       ! endif
-
+      nbb = pm%nforce
       do iz=pm%tile1(3),pm%tile2(3) ! update velocity
          do iy=pm%tile1(2),pm%tile2(2)
             do ix=pm%tile1(1),pm%tile2(1)
@@ -658,8 +711,17 @@ contains
                         nzero=idx_b_r(j,k,ix,iy,iz)-sum(rhoc(i:,j,k,ix,iy,iz))
                         do l=1,np ! loop over particle
                            ip=nzero+l
+#ifdef ZIPX
                            xpos=pm%tile_shift*([ix,iy,iz]-1)*nt+([i,j,k]-1)+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
                            xpos=xpos*ratio_cs/pm%gridsize-pm%utile_shift*nfp(iapm)
+#else
+                           xpos = (xp(:,ip)-([ix,iy,iz]-1) * nt * ratio_cs) &
+                                 /pm%gridsize-pm%utile_shift*nfp(iapm)
+                              
+                           if ( xpos(1) == nbb ) xpos(1)= 0
+                           if ( xpos(2) == nbb ) xpos(2)= 0
+                           if ( xpos(3) == nbb ) xpos(3)= 0                         
+#endif
                            idx0(:,2)=floor(xpos)+1
                            idx0(:,1)=idx0(:,2)-1
                            idx0(:,3)=idx0(:,2)+1
@@ -670,7 +732,13 @@ contains
                            !vreal=tan(pi*real(vp(:,ip))/real(nvbin-1))/(sqrt(pi/2)/(pm%sigv1*vrel_boost))
                            dv=0
                            if (minval(idx0)<0 .or. maxval(idx0)>pm%nforce+1) then
-                              print*,'update velocity out of range',ix,iy,iz,i,j,k,l,xpos,idx0
+                              print*,'update velocity out of range'
+                              print*,'tile',ix,iy,iz,i,j,k,l
+                              print*,'nforce',pm%nforce
+                              print*,'xp',xp(:,ip)
+                              print*,'xpos',xpos
+                              print*,'dx',xpos-floor(xpos)
+                              print*,'idx',idx0
                               error stop
                            endif
                            do i3=1,p+1
@@ -686,30 +754,30 @@ contains
                            vmax_t=max(vmax_t,abs(vp(:,ip)))
                            !vp(:,ip)=nint(real(nvbin-1)*atan(sqrt(pi/2)/(pm%sigv2*vrel_boost)*vreal)/pi,kind=izipv)
 
-                           if ( maxval(vp(:,ip)) > 10000 .or. maxval(vmax_t) > 10000) then
-                              print*,'update velocity out of range',ix,iy,iz,i,j,k,l,xpos,iapm,vp(:,ip)
-                              print*,output_name('error_phi')
-                              open(11,file=output_name('error_phi'),status='replace',access='stream')
-                              write(11) density
-                              close(11)
+                           ! if ( maxval(vp(:,ip)) > 10000 .or. maxval(vmax_t) > 10000) then
+                           !    print*,'update velocity out of range',ix,iy,iz,i,j,k,l,xpos,iapm,vp(:,ip)
+                           !    print*,output_name('error_phi')
+                           !    open(11,file=output_name('error_phi'),status='replace',access='stream')
+                           !    write(11) density
+                           !    close(11)
 
-                              ! do k_0=k-1,k+1 ! interpolate particles to density field
-                              !    do j_0=j-1,j+1
-                              !       do i_0=i-1,i+1
-                              !          np=rhoc(i_0,j_0,k_0,ix,iy,iz)
-                              !          nzero=idx_b_r(j_0,k_0,ix,iy,iz)-sum(rhoc(i_0:,j_0,k_0,ix,iy,iz))
-                              !          do ilayer=1,np ! loop over particle
-                              !             ip=nzero+ilayer
-                              !             xpos=([i_0,j_0,k_0]-1)+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
-                              !             xpos=xpos*ratio_cs/pm%gridsize-pm%utile_shift*nfp(iapm)
-                              !             print '(I16,"  xp ",3(F10.6),"  vp ",3(F10.6))', ip, xpos, vp(:,ip)
-                              !          enddo
-                              !       enddo
-                              !    enddo
-                              ! enddo
+                           !    ! do k_0=k-1,k+1 ! interpolate particles to density field
+                           !    !    do j_0=j-1,j+1
+                           !    !       do i_0=i-1,i+1
+                           !    !          np=rhoc(i_0,j_0,k_0,ix,iy,iz)
+                           !    !          nzero=idx_b_r(j_0,k_0,ix,iy,iz)-sum(rhoc(i_0:,j_0,k_0,ix,iy,iz))
+                           !    !          do ilayer=1,np ! loop over particle
+                           !    !             ip=nzero+ilayer
+                           !    !             xpos=([i_0,j_0,k_0]-1)+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
+                           !    !             xpos=xpos*ratio_cs/pm%gridsize-pm%utile_shift*nfp(iapm)
+                           !    !             print '(I16,"  xp ",3(F10.6),"  vp ",3(F10.6))', ip, xpos, vp(:,ip)
+                           !    !          enddo
+                           !    !       enddo
+                           !    !    enddo
+                           !    ! enddo
 
-                              error stop
-                           endif
+                           !    error stop
+                           ! endif
 
                         enddo
                      enddo

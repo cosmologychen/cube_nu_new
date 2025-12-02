@@ -16,8 +16,3 @@ ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file
 ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt -c -DPID particle_initialization.f90 -o particle_initialization.o -I/opt/intel2018update3/mkl/include/fftw -mkl
 ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt -c -DPID initialize.f90 -o initialize.o -I/opt/intel2018update3/mkl/include/fftw -mkl
 ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt -c -DPID finalize.f90 -o finalize.o -I/opt/intel2018update3/mkl/include/fftw -mkl
-ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt -c -DPID power_test.f90 -o power_test.o -I/opt/intel2018update3/mkl/include/fftw -mkl
-ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt -c -DPID main.f90 -o main.o -I/opt/intel2018update3/mkl/include/fftw -mkl
-Link files:
-ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt -DPID Green.o  power_nu.o particle_mesh.o pencil_fft_global.o buffer_grid.o buffer_particle.o checkpoint.o pencil_fft.o timestep.o parameters.o main.o variables.o kick.o power_test.o drift.o particle_initialization.o cubefft.o initialize.o finalize.o cicpower_segment.o -o main.x -I/opt/intel2018update3/mkl/include/fftw -mkl
-done

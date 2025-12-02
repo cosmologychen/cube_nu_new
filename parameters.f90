@@ -2,31 +2,35 @@ module parameters
    implicit none
 
    ! output directory
-  character(*),parameter :: opath='/home/cossim/cube_nu/test/675_900_353/'
+   character(*),parameter :: opath='/home/cossim/cube_nu/output/2400_512_1_0.1_1/'
 
   ! zip parameters
   integer,parameter :: ndim=3
+#ifdef ZIPX
   integer,parameter :: izipx=2 ! size to store xp as
+#else
+  integer,parameter :: izipx=-1 ! size to store xp as
+#endif
   integer,parameter :: izipv=2 ! size to store vp as
   integer, parameter :: izipi = 8 ! if pids are on, size to store as
 
   ! cell resolution parameters
-  integer,parameter :: nn=1
-  real,parameter :: box=675
-  integer,parameter :: ncore=32
-  integer,parameter :: nteam=4     
-  integer,parameter :: nnest=8
-  integer(8),parameter :: ng=900
+   integer,parameter :: nn=1
+   real,parameter :: box=2400
+   integer,parameter :: ncore=64
+   integer,parameter :: nteam=16
+   integer,parameter :: nnest=4
+   integer(8),parameter :: ng=512
 
-  integer,parameter :: ratio_cs=3
+  integer,parameter :: ratio_cs=4
   integer,dimension(7),parameter :: ratio_sf=[1,2,4,6,8,12,16]
   integer,dimension(7),parameter :: ratio_cf=ratio_cs*ratio_sf ! 8,16,24,32
-  integer,parameter :: nnt=5 ! number of tiles /image/dim
-  integer,parameter :: nns=3 ! number of subtiles /tile/dim
+  integer,parameter :: nnt=4 ! number of tiles /image/dim
+  integer,parameter :: nns=4 ! number of subtiles /tile/dim
 
    ! particle resolution parameters
    integer(8),parameter :: np_nc=ratio_cs
-   integer,parameter :: nic=2   ! refined resolution for IC
+   integer,parameter :: nic=1   ! refined resolution for IC
    integer,parameter :: ngic=ng*nic
    logical,parameter :: body_centered_cubic=.false.
 
@@ -96,7 +100,7 @@ module parameters
    ! background parameters
    real, parameter :: h0 =0.6817
    !nu
-   real(8),dimension(3),parameter :: m_nu=[0.0,0.0,0.0] ! mass_nus/eV
+   real(8),dimension(3),parameter :: m_nu=[.0333333333333333,.0333333333333333,.0333333333333333] ! mass_nus/eV
    real(8),parameter :: Mass_nu=sum(m_nu) ! Mass_nu/eV
 
    ! real,dimension(3), parameter :: O_nu = m_nu/93.14/(h0**2)
@@ -123,7 +127,10 @@ module parameters
    integer(8),parameter :: istep_max=100000
    real,parameter :: ra_max=0.1
    real(8),parameter :: v_resolution=2.1/(int(2,8)**(izipv*8))
+
+#ifdef ZIPX
    real(8),parameter :: x_resolution=1.0/(int(2,8)**(izipx*8))
+#endif
    !real(8),parameter :: vdisp_boost=1.0
    real(8),parameter :: vrel_boost=2.5
    real,parameter :: b_link=0.20 ! linking length for FoF
@@ -166,7 +173,7 @@ module parameters
    integer(8),parameter :: cic_iapm=2 ! fine grid
    real,parameter :: tile = box/nn/nnt ! length of tile
    real,parameter :: subtile = box/nn/nnt/nns ! length of subtile
-   integer(8),parameter :: calculate_PK = 2
+   integer(8),parameter :: calculate_PK = 1
    character(*),parameter :: nupath=trim(adjustl(opath))//'neutrinos/' !path for Pk_nu from camb
    integer(8),parameter :: nfg=max((nfp(cic_iapm)*nnt*nns*1.),(ngp*nnt*1.))
    integer(8),parameter :: nfg_global=nfg*nn
@@ -236,7 +243,7 @@ contains
          print*,'| cur_powerpoint  =',int(s%cur_powerpoint,2),z_powerpoint(s%cur_powerpoint)
          print*,'| cur_halofind    =',int(s%cur_halofind,2),z_halofind(s%cur_halofind)
          print*,'| mass_p          =',s%mass_p_cdm
-         ! print*,'| mass_nu         =',s%mass_nu,s%m_nu,s%calculate_PK
+         print*,'| mass_nu         =',s%mass_nu,s%m_nu,s%calculate_PK
          print*,'| box             =',s%box, 'Mpc/h'
          print*,'| image           =',s%image
          print*,'| nn              =',s%nn

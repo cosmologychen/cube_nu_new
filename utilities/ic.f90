@@ -47,7 +47,12 @@ program initial_conditions
    integer(8) idx_ex_r(1-2*ncb:nt+2*ncb,1-2*ncb:nt+2*ncb) ! index_extended_rhs
    integer(8),dimension(nt,nt) :: pp_l,pp_r,ppe_l,ppe_r ! for particle index
 
+#ifdef ZIPX
    integer(izipx),allocatable :: xp(:,:)
+#else
+   real(4),allocatable :: xp(:,:)
+#endif
+
    real(4),allocatable :: vp(:,:)
 #ifdef PID
    integer(8),allocatable :: pid(:)
@@ -394,11 +399,11 @@ program initial_conditions
    if (head) print*,'  write delta_L into file'
    if (head) print*,'  growth factor Dgrow(',sim%a,') =',Dgrow(sim%a) ! growth factor
 
-   ! open(11,file=output_dir()//'delta_L'//output_suffix(),status='replace',access='stream')
-   ! do i=1,ngic
-   !   write(11) rho1(:,:,i)!/Dgrow(sim%a) ! write layer by layer to avoid bug
-   ! enddo
-   ! close(11); sync all
+   open(11,file=output_dir()//'delta_L'//output_suffix(),status='replace',access='stream')
+   do i=1,ngic
+     write(11) rho1(:,:,i)/Dgrow(sim%a) ! write layer by layer to avoid bug
+   enddo
+   close(11); sync all
 
    call system_clock(t2,t_rate)
    if (head) print*, '  elapsed time =',real(t2-t1)/t_rate,'secs';
@@ -646,7 +651,6 @@ program initial_conditions
                            kk=ngp*nic*(itz-1)+(ratio_cs*nic/np_nc)*(k-1)+1+imove*(ratio_cs*nic/np_nc/2)
                            jj=ngp*nic*(ity-1)+(ratio_cs*nic/np_nc)*(j-1)+1+imove*(ratio_cs*nic/np_nc/2)
                            ii=ngp*nic*(itx-1)+(ratio_cs*nic/np_nc)*(i-1)+1+imove*(ratio_cs*nic/np_nc/2)
-                           xq=([i,j,k]-1d0)/np_nc + (0.5d0/nic+imove*(ratio_cs/np_nc/2))/ratio_cs
                            !gradphi(1)=phi(ii+1,jj,kk)-phi(ii-1,jj,kk)
                            !gradphi(2)=phi(ii,jj+1,kk)-phi(ii,jj-1,kk)
                            !gradphi(3)=phi(ii,jj,kk+1)-phi(ii,jj,kk-1)
@@ -655,8 +659,9 @@ program initial_conditions
                            gradphi(1)=sum(phi(ii-1:ii,jj-1:jj,kk-1:kk)*diff_x)
                            gradphi(2)=sum(phi(ii-1:ii,jj-1:jj,kk-1:kk)*diff_y)
                            gradphi(3)=sum(phi(ii-1:ii,jj-1:jj,kk-1:kk)*diff_z)
+                           xq=([i,j,k]-1d0)/np_nc + (0.5d0/nic+imove*(ratio_cs/np_nc/2))/ratio_cs-gradphi/(8*nic*pi*ratio_cs)
 
-                           g=ceiling(xq-gradphi/(8*nic*pi*ratio_cs))
+                           g=ceiling(xq)
                            !print*, g
                            rholocal(g(1),g(2),g(3))=rholocal(g(1),g(2),g(3))+1 ! number of particles have been written in the current coarse cell
                            idx=idx_ex_r(g(2),g(3))-sum(rhoce(g(1):,g(2),g(3)))+rholocal(g(1),g(2),g(3))
@@ -665,16 +670,12 @@ program initial_conditions
                               print*,'idx<1'
                               stop
                            endif
-                           xp(:,idx)=floor((xq-gradphi/(8*nic*pi*ratio_cs))/x_resolution,kind=8)
-
+#ifdef ZIPX
+                           xp(:,idx)=floor((xq)/x_resolution,kind=8)
+#else
+                           xp(:,idx)=(xq + ([itx,ity,itz]-1)*nt)*np_nc
+#endif
                            vp(:,idx)=-gradphi/(8*pi*nic)*vf
-                           !print*, xq,gradphi/(8*pi*nic*ratio_cs)
-                           !print*, vp(:,idx)
-                           !print*, ii,jj,kk; stop
-
-                           !vreal=-gradphi/(8*pi*nic)*vf
-                           !vreal=vreal-vfield(:,g(1),g(2),g(3)) ! save relative velocity
-                           !vp(:,idx)=nint(real(nvbin-1)*atan(sqrt(pi/2)/(sim%sigma_vi*vrel_boost)*vreal)/pi,kind=izipv)
 #       ifdef PID
                            !! particle IDs are unique according to their Lagrangian positions, not necessarily consecutive
                            iq = ([icx,icy,icz]-1)*ng + ([itx,ity,itz]-1)*ngp + (ratio_cs/np_nc)*([i,j,k]-1)+imove

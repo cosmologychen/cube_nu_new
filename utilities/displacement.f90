@@ -1,302 +1,325 @@
+#define Cpower_LN
+#define Cpower_LE
+#define Cpower_LU
+#define Cpower_EU
+#define Cpower_NU
 #define Emode
-!#define potential
-!#define RSD
-program displacement_pro
-  use parameters
-#ifdef Emode
-  use powerspectrum
-#endif
-  implicit none
-  save
-  integer cur_checkpoint,i,j,k,l,i_dim,iq(3),itx,ity,itz,np
-  integer(8) pid8,nlast,ip
-  real pos0(3),pos1(3),dpos(3),pow,zshift,vreal(3)
-  integer(4),allocatable :: rhoc(:,:,:,:,:,:),rhoc0(:,:,:,:,:,:)
-  integer(1),allocatable :: rho0(:,:,:)
-  real,allocatable :: vc(:,:,:,:,:,:,:),dsp(:,:,:,:),vxq(:,:,:,:)
-  integer(izipx),allocatable :: xp(:,:)
-  integer(izipv),allocatable :: vp(:,:)
-  integer(izipi),allocatable :: pid(:)
+#define dspE
+
+program displacement
+   use omp_lib
+   use parameters
+   use pencil_fft
+   use powerspectrum
+   use ieee_arithmetic
+   implicit none
+   save
+   include 'fftw3.f'
+
+
+
+
+   integer(4),allocatable :: rhoc(:,:,:,:,:,:),rhoc0(:,:,:,:,:,:)
+   integer(izipi),allocatable :: pid(:),shift_count(:)
+   integer(izipx),allocatable :: xp(:,:)
+
+   integer :: ip,iq(3),i_dim,idx1(3),idx2(3)
+   real :: dx1(3),dx2(3)
+   integer(8) np,istat,nthreads,plan,iplan,nlast,pid8,irange(2,3)
+
+
 
 #ifdef Emode
-  integer dim_1,dim_2,dim_3,ig,jg,kg
-  real kr,kx(3),xi(10,nbin)[*]
-  complex ekx(3),pdim
-  real,allocatable :: cube1(:,:,:),cube0(:,:,:)
-  complex,allocatable :: cdiv(:,:,:),cphi(:,:,:)
+   complex,allocatable :: cdiv(:,:,:),cphi(:,:,:)
+   real,allocatable :: cube1(:,:,:),cube0(:,:,:)
 #endif
 
 #ifdef dspE
-  integer(8) idx1(3),idx2(3)
-  real(4) dx1(3),dx2(3)
-  complex kpsi(ng*nn/2+1,ng,npen)
-  real(4) rho_grid(0:ng+1,0:ng+1,0:ng+1)
+   complex,allocatable kpsi(:,:,:)
+   real(4)allocatable :: rho_grid(:,:,:)
 #endif
+   integer :: i,j,k,l,ix,iy,iz,ilayer,itx,ity,itz,cur_checkpoint
+   real :: pos0(3),pos1(3),dpos(3),kx(3),pdim(3),xi(10,0:nbin)
+   real,allocatable :: dsp(:,:,:,:),dsp_shift(:,:,:)
 
-#ifdef potential
-  real temp8[*],phi8
-  real(8) dvar[*]
-  complex delta_k(nyquest+1,ratio_cs,npen)
-#endif
+   real,allocatable :: rho_L(:,:,:),rho_c(:,:,:),rho_mu(:,:,:),rho_E(:,:,:)
 
-  call geometry
 
-  if (head) then
-    print*, 'Displacement field analysis on resolution:'
-    print*, 'ng=',ng
-    print*, 'checkpoint at:'
-    open(16,file='../z_checkpoint.txt',status='old')
-    do i=1,nmax_redshift
+   call geometry
+
+
+   call create_penfft_plan
+
+
+   print*, 'Displacement field analysis on resolution:'
+   print*, 'ng=',ng
+   print*, 'checkpoint at:'
+   open(16,file='./z_checkpoint.txt',status='old')
+   do i=1,nmax_redshift
       read(16,end=71,fmt='(f8.4)') z_checkpoint(i)
       print*, z_checkpoint(i)
-    enddo
-    71 n_checkpoint=i-1
-    close(16)
-    print*,''
-  endif
-  allocate(rho0(ng,ng,ng),rhoc(nt,nt,nt,nnt,nnt,nnt),rhoc0(nt,nt,nt,nnt,nnt,nnt))
-  allocate(vc(3,nt,nt,nt,nnt,nnt,nnt),cube1(ng,ng,ng),cube0(ng,ng,ng),dsp(3,ng,ng,ng),vxq(3,ng,ng,ng))
-  allocate(cdiv(ng*nn/2+1,ng,npen),cphi(ng*nn/2+1,ng,npen))
-  sync all
-  n_checkpoint=n_checkpoint[1]
-  z_checkpoint(:)=z_checkpoint(:)[1]
-  sync all
+   enddo
+71 n_checkpoint=i-1
+   close(16)
+   print*,''
+   nthreads=omp_get_max_threads()
+   print*, '    omp_get_max_threads() =',nthreads
+   call omp_set_num_threads(ncore)
+   allocate(rhoc(nt,nt,nt,nnt,nnt,nnt),rhoc0(nt,nt,nt,nnt,nnt,nnt))
+   irange(:,1) = [(icx-1)*ng+1,icx*ng]
+   irange(:,2) = [(icy-1)*ng+1,icy*ng]
+   irange(:,3) = [(icz-1)*ng+1,icz*ng]
 
-#ifdef Emode
-  call create_penfft_plan
-#endif
-  do cur_checkpoint= n_checkpoint,1,-1
-    if (head) print*, 'Start analyzing redshift ',z2str(z_checkpoint(cur_checkpoint))
-    sim%cur_checkpoint=cur_checkpoint
-    open(11,file=output_name('info'),access='stream'); read(11) sim; close(11)
-    if (sim%izipx/=izipx .or. sim%izipv/=izipv) stop 'zip format incompatable'
-    print*, 'nplocal =',sim%nplocal
-    allocate(xp(3,sim%nplocal),vp(3,sim%nplocal),pid(sim%nplocal))
-    open(11,file=output_name('xp'),access='stream'); read(11) xp; close(11)
-    open(11,file=output_name('vp'),access='stream'); read(11) vp; close(11)
-    open(11,file=output_name('np'),access='stream'); read(11) rhoc; close(11)
-    open(11,file=output_name('vc'),access='stream'); read(11) vc; close(11)
-    open(11,file=output_name('id'),access='stream'); read(11) pid; close(11)
-    print*,'PID range:',minval(pid),maxval(pid)
-    rho0=0; dsp=0; nlast=0
-    do itz=1,nnt
-    do ity=1,nnt
-    do itx=1,nnt
-      do k=1,nt
-      do j=1,nt
-      do i=1,nt
-        np=rhoc(i,j,k,itx,ity,itz)
-        do l=1,np
-          ip=nlast+l
-          pid8=pid(ip)-1
-          iq(3)=pid8/int(ng_global,4)**2
-          iq(2)=(pid8-iq(3)*int(ng_global,4)**2)/int(ng_global,4)
-          iq(1)=modulo(pid8,int(ng_global,4))
-          pos0=iq+0.5
-          pos1=nt*([itx,ity,itz]-1) + [i,j,k]-1 + (int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
-          pos1=real(ng)*([icx,icy,icz]-1) + pos1*real(ng)/real(nc)
-#ifdef RSD
-          zshift=vc(zdim,i,j,k,itx,ity,itz) ! coarse grid velocity field
-          zshift=zshift+tan((pi*real(vp(zdim,ip)))/real(nvbin-1)) / (sqrt(pi/2)/(sim%sigma_vi*vrel_boost))
-          zshift=zshift*sim%vsim2phys/sim%a/(100*h0) ! convert to km/h and multiply 1/aH, in Mpc
-          zshift=zshift/(h0*box/ng_global) ! convert to find grid
-          pos1(zdim)=pos1(zdim)+zshift ! add shift field
-          pos1(zdim)=modulo(pos1(zdim),real(ng)) ! peridoc over box
-#endif
-          vreal=tan((pi*real(vp(:,ip)))/real(nvbin-1)) / (sqrt(pi/2)/(sim%sigma_vi*vrel_boost))
-          vreal=vreal+vc(:,i,j,k,itx,ity,itz)
-          vxq(:,iq(1)+1,iq(2)+1,iq(3)+1)=vreal
-          dpos=pos1-pos0
-          dpos=modulo(dpos+ng*nn/2,real(ng*nn))-ng*nn/2
-          dsp(:,iq(1)+1,iq(2)+1,iq(3)+1)=dpos
-          rho0(iq(1)+1,iq(2)+1,iq(3)+1)=rho0(iq(1)+1,iq(2)+1,iq(3)+1)+1
-        enddo
-        nlast=nlast+np
+
+   do cur_checkpoint= n_checkpoint,n_checkpoint !2,-1
+      print*, ''
+      print*,'==========================================================='
+
+
+      sim%cur_checkpoint=cur_checkpoint
+      print*, 'Start analyzing redshift ',z2str(z_checkpoint(sim%cur_checkpoint))
+      open(11,file=output_name('info'),access='stream'); read(11) sim; close(11)
+
+      if (sim%npglobal /= ng_global**3) stop 'ng^3 != npglobal'
+      print*, '    ng_global =',sim%npglobal,sim%nplocal
+
+      allocate(xp(3,sim%nplocal),pid(sim%nplocal))
+      open(11,file=output_name('xp'),access='stream'); read(11) xp; close(11)
+      open(11,file=output_name('np'),access='stream'); read(11) rhoc; close(11)
+      open(11,file=output_name('id'),access='stream'); read(11) pid; close(11)
+
+      allocate(dsp(3,ng,ng,ng))!,dsp_shift(3,nn*3,sim%nplocal/100),shift_count(nn**3))
+      print*, 'rhoc',minval(rhoc),maxval(rhoc),sum(rhoc)
+      ! print*,rhoc
+      ! stop
+
+      print*,'PID range:',minval(pid),maxval(pid)
+      dsp=0; nlast=0
+      do iz=1,nnt
+         do iy=1,nnt
+            do ix=1,nnt
+               ! aa
+               !   !$omp paralleldo default(shared) schedule(dynamic)&
+               !   !$omp& private(ilayer,k,nlast,j,i,l,np,ip,pid8,iq,pos0,pos1,dpos)
+               do ilayer=0,ncore-1
+                  do k=1+ilayer,nt,ncore
+                     nlast = sum(rhoc(:,:,:,:,:,:iz-1))   &
+                        + sum(rhoc(:,:,:,:,:iy-1,iz))  &
+                        + sum(rhoc(:,:,:,:ix-1,iy,iz)) &
+                        + sum(rhoc(:,:,:k-1,ix,iy,iz))
+                     ! print*, '  working on',k,ix,iy,iz,nlast
+                     do j=1,nt
+                        do i=1,nt
+                           ! print*, '  ',i,j,k,ix,iy,iz,rhoc(i,j,k,ix,iy,iz)
+                           np=rhoc(i,j,k,ix,iy,iz)
+                           ! if(rhoc(i,j,k,ix,iy,iz) /=0) print*, '  working on',i,j,k,ix,iy,iz,np,rhoc(i,j,k,ix,iy,iz)
+                           ! if(np /=0) print*, '  working on',i,j,k,ix,iy,iz,np
+                           do l=1,np
+                              ip=nlast+l
+                              if (ip > sim%nplocal .or. ip < 0) stop 'ip > nplocal'
+                              pid8=pid(ip)-1
+                              iq(3)=pid8/int(ng_global,4)**2
+                              iq(2)=(pid8-iq(3)*int(ng_global,4)**2)/int(ng_global,4)
+                              iq(1)=modulo(pid8,int(ng_global,4))
+                              ! print*, '  iq,pid8',iq,pid8
+                              pos0=iq+0.5
+                              pos1=nt*([ix,iy,iz]-1) + [i,j,k]-1 + (int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
+                              pos1=real(ng)*([icx,icy,icz]-1) + pos1*real(ng)/real(nc)
+                              ! print*, '  pos0,pos1',pos0,pos1
+                              ! stop
+                              dpos=pos1-pos0
+                              dpos=modulo(dpos+ng_global/2,real(ng_global))-ng_global/2
+                              if (any(ieee_is_nan(dpos))) then
+                                 print*, '  NaN detected in dpos',dpos
+                                 print*, '  pos0,pos1',pos0,pos1
+                                 print*, '  iq,ip,pid8',iq,ip,pid8
+                              endif
+                              if (dpos(1) == 0 .or. dpos(2) == 0 .or. dpos(3) == 0 ) then
+                                 print*, '  0 detected in dpos',dpos
+                                 print*, '  pos0,pos1',pos0,pos1
+                                 print*, '  iq,ip,pid8',iq,ip,pid8
+                              endif
+                              ! if (iq(1)<irange(1,1) .or. iq(1)>irange(1,2) .or. &
+                              !     iq(2)<irange(2,1) .or. iq(2)>irange(2,2) .or. &
+                              !     iq(3)<irange(3,1) .or. iq(3)>irange(3,2)) then
+
+                              !   !缺少多节点逻辑
+                              !   cycle
+                              ! endif
+                              dsp(:,iq(1)+1,iq(2)+1,iq(3)+1)=dpos
+                           enddo
+                           nlast = nlast+np
+
+                        enddo
+                     enddo
+                  enddo
+               enddo
+               ! asa
+               ! !$omp endparalleldo
+            enddo
+         enddo
       enddo
+      deallocate(xp,pid,rhoc)
+
+      do i_dim=1,3
+         print*, 'dsp: dimension',int(i_dim,1),'min,max values ='
+         print*, minval(dsp(i_dim,:,:,:)), maxval(dsp(i_dim,:,:,:))
       enddo
-      enddo
-    enddo
-    enddo
-    enddo
-    deallocate(xp,vp,pid)
 
-    print*, 'check: min,max of rho0 = '
-    print*, minval(rho0),maxval(rho0)
-
-    do i_dim=1,3
-      print*, 'dsp: dimension',int(i_dim,1),'min,max values ='
-      print*, minval(dsp(i_dim,:,:,:)), maxval(dsp(i_dim,:,:,:))
-    enddo
-
-    if (head) print*,'Write dsp into file',output_name('dsp')
-    open(15,file=output_name('dsp'),status='replace',access='stream')
-      write(15) dsp(1,1:ng,1:ng,1:ng)
-      write(15) dsp(2,1:ng,1:ng,1:ng)
-      write(15) dsp(3,1:ng,1:ng,1:ng)
-    close(15)
-
-    if (head) print*,'Write vxq into file'
-    open(15,file=output_name('vx2ic'),status='replace',access='stream')
-      write(15) vxq(1,1:ng,1:ng,1:ng)
-      write(15) vxq(2,1:ng,1:ng,1:ng)
-      write(15) vxq(3,1:ng,1:ng,1:ng)
-    close(15)
+      if (head) print*,'Write dsp into file',output_name('dsp')
+      open(15,file=output_name('dsp'),status='replace',access='stream')
+      write(15) dsp
+      close(15)
 
 
 
-#ifdef Emode
+      call get_mu_D('dsp')
+
+#     ifdef Emode
       print*,''
       print*,'Start computing delta_E'
+      allocate(cdiv(ng*nn/2+1,ng,npen),cphi(ng*nn/2+1,ng,npen))
       cphi=0
       cdiv=0
       do i_dim=1,3
-        print*,'  working on dim',int(i_dim,1)
-        rho1=dsp(i_dim,1:ng,1:ng,1:ng)
-        call pencil_fft_forward
-        ! cxyz is the fourier of dsp(i_dim,1:ng,1:ng,1:ng)
-        do k=1,npen
-        do j=1,ng
-        do i=1,ng*nn/2+1
-          kg=(nn*(icz-1)+icy-1)*npen+k
-          jg=(icx-1)*ng+j
-          ig=i
-          kx=modulo([ig,jg,kg]+ng/2-1,ng)-ng/2 !k
-          !kr=2*pi*sqrt(kx(1)**2+kx(2)**2+kx(3)**2)/box
-          !ekx=exp(2*pi*(0,1)*kx/ng)
-          !dim_1=i_dim
-          !dim_2=modulo(dim_1,3)+1
-          !dim_3=modulo(dim_2,3)+1
-          !pdim=(ekx(dim_1)-1)*(ekx(dim_2)+1)*(ekx(dim_3)+1)/4
-          pdim=(0,1)*sin(2*pi*kx(i_dim)/ng_global)
-          cphi(i,j,k)=cphi(i,j,k)+cxyz(i,j,k)*pdim/(-4*sum(sin(pi*kx/ng)**2)+0.000001) !phik 
-          cdiv(i,j,k)=cdiv(i,j,k)+cxyz(i,j,k)*pdim !c means complex 
-        enddo
-        enddo
-        enddo
+         print*,'  working on dim',int(i_dim,1)
+         rho1=dsp(i_dim,1:ng,1:ng,1:ng)
+         call pencil_fft_forward
+         !$omp paralleldo default(shared) schedule(dynamic)&
+         !$omp& private(k,j,i,kg,jg,ig,kx,pdim)
+         do k=1,npen
+            do j=1,ng
+               do i=1,ng*nn/2+1
+                  kg=(nn*(icz-1)+icy-1)*npen+k
+                  jg=(icx-1)*ng+j
+                  ig=i
+                  kx=modulo([ig,jg,kg]+ng/2-1,ng)-ng/2 !k
+                  pdim=sin(2*pi*kx/ng)
+                  cphi(i,j)=cphi(i,j)+(0,1)*rho1k(i,j)*pdim(i_dim)/(-sum(pdim**2)) !phik
+                  cdiv(i,j)=cdiv(i,j)+(0,1)*rho1k(i,j)*pdim(i_dim) !c means complex
+               enddo
+            enddo
+         enddo
+         !$omp endparalleldo
       enddo ! i_dim
 
       if (head) then
-        cphi(1,1,1)=0
-        cdiv(1,1,1)=0
+         cphi(1,1,1)=0
+         cdiv(1,1,1)=0
       endif
       sync all
 
-      open(11,file=output_name('phik_E'),status='replace',access='stream')
-      write(11) cphi
-      close(11)
-
-      !! reconstructed delta
       cxyz=cdiv
-#ifdef potential
-      delta_k=-cxyz ! backup k-space delta_L
-#endif
       print*,'  btran'
       call pencil_fft_backward
+      allocate(cube1(ng,ng,ng))
       cube1=-rho1
       print*,'  write delta_E into file'
-#ifdef RSD
-      open(15,file=output_name('delta_Es'),status='replace',access='stream')
-#else
       open(15,file=output_name('delta_E'),status='replace',access='stream')
-#endif
       write(15) cube1
       close(15)
       sync all
 
       print*,'  read delta_L from file'
-      !! linear delta
-      !open(15,file=output_dir()//'delta_L'//output_suffix(),status='old',access='stream')
-      !read(15) cube0
-      !close(15)
-      !print*,'  compute power_LE'
-      !call cross_power(xi,cube0,cube1)
-      !open(15,file=output_name('power_LE'),status='replace',access='stream')
-      !write(15) xi
-      !close(15)
-#endif
+      ! linear delta
+      allocate(cube0(ng,ng,ng))
+      open(15,file=output_dir()//'delta_L'//output_suffix(),status='old',access='stream')
+      read(15) cube0
+      close(15)
+      print*,'  compute power_LE'
+      call cross_power(xi,cube0,cube1)
+      open(15,file=output_name('power_LE'),status='replace',access='stream')
+      write(15) xi
+      close(15)
+      deallocate(cube0,cube1,cdiv,cphi)
+#     endif
 
-#ifdef dspE
+#     ifdef dspE
       print*,'dspe'
+      allocate(kpsi(ng*nn/2+1,ng,npen))
       kpsi=0
       do i_dim=1,3
-        rho1=dsp(i_dim,1:ng,1:ng,1:ng)
-        call pencil_fft_forward
-        do k=1,npen
-        do j=1,ng
-        do i=1,ng*nn/2+1
-          kg=(nn*(icz-1)+icy-1)*npen+k
-          jg=(icx-1)*ng+j
-          ig=i
-          kx=mod((/ig,jg,kg/)+ng/2-1,ng)-ng/2
-          kpsi(i,j,k)=kpsi(i,j,k)+kx(i_dim)*cxyz(i,j,k)
-        enddo
-        enddo
-        enddo
+         rho1=dsp(i_dim,1:ng,1:ng,1:ng)
+         call pencil_fft_forward
+         !$omp paralleldo default(shared) schedule(dynamic)&
+         !$omp& private(k,j,i,kg,jg,ig,kx)
+         do k=1,npen
+            do j=1,ng
+               do i=1,ng*nn/2+1
+                  kg=(nn*(icz-1)+icy-1)*npen+k
+                  jg=(icx-1)*ng+j
+                  ig=i
+                  kx=mod([pig,jg,kg]+ng/2-1,ng)-ng/2
+                  kpsi(i,j,k)=kpsi(i,j,k)+kx(i_dim)*cxyz(i,j,k)
+               enddo
+            enddo
+         enddo
+         !$omp endparalleldo
       enddo
       print*, 'sum of kpsi',sum(kpsi)
 
       open(16,file=output_name('dsp_E'),status='replace',access='stream')
       print*,'compute and write into',output_name('dsp_E')
       do i_dim=1,3
-        do k=1,npen
-        do j=1,ng
-        do i=1,ng*nn/2+1
-          kg=(nn*(icz-1)+icy-1)*npen+k
-          jg=(icx-1)*ng+j
-          ig=i
-          kx=mod((/ig,jg,kg/)+ng/2-1,ng)-ng/2
-          cxyz(i,j,k)=kpsi(i,j,k)*kx(i_dim)/sum(kx**2)
-        enddo
-        enddo
-        enddo
-        if (head) then
-          !cphi(1,1,1)=0
-          cxyz(1,1,1)=0
-        endif
-        print*, 'sum of cxyz',minval(abs(cxyz)),maxval(abs(cxyz))
-        call pencil_fft_backward
-        print*, 'rho1',minval(rho1),maxval(rho1)
-        write(16) rho1
+         !$omp paralleldo default(shared) schedule(dynamic)&
+         !$omp& private(k,j,i,kg,jg,ig,kx)
+         do k=1,npen
+            do j=1,ng
+               do i=1,ng*nn/2+1
+                  kg=(nn*(icz-1)+icy-1)*npen+k
+                  jg=(icx-1)*ng+j
+                  ig=i
+                  kx=mod([ig,jg,kg]+ng/2-1,ng)-ng/2
+                  cxyz(i,j,k)=kpsi(i,j,k)*kx(i_dim)/sum(kx**2)
+               enddo
+            enddo
+         enddo
+         !$omp endparalleldo
+         if (head) then
+            cxyz(1,1,1)=0
+         endif
+         print*, 'sum of cxyz',minval(abs(cxyz)),maxval(abs(cxyz))
+         call pencil_fft_backward
+         print*, 'rho1',minval(rho1),maxval(rho1)
+         write(16) rho1
+         dsp(i_dim,:,:,:) = rho1
       enddo
       close(16)
+      deallocate(kpsi)
 
       ! CIC to get the Eulerian density field
-      open(16,file=output_name('dsp_E'),access='stream')
-      read(16) dsp(1,:,:,:)
-      read(16) dsp(2,:,:,:)
-      read(16) dsp(3,:,:,:)
-      close(16)
       if (head) print*, 'CIC interpolation by dsp_E'
+      allocate(rho_grid(0:ng+1,0:ng+1,0:ng+1))
       rho_grid=0
       do k=1,ng
-      do j=1,ng
-      do i=1,ng
+         do j=1,ng
+            do i=1,ng
 
-          pos1=[i,j,k]-0.5+dsp(:,i,j,k)
-          pos1=modulo(pos1-1,real(ng))+1
-          pos1=pos1-0.5
+               pos1=[i,j,k]-0.5+dsp(:,i,j,k)
+               pos1=modulo(pos1-1,real(ng))+1
+               pos1=pos1-0.5
 
-          !pos1=250;
+               !pos1=250;
 
 
-          idx1=floor(pos1)+1
-          idx2=idx1+1
-          dx1=idx1-pos1
-          dx2=1-dx1
+               idx1=floor(pos1)+1
+               idx2=idx1+1
+               dx1=idx1-pos1
+               dx2=1-dx1
 
-          !print*, idx1;stop
+               !print*, idx1;stop
 
-          rho_grid(idx1(1),idx1(2),idx1(3))=rho_grid(idx1(1),idx1(2),idx1(3))+dx1(1)*dx1(2)*dx1(3)
-          rho_grid(idx2(1),idx1(2),idx1(3))=rho_grid(idx2(1),idx1(2),idx1(3))+dx2(1)*dx1(2)*dx1(3)
-          rho_grid(idx1(1),idx2(2),idx1(3))=rho_grid(idx1(1),idx2(2),idx1(3))+dx1(1)*dx2(2)*dx1(3)
-          rho_grid(idx1(1),idx1(2),idx2(3))=rho_grid(idx1(1),idx1(2),idx2(3))+dx1(1)*dx1(2)*dx2(3)
-          rho_grid(idx1(1),idx2(2),idx2(3))=rho_grid(idx1(1),idx2(2),idx2(3))+dx1(1)*dx2(2)*dx2(3)
-          rho_grid(idx2(1),idx1(2),idx2(3))=rho_grid(idx2(1),idx1(2),idx2(3))+dx2(1)*dx1(2)*dx2(3)
-          rho_grid(idx2(1),idx2(2),idx1(3))=rho_grid(idx2(1),idx2(2),idx1(3))+dx2(1)*dx2(2)*dx1(3)
-          rho_grid(idx2(1),idx2(2),idx2(3))=rho_grid(idx2(1),idx2(2),idx2(3))+dx2(1)*dx2(2)*dx2(3)
+               rho_grid(idx1(1),idx1(2),idx1(3))=rho_grid(idx1(1),idx1(2),idx1(3))+dx1(1)*dx1(2)*dx1(3)
+               rho_grid(idx2(1),idx1(2),idx1(3))=rho_grid(idx2(1),idx1(2),idx1(3))+dx2(1)*dx1(2)*dx1(3)
+               rho_grid(idx1(1),idx2(2),idx1(3))=rho_grid(idx1(1),idx2(2),idx1(3))+dx1(1)*dx2(2)*dx1(3)
+               rho_grid(idx1(1),idx1(2),idx2(3))=rho_grid(idx1(1),idx1(2),idx2(3))+dx1(1)*dx1(2)*dx2(3)
+               rho_grid(idx1(1),idx2(2),idx2(3))=rho_grid(idx1(1),idx2(2),idx2(3))+dx1(1)*dx2(2)*dx2(3)
+               rho_grid(idx2(1),idx1(2),idx2(3))=rho_grid(idx2(1),idx1(2),idx2(3))+dx2(1)*dx1(2)*dx2(3)
+               rho_grid(idx2(1),idx2(2),idx1(3))=rho_grid(idx2(1),idx2(2),idx1(3))+dx2(1)*dx2(2)*dx1(3)
+               rho_grid(idx2(1),idx2(2),idx2(3))=rho_grid(idx2(1),idx2(2),idx2(3))+dx2(1)*dx2(2)*dx2(3)
 
-      enddo
-      enddo
+            enddo
+         enddo
       enddo
       rho_grid(1,:,:)=rho_grid(1,:,:)+rho_grid(ng+1,:,:)
       rho_grid(ng,:,:)=rho_grid(ng,:,:)+rho_grid(0,:,:)
@@ -311,179 +334,479 @@ program displacement_pro
       print*,'compute and write into',output_name('delta_cE')
       write(16) rho_grid(1:ng,1:ng,1:ng)
       close(16)
+      deallocate(rho_grid)
+#     endif
+      call get_mu_D  ('dspE')
 
-      ! check
-      open(16,file=output_name('dsp'),access='stream')
-      read(16) dsp(1,:,:,:)
-      read(16) dsp(2,:,:,:)
-      read(16) dsp(3,:,:,:)
-      close(16)
-      if (head) print*, 'CIC interpolation by dsp_E'
-      rho_grid=0
-      do k=1,ng
-      do j=1,ng
-      do i=1,ng
+#ifdef Cpower_LN
+      sim%cur_checkpoint = 1
+      allocate(rho_L(nw,nw,nw))
+      open(11,file=output_name('delta_L'),status='old',access='stream')
+      read(11) rho_L(1:ng,1:ng)
 
-        pos1=[i,j,k]-0.5+dsp(:,i,j,k)
-        pos1=modulo(pos1-1,real(ng))+1
-        pos1=pos1-0.5
+      sim%cur_checkpoint=cur_checkpoint
 
-        idx1=floor(pos1)+1
-        idx2=idx1+1
-        dx1=idx1-pos1
-        dx2=1-dx1
-
-        rho_grid(idx1(1),idx1(2),idx1(3))=rho_grid(idx1(1),idx1(2),idx1(3))+dx1(1)*dx1(2)*dx1(3)
-        rho_grid(idx2(1),idx1(2),idx1(3))=rho_grid(idx2(1),idx1(2),idx1(3))+dx2(1)*dx1(2)*dx1(3)
-        rho_grid(idx1(1),idx2(2),idx1(3))=rho_grid(idx1(1),idx2(2),idx1(3))+dx1(1)*dx2(2)*dx1(3)
-        rho_grid(idx1(1),idx1(2),idx2(3))=rho_grid(idx1(1),idx1(2),idx2(3))+dx1(1)*dx1(2)*dx2(3)
-        rho_grid(idx1(1),idx2(2),idx2(3))=rho_grid(idx1(1),idx2(2),idx2(3))+dx1(1)*dx2(2)*dx2(3)
-        rho_grid(idx2(1),idx1(2),idx2(3))=rho_grid(idx2(1),idx1(2),idx2(3))+dx2(1)*dx1(2)*dx2(3)
-        rho_grid(idx2(1),idx2(2),idx1(3))=rho_grid(idx2(1),idx2(2),idx1(3))+dx2(1)*dx2(2)*dx1(3)
-        rho_grid(idx2(1),idx2(2),idx2(3))=rho_grid(idx2(1),idx2(2),idx2(3))+dx2(1)*dx2(2)*dx2(3)
-
-      enddo
-      enddo
-      enddo
-      rho_grid(1,:,:)=rho_grid(1,:,:)+rho_grid(ng+1,:,:)
-      rho_grid(ng,:,:)=rho_grid(ng,:,:)+rho_grid(0,:,:)
-      rho_grid(:,1,:)=rho_grid(:,1,:)+rho_grid(:,ng+1,:)
-      rho_grid(:,ng,:)=rho_grid(:,ng,:)+rho_grid(:,0,:)
-      rho_grid(:,:,1)=rho_grid(:,:,1)+rho_grid(:,:,ng+1)
-      rho_grid(:,:,ng)=rho_grid(:,:,ng)+rho_grid(:,:,0)
-      rho_grid=rho_grid-1
-      print*, minval(rho_grid(1:ng,1:ng,1:ng)),maxval(rho_grid(1:ng,1:ng,1:ng)),sum(rho_grid(1:ng,1:ng,1:ng)*1d0)
-      open(16,file=output_name('delta_check'),status='replace',access='stream')
-      print*,'compute and write into',output_name('delta_check')
-      write(16) rho_grid(1:ng,1:ng,1:ng)
-      close(16)
-
-#endif
-
-#ifdef potential
-      ! Potential field ----------------------------------------------------
-      if (head) print*, ''
-      if (head) print*, 'Potential field'
-      !$omp paralleldo&
-      !$omp& default(shared) &
-      !$omp& private(k,j,i,kg,jg,ig,kx,kr)
-      do k=1,npen
-      do j=1,ratio_cs
-      do i=1,nyquest+1
-        kg=(nn*(icz-1)+icy-1)*npen+k
-        jg=(icx-1)*ratio_cs+j
-        ig=i
-        kx(3)=mod(kg+nyquest-1,ng_global)-nyquest
-        kx(2)=mod(jg+nyquest-1,ng_global)-nyquest
-        kx(1)=ig-1
-        kx(3)=2*sin(pi*kx(3)/ng_global)
-        kx(2)=2*sin(pi*kx(2)/ng_global)
-        kx(1)=2*sin(pi*kx(1)/ng_global)
-        kr=sum(kx**2)
-        kr=max(kr,1.0/ng_global**2) ! avoid kr being 0
-        cxyz(i,j,k)=-4*pi/kr
-      enddo
-      enddo
-      enddo
-      !$omp endparalleldo
-      if (head) cxyz(1,1,1)=0 ! DC frequency
-      sync all
-
-      if (head) print*, '  correct kernel'
-      call pencil_fft_backward
-      temp8=0
-      if (image==1) temp8=temp8+rho1(9,1,1)+rho1(1,9,1)+rho1(1,1,9)
-      sync all
-      if (icx==nn .and. icy==1 .and. icz==1) temp8=temp8+rho1(ratio_cs-7,1,1)
-      sync all
-      if (icx==1 .and. icy==nn .and. icz==1) temp8=temp8+rho1(1,ratio_cs-7,1)
-      sync all
-      if (icx==1 .and. icy==1 .and. icz==nn) temp8=temp8+rho1(1,1,ratio_cs-7)
-      sync all
-      phi8=0
-      do i=1,nn**3
-        phi8=phi8+temp8[i]
-      enddo
-      sync all
-      phi8=phi8/6
-      if (head) print*,'  phi8 =',phi8
-      sync all
-      if (head) print*, '  construct Ewald potential kernel in real space'
-      !$omp paralleldo&
-      !$omp& default(shared) &
-      !$omp& private(k,j,i,kg,jg,ig,kx,kr)
-      do k=1,ratio_cs
-      do j=1,ratio_cs
-      do i=1,ratio_cs
-        kg=k+ratio_cs*(icz-1)
-        jg=j+ratio_cs*(icy-1)
-        ig=i+ratio_cs*(icx-1)
-        kx(1)=mod(kg+nyquest-1,ng_global)-nyquest
-        kx(2)=mod(jg+nyquest-1,ng_global)-nyquest
-        kx(3)=mod(ig+nyquest-1,ng_global)-nyquest
-        kr=sum(kx**2)
-        if (kr>8) then
-          rho1(i,j,k)=rho1(i,j,k)-(phi8+1/8.)
-        elseif (kr>0) then
-          rho1(i,j,k)=-1/kr
-        elseif (kr==0) then
-          rho1(i,j,k)=-2.5
-        endif
-      enddo
-      enddo
-      enddo
-      !$omp endparalleldo
-      sync all
-      call pencil_fft_forward
-
-      ! Complex multiply delta_L with potential kernel
-      cxyz=real(cxyz)*delta_k
-      delta_k=cxyz  ! backup phi(k)
-      call pencil_fft_backward
-
-      ! add a 1.8 filter on phiE
-!  cxyz=0
-!  do k=1,npen
-!  do j=1,nf
-!  do i=1,nyquest+1
-!    ! global grid in Fourier space for i,j,k
-!    kg=(nn*(icz-1)+icy-1)*npen+k
-!    jg=(icx-1)*nf+j
-!    ig=i
-!    kx(3)=mod(kg+nyquest-1,ng_global)-nyquest
-!    kx(2)=mod(jg+nyquest-1,ng_global)-nyquest
-!    kx(1)=ig-1
-!    kr=sqrt(sum(kx**2))
-!    kr=max(kr,1.0)
-!    kr=2*pi*kr/box
-!    pow=exp(-kr**2*1.8**2/2)**0.25 ! apply E-mode window function
-!    cxyz(i,j,k)=delta_k(i,j,k)*pow
-!  enddo
-!  enddo
-!  enddo
-!  if (head) cxyz(1,1,1)=0 ! DC frequency
-!  call pencil_fft_backward
-
-
-      if (head) print*, '  write phi1 into file'
-      open(11,file=output_name('phiE'),status='replace',access='stream')
-      write(11) rho1
+      open(11,file=output_name('delta_c'),status='old',access='stream')
+      read(11) rho_c(1:ng,1:ng)
+      call cross_power(xi,rho_L,rho_c)
+      print*,'   save: ',output_name('Cpower_LN')
+      open(11,file=output_name('Cpower_LN'),status='replace',access='stream')
+      write(11) xi
       close(11)
-
-#endif
-    !open(15,file='../output/universe1/image1/0.000dsp_1.bin',access='stream')
-    !read(15) dsp0(1,1:ng,1:ng,1:ng)
-    !read(15) dsp0(2,1:ng,1:ng,1:ng)
-    !read(15) dsp0(3,1:ng,1:ng,1:ng)
-    !close(15)
-    !print*, 'max dsp-dsp0', maxval(abs(dsp-dsp0))
-
-  enddo
-#ifdef Emode
-  call destroy_penfft_plan
+      deallocate(rho_N,rho_L)
 #endif
 
-  deallocate(rho0,rhoc,rhoc0,vc,dsp)
+#ifdef Cpower_LE
+      sim%cur_checkpoint = 1
+      allocate(rho_L(nw,nw,nw))
+      open(11,file=output_name('delta_L'),status='old',access='stream')
+      read(11) rho_L(1:ng,1:ng)
 
-  print*,'displacement done'
-end
+      sim%cur_checkpoint=cur_checkpoint
+
+      allocate(rho_E(nw,nw,nw))
+      open(11,file=output_name('delta_E'),status='old',access='stream')
+      read(11) rho_E(1:ng,1:ng)
+      call cross_power(xi,rho_L,rho_E)
+      print*,'   save: ',output_name('Cpower_LE')
+      open(11,file=output_name('Cpower_LE'),status='replace',access='stream')
+      write(11) xi
+      close(11)
+      deallocate(rho_E,rho_L)
+#endif
+
+#ifdef Cpower_LU
+      sim%cur_checkpoint = 1
+      allocate(rho_L(nw,nw,nw))
+      open(11,file=output_name('delta_L'),status='old',access='stream')
+      read(11) rho_L(1:ng,1:ng)
+
+      sim%cur_checkpoint=cur_checkpoint
+
+      allocate(rho_mu(nw,nw,nw))
+      open(11,file=output_name('dspu_x'),status='old',access='stream')
+      read(11) rho_mu(1:ng,1:ng)
+      WHERE (rho_L > 1)
+         rho_L = 1
+      END WHERE
+      WHERE (rho_mu > 1)
+         rho_mu = 1
+      END WHERE
+
+      call cross_power(xi,rho_L,rho_mu)
+      print*,'   save: ',output_name('Cpower_LU')
+      open(11,file=output_name('Cpower_LU'),status='replace',access='stream')
+      write(11) xi
+      close(11)
+      deallocate(rho_mu,rho_L)
+#endif
+
+#ifdef Cpower_NU
+      sim%cur_checkpoint = 1
+      allocate(rho_c(nw,nw,nw))
+      open(11,file=output_name('delta_c'),status='old',access='stream')
+      read(11) rho_c(1:ng,1:ng)
+
+      sim%cur_checkpoint=cur_checkpoint
+
+      allocate(rho_mu(nw,nw,nw))
+      open(11,file=output_name('dspu_x'),status='old',access='stream')
+      read(11) rho_mu(1:ng,1:ng)
+      WHERE (rho_c > 1)
+         rho_c = 1
+      END WHERE
+      WHERE (rho_mu > 1)
+         rho_mu = 1
+      END WHERE
+
+      call cross_power(xi,rho_c,rho_mu)
+      print*,'   save: ',output_name('Cpower_NU')
+      open(11,file=output_name('Cpower_NU'),status='replace',access='stream')
+      write(11) xi
+      close(11)
+      deallocate(rho_mu,rho_c)
+#endif
+
+
+#ifdef Cpower_EU
+      sim%cur_checkpoint = 1
+      allocate(rho_E(nw,nw,nw))
+      open(11,file=output_name('delta_E'),status='old',access='stream')
+      read(11) rho_E(1:ng,1:ng)
+
+      sim%cur_checkpoint=cur_checkpoint
+
+      allocate(rho_mu(nw,nw,nw))
+      open(11,file=output_name('dspu_x'),status='old',access='stream')
+      read(11) rho_mu(1:ng,1:ng)
+      WHERE (rho_E > 1)
+         rho_E = 1
+      END WHERE
+      WHERE (rho_mu > 1)
+         rho_mu = 1
+      END WHERE
+
+      call cross_power(xi,rho_E,rho_mu)
+      print*,'   save: ',output_name('Cpower_EU')
+      open(11,file=output_name('Cpower_EU'),status='replace',access='stream')
+      write(11) xi
+      close(11)
+      deallocate(rho_mu,rho_E)
+#endif
+
+   enddo
+
+
+contains
+
+
+   subroutine get_mu_D(namespace)
+      implicit none
+      character(len=*), intent(in) :: namespace
+      integer :: i_0,j_0,k_0,i_n(4),j_n(4),k_n(4),dim,l1,l2,lr
+      real,allocatable :: dsp(:,:,:,:)
+
+      integer :: idx1(3),idx2(3),nwb
+      real(8)  A_mesh(3,3),mu_i,det_A,pos1(3),min_r,now_r,xp_neigh(3),mu_neigh
+      real(4),allocatable :: mu(:,:,:),rho_grid(:,:,:)
+      integer(4),allocatable :: hoc(:,:,:),ll(:)
+      integer(8) :: ip,ip_neigh
+      allocate(dsp(3,ng,ng,ng))
+
+      dsp = 0
+      print*,'  read:'
+      print*,'    ',output_name(namespace)
+      open(15,file=output_name(namespace),status='old',access='stream')
+      read(15) dsp
+      close(15)
+
+      if (any(ieee_is_nan(dsp))) stop 'dsp is nan'
+      nwb = maxval(abs(dsp))+1
+
+      do i_dim=1,3
+         print*, 'dsp: dimension',int(i_dim,1),'min,max values ='
+         print*, minval(dsp(i_dim,:,:,:)), maxval(dsp(i_dim,:,:,:))
+      enddo
+      ! stop
+
+      allocate(mu(ng,ng,ng))
+      mu = 0
+      ! print*,'    u     : ',minval(mu),maxval(mu),sum(mu*1d0)/real(ng)**3
+      !$omp paralleldo default(shared) schedule(dynamic) private(k_0,j_0,i_0,i_n,j_n,k_n,A_mesh,dim,det_A)
+      do k_0=1,ng
+         do j_0=1,ng
+            do i_0=1,ng
+               i_n=modulo(i_0+[-2,-1,1,2]+ng-1,ng)+1
+               j_n=modulo(j_0+[-2,-1,1,2]+ng-1,ng)+1
+               k_n=modulo(k_0+[-2,-1,1,2]+ng-1,ng)+1
+               A_mesh = 0
+               do dim = 1,3
+                  A_mesh(1,dim)=sum(dsp(dim,i_n,j_0,k_0)*weight)
+                  A_mesh(2,dim)=sum(dsp(dim,i_0,j_n,k_0)*weight)
+                  A_mesh(3,dim)=sum(dsp(dim,i_0,j_0,k_n)*weight)
+               enddo
+               A_mesh(1,1) = A_mesh(1,1)+1
+               A_mesh(2,2) = A_mesh(2,2)+1
+               A_mesh(3,3) = A_mesh(3,3)+1
+
+               if (any(ieee_is_nan(A_mesh))) then
+                  print*, 'i_0,j_0,k_0',i_0,j_0,k_0
+                  print*, 'A_mesh',A_mesh
+                  print*, ''
+
+                  i_n=i_0+[-2,-1,1,2]
+                  j_n=j_0+[-2,-1,1,2]
+                  k_n=k_0+[-2,-1,1,2]
+                  do dim = 1,3
+                     print*,dim , 'i',dsp(dim,i_n,j_0,k_0),i_n
+                     print*,dim , 'j',dsp(dim,i_0,j_n,k_0),j_n
+                     print*,dim , 'k',dsp(dim,i_0,j_0,k_n),k_n
+                  enddo
+                  stop 'A_mesh is nan'
+               endif
+
+               det_A = A_mesh(1,1) * (A_mesh(2,2)*A_mesh(3,3) - A_mesh(2,3)*A_mesh(3,2))  &
+                  + A_mesh(1,2) * (A_mesh(2,3)*A_mesh(3,1) - A_mesh(2,1)*A_mesh(3,3))  &
+                  + A_mesh(1,3) * (A_mesh(2,1)*A_mesh(3,2) - A_mesh(2,2)*A_mesh(3,1))
+               if (ieee_is_nan(det_A)) stop 'det_A is nan'
+               if (det_A <= 0) then
+                  det_A = 1e-10
+               endif
+               ! if (abs(det_A) < 1)  det_A = 0
+               if ( 1/det_A < 0) then
+                  print*, 'i_0,j_0,k_0',i_0,j_0,k_0
+                  print*, 'A_mesh',A_mesh
+                  print*, 'det_A',det_A
+                  stop 'det_A is negative'
+               endif
+               mu(i_0,j_0,k_0) = 1/det_A
+               if ( mu(i_0,j_0,k_0) < 0) then
+                  print*, 'i_0,j_0,k_0',i_0,j_0,k_0
+                  print*, 'A_mesh',A_mesh
+                  print*, 'det_A',det_A
+                  stop 'det_A is negative'
+               endif
+            enddo
+         enddo
+      enddo
+      !$omp endparalleldo
+
+      print*,'    u     : ',minval(mu),maxval(mu),sum(mu*1d0)/real(ng)**3
+      open(21,file=output_name(namespace//'u_q'),status='replace',access='stream')
+      write(21) mu
+      close(21)
+
+      if (head) print*, trim('CIC interpolation mu by ' // namespace),ng,nw
+      allocate(rho_grid(0:nw+1,0:nw+1,0:nw+1),hoc(1-nwb:ng+nwb,1-nwb:ng+nwb,1-nwb:ng+nwb),ll(ng**3))
+      rho_grid=0; hoc=0; ll=0; ip = 0
+
+      do k=1,ng
+         ! print*,k
+         do j=1,ng
+            do i=1,ng
+
+               pos1=[i,j,k]-0.5+dsp(:,i,j,k)
+               pos1=modulo(pos1-1,real(ng))+1
+               pos1=pos1*real(nw)/real(ng)-0.5
+
+               idx1=floor(pos1)+1
+               idx2=idx1+1
+               dx1=idx1-pos1
+               dx2=1-dx1
+
+               mu_i = mu(i,j,k)
+
+               rho_grid(idx1(1),idx1(2),idx1(3))=rho_grid(idx1(1),idx1(2),idx1(3))+dx1(1)*dx1(2)*dx1(3)*mu_i
+               rho_grid(idx2(1),idx1(2),idx1(3))=rho_grid(idx2(1),idx1(2),idx1(3))+dx2(1)*dx1(2)*dx1(3)*mu_i
+               rho_grid(idx1(1),idx2(2),idx1(3))=rho_grid(idx1(1),idx2(2),idx1(3))+dx1(1)*dx2(2)*dx1(3)*mu_i
+               rho_grid(idx1(1),idx1(2),idx2(3))=rho_grid(idx1(1),idx1(2),idx2(3))+dx1(1)*dx1(2)*dx2(3)*mu_i
+               rho_grid(idx1(1),idx2(2),idx2(3))=rho_grid(idx1(1),idx2(2),idx2(3))+dx1(1)*dx2(2)*dx2(3)*mu_i
+               rho_grid(idx2(1),idx1(2),idx2(3))=rho_grid(idx2(1),idx1(2),idx2(3))+dx2(1)*dx1(2)*dx2(3)*mu_i
+               rho_grid(idx2(1),idx2(2),idx1(3))=rho_grid(idx2(1),idx2(2),idx1(3))+dx2(1)*dx2(2)*dx1(3)*mu_i
+               rho_grid(idx2(1),idx2(2),idx2(3))=rho_grid(idx2(1),idx2(2),idx2(3))+dx2(1)*dx2(2)*dx2(3)*mu_i
+
+               ip = ip + 1
+               ll(ip) = hoc(idx2(1),idx2(2),idx2(3))
+               hoc(idx2(1),idx2(2),idx2(3))=ip
+            enddo
+         enddo
+      enddo
+      ! deallocate(dsp)
+      rho_grid(1,:,:)=rho_grid(1,:,:)+rho_grid(nw+1,:,:)
+      rho_grid(nw,:,:)=rho_grid(nw,:,:)+rho_grid(0,:,:)
+      rho_grid(:,1,:)=rho_grid(:,1,:)+rho_grid(:,nw+1,:)
+      rho_grid(:,nw,:)=rho_grid(:,nw,:)+rho_grid(:,0,:)
+      rho_grid(:,:,1)=rho_grid(:,:,1)+rho_grid(:,:,nw+1)
+      rho_grid(:,:,nw)=rho_grid(:,:,nw)+rho_grid(:,:,0)
+
+      hoc(:1,:,:) = hoc(ng-nwb+1:ng,:,:)
+      hoc(:,:1,:) = hoc(:,ng-nwb+1:ng,:)
+      hoc(:,:,:1) = hoc(:,:,ng-nwb+1:ng)
+      hoc(ng+1:ng+nwb,:,:) = hoc(1:nwb,:,:)
+      hoc(:,ng+1:ng+nwb,:) = hoc(:,1:nwb,:)
+      hoc(:,:,ng+1:ng+nwb) = hoc(:,:,1:nwb)
+
+
+
+
+      print*, minval(abs(rho_grid(1:nw,1:nw,1:nw))),maxval(abs(rho_grid(1:nw,1:nw,1:nw))),sum(rho_grid(1:nw,1:nw,1:nw)*1d0)/real(nw)**3
+      open(16,file=output_name(namespace//'u_x'),status='replace',access='stream')
+      print*,'compute and write mu into',output_name(namespace//'u_x')
+      write(16) rho_grid(1:nw,1:nw,1:nw)
+      close(16)
+
+      print*,'nwb',nwb
+      ! a
+      ! !$omp paralleldo num_threads(nnest) default(shared) schedule(dynamic)&
+      ! !$omp& private(k,j,i,min_r,l1,k_0,j_0,i_0,ip,idx1,pos1,now_r,xp_neigh,mu_neigh,lr,l2)
+      do k=1,ng
+         ! print*,k
+         do j=1,ng
+            do i=1,ng
+               if ( rho_grid(i,j,k) == 0 ) then
+                  min_r = ng*2
+                  do l1 = 1,nwb !l1 means layer
+                     do k_0=-l1,l1
+                        do j_0=-l1,l1
+                           do i_0=-l1,l1
+                              if (hoc(i_0+i,j_0+j,k_0+k) == 0) cycle
+                              if (max(abs(k_0), abs(j_0), abs(i_0)) /= l1) cycle
+
+                              ip = hoc(i_0+i,j_0+j,k_0+k)
+                              do while (ip /= 0)
+                                 idx1(3) = ((ip-1) / ng**2)+1
+                                 idx1(2) = ((ip-1) - (idx1(3)-1)*ng**2)/ng+1
+                                 idx1(1) = mod((ip-1),ng)+1
+                                 pos1 = (idx1 + dsp(:,idx1(1),idx1(2),idx1(3))) * real(nw)/real(ng)
+                                 pos1 = modulo(pos1 - [i,j,k]+ng_global/2,real(ng_global))-ng_global/2
+                                 now_r = sqrt(sum((pos1)**2))
+                                 if (now_r < min_r .and. mu(idx1(1),idx1(2),idx1(3)) > 0) then
+                                    min_r = now_r
+                                    xp_neigh = (idx1 + dsp(:,idx1(1),idx1(2),idx1(3))) * real(nw)/real(ng)
+                                    mu_neigh = mu(idx1(1),idx1(2),idx1(3))
+                                    ! if (mu_neigh <= 0) then
+                                    !   print*, 'mu_neigh <= 0 in l1',i,j,k,l1
+                                    !   print*,ip,idx1
+                                    !   print*,dsp(:,idx1(1),idx1(2),idx1(3))
+                                    !   print*,(idx1 + dsp(:,idx1(1),idx1(2),idx1(3))) * real(nw)/real(ng)
+                                    !   print*,pos1
+                                    !   print*,mu(idx1(1),idx1(2),idx1(3))
+                                    !   stop 'mu_neigh <= 0'
+                                    ! endif
+                                 endif
+                                 ip = ll(ip)
+                              enddo
+                           enddo
+                        enddo
+                     enddo
+                     if (min_r < ng*2 ) then
+                        lr = floor(min_r)+1
+
+                        do l2 = l1+1,lr !l2 means layer
+                           do k_0=-l2,l2
+                              do j_0=-l2,l2
+                                 do i_0=-l2,l2
+                                    if (hoc(i_0+i,j_0+j,k_0+k) == 0) cycle
+                                    if (max(abs(k_0), abs(j_0), abs(i_0)) /= l2) cycle
+                                    if (sqrt(real(i_0**2+j_0**2+k_0**2)) > min_r) cycle
+
+                                    ip = hoc(i_0+i,j_0+j,k_0+k)
+                                    do while (ip /= 0)
+                                       idx1(3) = ((ip-1) / ng**2)+1
+                                       idx1(2) = ((ip-1) - (idx1(3)-1)*ng**2)/ng+1
+                                       idx1(1) = mod((ip-1),ng)+1
+                                       pos1 = (idx1 + dsp(:,idx1(1),idx1(2),idx1(3))) * real(nw)/real(ng)
+                                       pos1 = modulo(pos1 - [i,j,k]+ng_global/2,real(ng_global))-ng_global/2
+                                       now_r = sqrt(sum((pos1)**2))
+                                       if (now_r < min_r .and. mu(idx1(1),idx1(2),idx1(3)) > 0 ) then
+                                          min_r = now_r
+                                          xp_neigh = (idx1 + dsp(:,idx1(1),idx1(2),idx1(3))) * real(nw)/real(ng)
+                                          mu_neigh = mu(idx1(1),idx1(2),idx1(3))
+                                          ! if (mu_neigh <= 0) then
+                                          !   print*, 'mu_neigh <= 0 in l2',i,j,k,l2
+                                          !   print*,ip,idx1
+                                          !   print*,dsp(:,idx1(1),idx1(2),idx1(3))
+                                          !   print*,(idx1 + dsp(:,idx1(1),idx1(2),idx1(3))) * real(nw)/real(ng)
+                                          !   print*,mu(idx1(1),idx1(2),idx1(3))
+                                          !   stop 'mu_neigh <= 0'
+                                          ! endif
+                                       endif
+                                       ip = ll(ip)
+                                    enddo
+                                 enddo
+                              enddo
+                           enddo
+                        enddo
+                        exit
+
+                     endif
+                  enddo
+                  if (min_r == ng*2 ) then
+                     print*, 'no particle found in the neighbor',i,j,k
+
+
+                     min_r = ng*2
+                     do l1 = 1,nwb !l1 means layer
+                        print*, 'layer 1',l1
+                        do k_0=-l1,l1
+                           do j_0=-l1,l1
+                              do i_0=-l1,l1
+                                 if (hoc(i_0+i,j_0+j,k_0+k) == 0) cycle
+                                 if (max(abs(k_0), abs(j_0), abs(i_0)) /= l1) cycle
+                                 print*, ' neigh',k_0,j_0,i_0
+                                 print*, '   hoc',hoc(i_0+i,j_0+j,k_0+k)
+
+                                 ip = hoc(i_0+i,j_0+j,k_0+k)
+                                 do while (ip /= 0)
+                                    idx1(3) = ((ip-1) / ng**2)+1
+                                    idx1(2) = ((ip-1) - (idx1(3)-1)*ng**2)/ng+1
+                                    idx1(1) = mod((ip-1),ng)+1
+                                    pos1 = (idx1 + dsp(:,idx1(1),idx1(2),idx1(3))) * real(nw)/real(ng)
+                                    pos1 = modulo(pos1 - [i,j,k]+ng_global/2,real(ng_global))-ng_global/2
+                                    now_r = sqrt(sum((pos1)**2))
+                                    print*, '   pos1',pos1
+                                    print*, '   now_r',now_r,min_r
+
+                                    if (now_r < min_r) then
+                                       min_r = now_r
+                                       xp_neigh = (idx1 + dsp(:,idx1(1),idx1(2),idx1(3))) * real(nw)/real(ng)
+                                       mu_neigh = mu(idx1(1),idx1(2),idx1(3))
+                                       if (mu_neigh <= 0) then
+                                          print*, 'mu_neigh <= 0 in l2',i,j,k,l2
+                                          print*,ip,idx1
+                                          print*,dsp(:,idx1(1),idx1(2),idx1(3))
+                                          print*,(idx1 + dsp(:,idx1(1),idx1(2),idx1(3))) * real(nw)/real(ng)
+                                          print*,mu(idx1(1),idx1(2),idx1(3))
+                                          stop 'mu_neigh <= 0'
+                                       endif
+                                    endif
+                                    ip = ll(ip)
+                                 enddo
+                              enddo
+                           enddo
+                        enddo
+                        if (min_r < ng*2 ) then
+                           lr = floor(min_r)+1
+
+                           do l2 = l1+1,lr !l2 means layer
+                              print*, ' layer 2',l2
+                              do k_0=-l2,l2
+                                 do j_0=-l2,l2
+                                    do i_0=-l2,l2
+                                       if (hoc(i_0+i,j_0+j,k_0+k) == 0) cycle
+                                       if (max(abs(k_0), abs(j_0), abs(i_0)) /= l2) cycle
+                                       if (sqrt(real(i_0**2+j_0**2+k_0**2)) > min_r) cycle
+
+                                       ip = hoc(i_0+i,j_0+j,k_0+k)
+                                       do while (ip /= 0)
+                                          idx1(3) = ((ip-1) / ng**2)+1
+                                          idx1(2) = ((ip-1) - (idx1(3)-1)*ng**2)/ng+1
+                                          idx1(1) = mod((ip-1),ng)+1
+                                          pos1 = (idx1 + dsp(:,idx1(1),idx1(2),idx1(3))) * real(nw)/real(ng)
+                                          pos1 = modulo(pos1 - [i,j,k]+ng_global/2,real(ng_global))-ng_global/2
+                                          now_r = sqrt(sum((pos1)**2))
+                                          if (now_r < min_r) then
+                                             min_r = now_r
+                                             xp_neigh = (idx1 + dsp(:,idx1(1),idx1(2),idx1(3))) * real(nw)/real(ng)
+                                             mu_neigh = mu(idx1(1),idx1(2),idx1(3))
+                                             if (mu_neigh <= 0) then
+                                                print*, 'mu_neigh <= 0 in l2',i,j,k,l2
+                                                print*,ip,idx1
+                                                print*,dsp(:,idx1(1),idx1(2),idx1(3))
+                                                print*,(idx1 + dsp(:,idx1(1),idx1(2),idx1(3))) * real(nw)/real(ng)
+                                                print*,mu(idx1(1),idx1(2),idx1(3))
+                                                stop 'mu_neigh <= 0'
+                                             endif
+                                          endif
+                                          ip = ll(ip)
+                                       enddo
+                                    enddo
+                                 enddo
+                              enddo
+                           enddo
+                           exit
+
+                        endif
+                     enddo
+                     stop 'min_r == ng*2'
+                  endif
+                  rho_grid(i,j,k) = mu_neigh/min_r/min_r
+               else if ( rho_grid(i,j,k) < 0 )  then
+                  rho_grid(i,j,k) = 1e10 !inf
+               endif
+            enddo
+         enddo
+      enddo
+      ! a
+      ! !$omp endparalleldo
+
+      print*, minval(rho_grid(1:nw,1:nw,1:nw)),maxval(rho_grid(1:nw,1:nw,1:nw)),sum(rho_grid(1:nw,1:nw,1:nw)*1d0)/real(nw)**3
+      open(16,file=output_name(namespace//'uf_x'),status='replace',access='stream')
+      print*,'compute and write mu into',output_name(namespace//'uf_x')
+      write(16) rho_grid(1:nw,1:nw,1:nw)
+      close(16)
+      deallocate(dsp)
+      deallocate(mu,rho_grid)
+   endsubroutine get_mu_D
+
+endprogram displacement

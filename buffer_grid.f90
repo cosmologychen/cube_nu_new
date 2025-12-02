@@ -4,12 +4,15 @@ subroutine buffer_grid
    implicit none
    save
    call tic(3)
+! #ifdef ZIPX
    call buffer_np
+! #endif
    !call buffer_vc
    call redistribute_cdm
    call toc(3)
 endsubroutine
 
+! #ifdef ZIPX
 subroutine buffer_np
    use omp_lib
    use variables
@@ -43,8 +46,9 @@ subroutine buffer_np
    sync all
    call toc(7)
 endsubroutine
+! #endif
 
-#ifdef old
+#ifdef ZIPV
 subroutine buffer_vc
    use variables
    implicit none
@@ -89,7 +93,12 @@ subroutine redistribute_cdm
       call system_clock(t1,t_rate)
    endif
    ! check
+
+! #ifdef ZIPX
    overhead_image=sum(rhoc*unit8)/real(np_image_max,8)
+! #else
+!    overhead_image=sim%nplocal/real(np_image_max,8)
+! #endif
    sync all
    if (head) then
       do i=2,nn**3
@@ -99,7 +108,6 @@ subroutine redistribute_cdm
    sync all
    overhead_image=overhead_image[1]
    sync all
-   !print*,sum(rhoc*unit8),np_image_max,sum(rhoc*unit8)/real(np_image_max,8)
    if (head) then
       print*, '  image overhead',overhead_image*100,'% full'
       print*, '  consumed image_buffer =',overhead_image*image_buffer,'/',image_buffer
@@ -109,7 +117,11 @@ subroutine redistribute_cdm
 
    if (overhead_image>1d0) then
       print*, '  error: too many particles in this image+buffer'
+! #ifdef ZIPX
       print*, '  ',sum(rhoc*unit8),np_image_max
+! #else
+!       print*, '  ',sim%nplocal,np_image_max
+! #endif
       print*, '  on',this_image()
       print*, '  please set image_buffer larger'
       error stop
@@ -132,17 +144,7 @@ subroutine redistribute_cdm
    pid(1:nshift)=0
 # endif
    !$omp endparallelsections
-   !checkxp1=sum(xp*unit8)
-   !checkpid1=sum(pid)
-   !if (checkxp0/=checkxp1) then
-   !  print*, '  error in shifting xp',image,checkxp0,checkxp1
-   !  stop
-   !endif
-   !if (checkpid0/=checkpid1) then
-   !  print*, '  error in shifting pid',image,checkpid0,checkpid1
-   !  stop
-   !endif
-   ! shift back
+
    call spine_image(rhoc,idx_b_l,idx_b_r,ppl0,pplr,pprl,ppr0,ppl,ppr)
    do itz=1,nnt
       do ity=1,nnt

@@ -1,1 +1,1 @@
--genvall -machinefile ./hostfile_1 -n 1 ./main.x
+-genvall -machinefile ./hostfile_1 -n 1 ./utilities/dsp.x

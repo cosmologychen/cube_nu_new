@@ -6,7 +6,11 @@ program convert_format
   integer(8) i,j,k,l,nplocal,npglobal,itx,ity,itz,nlast,ip,np,idx1(3),idx2(3)
   integer cur_checkpoint
   real mass_p,pos1(3),dx1(3),dx2(3)
-  integer(izipx),allocatable :: xp(:,:)
+#ifdef ZIPX
+  integer(izipx),allocatable :: xp(:,:)[:,:,:]
+#else
+  real(4),allocatable :: xp(:,:)[:,:,:]
+#endif
   integer(izipv),allocatable :: vp(:,:)
   integer(izipi),allocatable :: pid(:)
   integer(4),allocatable :: rhoc(:,:,:,:,:,:)
@@ -74,8 +78,13 @@ program convert_format
         np=rhoc(i,j,k,itx,ity,itz)
         do l=1,np
           ip=nlast+l
+#ifdef ZIPX
           pos1=nt*([itx,ity,itz]-1)+ ([i,j,k]-1) + (int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
           xv(1:3,ip)=pos1*real(ng)/real(nc)+([m1,m2,m3]-1)*ng
+
+#else
+          xv(1:3,ip)=xp(:,ip)+([m1,m2,m3]-1)*ng
+#endif
           xv(4:6,ip)=vp(:,ip)
           !xv(4:6,ip)=vc(:,i,j,k,itx,ity,itz)+tan((pi*real(vp(:,ip)))/real(nvbin-1))/(sqrt(pi/2)/(sim%sigma_vi*vrel_boost))*sim%vsim2phys
         enddo

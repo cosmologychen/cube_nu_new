@@ -9,12 +9,13 @@ subroutine particle_mesh(density)
    integer i,j,k,l,np,idx(ndim,p+1),ilayer,i1,i2,i3,ix,iy,iz,n1(ndim),n2(ndim)
    integer(8) ip,nzero
    real :: density(pm%nstart(1):pm%nend(1),pm%nstart(2):pm%nend(2),pm%nstart(3):pm%nend(3))
-   real(8) xpos(ndim)
+   real(8) xpos(ndim),nbb
    real dx(ndim,p+1),l3(ndim),dv(ndim),vreal(ndim)
 
    !print*,'  allocate rho_ex:',1-pm%nex,pm%nphy+pm%nex
    allocate(rho_ex(1-pm%nex:pm%nphy+pm%nex,1-pm%nex:pm%nphy+pm%nex,1-pm%nex:pm%nphy+pm%nex))
    density=0
+   nbb=pm%nphy+pm%nex-1
    !call system_clock(t1,t_rate)
    do iz=pm%tile1(3),pm%tile2(3) ! interpolate particles to density field
       do iy=pm%tile1(2),pm%tile2(2)
@@ -31,8 +32,27 @@ subroutine particle_mesh(density)
                         nzero=idx_b_r(j,k,ix,iy,iz)-sum(rhoc(i:,j,k,ix,iy,iz))
                         do l=1,np
                            ip=nzero+l
+#ifdef ZIPX
                            xpos=([i,j,k]-1)+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
                            xpos=xpos*ratio_cs/pm%gridsize-pm%utile_shift*([ifx,ify,ifz]-1)*nfp(iapm)
+#else
+                           xpos = (xp(:,ip)-([ix,iy,iz]-1)*nt*ratio_cs)/pm%gridsize &
+                                 -pm%utile_shift*([ifx,ify,ifz]-1)*nfp(iapm)
+                           if ( xpos(1) == nbb ) xpos(1)= 1-pm%nex
+                           if ( xpos(2) == nbb ) xpos(2)= 1-pm%nex
+                           if ( xpos(3) == nbb ) xpos(3)= 1-pm%nex
+                            
+                           ! xpos = xp(:,ip)-pm%tile_shift*([ix,iy,iz]-1)*nt*ratio_cs
+                           ! xpos = xpos/pm%gridsize-pm%utile_shift*([ifx,ify,ifz]-1)*nfp(iapm)
+                           ! if (minval(xpos) < -pm%nex .or. maxval(xpos) > pm%nphy+pm%nex) then
+                           !    print*,'particle out of range'
+                           !    print*,'tile',ix,iy,iz,i,j,k,l
+                           !    print*,'xp',xp(:,ip)
+                           !    print*,'xpos',xpos
+                           !    error stop
+                           ! endif
+                           ! xpos = modulo(xpos+spread(real(pm%nex),dim=1,ncopies=3),real(pm%nphy+2*pm%nex))-spread(real(pm%nex),dim=1,ncopies=3)
+#endif
                            idx(:,2)=floor(xpos)+1
                            idx(:,1)=idx(:,2)-1
                            idx(:,3)=idx(:,2)+1
@@ -42,12 +62,26 @@ subroutine particle_mesh(density)
                            dx(:,2)=1-dx(:,1)-dx(:,3)
                            if (minval(idx)<1-pm%nex .or. maxval(idx)>pm%nphy+pm%nex) then
                               print*,'mass assignment out of range'
-                              print*,ix,iy,iz,i,j,k
-                              print*,pm%nex,pm%nphy
-                              print*, xp(:,ip)
-                              print*,  ([i,j,k]-1)+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
-                              print*,'xpos',xpos
-                              print*,'idx',idx
+                              print*,ip,ix,iy,iz,i,j,k
+                              print*,ip,pm%nex,pm%nphy
+                              print*,ip, xp(:,ip)
+#ifdef ZIPX
+                              print*,ip,  ([i,j,k]-1)+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
+! #else
+!                               print*, ([ix,iy,iz]-1)*nt*ratio_cs
+!                               print*,ip,'a', (xp(:,ip)-([ix,iy,iz]-1)*nt*ratio_cs)
+!                               print*,ip,'b', (xp(:,ip)-([ix,iy,iz]-1)*nt*ratio_cs)/pm%gridsize &
+!                                              -pm%utile_shift*([ifx,ify,ifz]-1)*nfp(iapm)       &
+!                                              +spread(real(pm%nex-1),dim=1,ncopies=3)                         
+!                               print*,ip, modulo(                                                     &
+!                                                    (xp(:,ip)-([ix,iy,iz]-1)*nt*ratio_cs)/pm%gridsize &
+!                                                    -pm%utile_shift*([ifx,ify,ifz]-1)*nfp(iapm)       &
+!                                                    +spread(real(pm%nex-1),dim=1,ncopies=3) ,         &
+!                                                    real(pm%nphy+2*pm%nex-2)                &
+!                                                 )    
+#endif
+                              print*,ip,'xpos',xpos
+                              print*,ip,'idx',idx
                               error stop
                            endif
                            do i3=1,p+1
@@ -109,6 +143,7 @@ subroutine particle_mesh(density)
    pm%f2max=max(pm%f2max,maxval(sum(force(:,1:pm%nforce,1:pm%nforce,1:pm%nforce)**2,1)))
 
    !call system_clock(t1,t_rate)
+   nbb = pm%nforce
    do iz=pm%tile1(3),pm%tile2(3) ! update velocity
       do iy=pm%tile1(2),pm%tile2(2)
          do ix=pm%tile1(1),pm%tile2(1)
@@ -122,8 +157,23 @@ subroutine particle_mesh(density)
                      nzero=idx_b_r(j,k,ix,iy,iz)-sum(rhoc(i:,j,k,ix,iy,iz))
                      do l=1,np ! loop over particle
                         ip=nzero+l
+#ifdef ZIPX
                         xpos=pm%tile_shift*([ix,iy,iz]-1)*nt+([i,j,k]-1)+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
                         xpos=xpos*ratio_cs/pm%gridsize-pm%utile_shift*([ifx,ify,ifz]-1)*nfp(iapm)
+#else
+                        xpos = xp(:,ip)/pm%gridsize-pm%utile_shift*([ifx,ify,ifz]-1)*nfp(iapm)
+                        ! if (minval(xpos) < 0 .or. maxval(xpos) > pm%nforce) then
+                        !    print*,'particle out of range'
+                        !    print*,'tile',ix,iy,iz,i,j,k,l
+                        !    print*,'xp',xp(:,ip)
+                        !    print*,'xpos',xpos
+                        !    error stop
+                        ! endif
+                        if ( xpos(1) == nbb ) xpos(1)= 0
+                        if ( xpos(2) == nbb ) xpos(2)= 0
+                        if ( xpos(3) == nbb ) xpos(3)= 0
+#endif
+
                         idx(:,2)=floor(xpos)+1
                         idx(:,1)=idx(:,2)-1
                         idx(:,3)=idx(:,2)+1

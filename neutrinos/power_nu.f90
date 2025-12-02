@@ -417,8 +417,8 @@ contains
       real, intent(in) ::  k_lin_2d(npbin,3),Pk1(npbin),Pk2(npbin),s1,s2,tau1,tau2,a1,a2
       integer, intent(in) ::  n
       real, intent(inout) ::  Pk_out(npbin,3)
-      real(8) L0(npbin,3),L1(npbin,3)
-      real Pk_a(npbin),Pk_b(npbin),Pk_now(npbin)
+      real(8) L0(npbin,3),L1(npbin,3),Pk_a(npbin),Pk_b(npbin)
+      real Pk_now(npbin)
       real ai,si,s_b,a_i,s_a,tau_i
       integer ipk
 
@@ -438,13 +438,14 @@ contains
             ai = (a1+a_i*ipk)
             si = s_a*(1/ai-1)+s_b
             Pk_now = Pk_a*ai+Pk_b
-            if (si<0) then
+            if (si<=0) then
                if (si<-1e-4) then
                   if (head) print*,'si           =',si,s1,s2
                   if (head) print*,'sa/sb        =',s_a,s_b
                   if (head) print*,'a_i/tau_i/ai =',a_i,tau_i,ai
                   error stop 'si is nagtive in interp_line_pk2'
                endif
+               print*,'si is nagtive in interp_line_pk2',si,s_a,s_b,s1,s2,a1
                si = 0
             endif
             if (isnan(si)) then
@@ -454,21 +455,26 @@ contains
                if (head) print*,'a1/a2        =',a1,a2,a1 < a2,a2/a1-1
                error stop 'si is nan in interp_line_pk2'
             endif
-            if (minval(Pk_now(:ifs)) < -1e-5 .or. any((ieee_is_nan(Pk_now(:ifs)))))then
+            ! if (minval(Pk_now(:ifs)) < -1e-5) Pk_now(:ifs) = Pk_now(:ifs) - spread(minval(Pk_now(:ifs)) ,dim=1,ncopies=ifs)
+            if ((minval(Pk_now(:ifs)) < -1e-5) .or. any((ieee_is_nan(Pk_now(:ifs)))))then
                if(head) then
                   print*,''
                   print*,''
                   print*,''
                   print*,'interp_line_pk2 Pk_interp err ',minval(Pk_now),ai
                   print*,'Pk is nan ',any((ieee_is_nan(Pk_now)))
-                  print*,' a,tau',a2,a1,tau2,tau1
+                  print*,' a,tau',a1,a2,tau2,tau1
+                  print*,' (Pk_a)',Pk_a
+                  print*,' (Pk_b)',Pk_b
+                  print*,' (Pk_1)',Pk1
                   print*,' (Pk)',Pk_now
+                  print*,' (Pk_2)',Pk2
                endif
                error stop 'interp_line_pk2 Pk_interp err '
             endif
 
             L0 = L1
-            call get_L(si,k_lin_2d,Pk_now,L1)
+            call get_L(si,k_lin_2d,abs(Pk_now),L1)
             Pk_out = Pk_out+(L0+L1)*tau_i
          enddo
       endif
@@ -541,7 +547,7 @@ contains
       real(8) Lx0(npbin,3),Lx1(npbin,3),Lx2(npbin,3)
 
       ifs = npbin
-      k_fs = max((0.08/sqrt(1/a_step(istep)) * sqrt(sim%omega_m/0.3) * Mass_nu/3/0.1 * h0 )*tf_smooth,10)
+      k_fs = min((0.8*sqrt(a_step(istep)*sim%omega_m/0.3) * Mass_nu/3 * h0 )*tf_smooth,10.)
       do while (kh_lin(ifs) > k_fs)
          ifs = ifs-1
       enddo
@@ -562,7 +568,7 @@ contains
          print*,'  f_nus  = ',f_nus
          print*,'  f_nr   = ',f_nr
          print*,'  ifs    = ',ifs,npbin
-         print*,'  k_fs   = ',k_fs
+         print*,'  k_fs   = ',k_fs,kh_lin(ifs)
       endif
 
 
@@ -570,6 +576,8 @@ contains
       call interp_Pk_CDM
       sync all; call toc(96)
 
+      
+      Pk_step(ifs+1:,istep) = 0
       call tic(97)
       if (istep >0) then
          if(head) then

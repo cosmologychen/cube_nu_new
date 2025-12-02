@@ -17,10 +17,16 @@ program cicpower
   integer i,j,k,l,np,idx(3),idx1(3),idx2(3),itx,ity,itz,cur_checkpoint,ix,iy,iz
   integer(8) nlast,ip,nplocal,npglobal
   character(20) str_z,str_i
-  real pos1(3),dx1(3),dx2(3),xi(10,0:nbin)[*]!,xi_new(10,0:nbin)[*]
+  real pos1(3),dx1(3),dx2(3),xi(10,0:nbin)[*],nbb!,xi_new(10,0:nbin)[*]
   real(8) rho8[*]
   integer(4),allocatable :: rhoc(:,:,:,:,:,:)
+
+#ifdef ZIPX
   integer(izipx),allocatable :: xp(:,:)
+#else
+  real(4),allocatable :: xp(:,:)
+#endif
+
   real(4),allocatable :: xv(:,:),rho_grid(:,:,:)[:,:,:],rho_c(:,:,:)[:,:,:],rho_etc(:,:,:),proj_xy(:,:)
   real kh_lin(npbin),kh_lin_log(npbin),tf_F(npbin),tf_F_log(npbin),Pk_nu(npbin),Pk_nu_log(npbin)
 
@@ -44,8 +50,8 @@ program cicpower
   call create_penfft_plan
 
   ! do cur_checkpoint= 49,49
-  ! do cur_checkpoint= n_checkpoint,n_checkpoint
-  do cur_checkpoint= 71,n_checkpoint+1
+  do cur_checkpoint= n_checkpoint,n_checkpoint
+  ! do cur_checkpoint= 1,n_checkpoint
     sim%cur_checkpoint=cur_checkpoint
     if (head) print*, ''
     if (head) print*, '==========================================='
@@ -56,10 +62,10 @@ program cicpower
     if (sim%izipx/=izipx .or. sim%izipv/=izipv) error stop 'zip format incompatable'
     nplocal=sim%nplocal; npglobal=sim%npglobal
     if (head) print*, 'nplocal,npglobal =',nplocal,npglobal
-    allocate(xp(3,nplocal),xv(6,nplocal))
+    allocate(xp(3,nplocal))
     open(11,file=output_name('xp'),access='stream'); read(11) xp; close(11)
     open(11,file=output_name('np'),access='stream'); read(11) rhoc; close(11)
-    rho_grid=0; nlast=0
+    rho_grid=0; nlast=0; nbb =  nw
     do itz=1,nnt
     do ity=1,nnt
     do itx=1,nnt
@@ -69,8 +75,15 @@ program cicpower
         np=rhoc(i,j,k,itx,ity,itz)
         do l=1,np
           ip=nlast+l
+#ifdef ZIPX
           pos1=nt*((/itx,ity,itz/)-1)+ ((/i,j,k/)-1) + (int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
           pos1=pos1*real(nw)/real(nc) - 0.5
+#else
+          pos1 = xp(:,ip)*nic - 0.5
+          if ( pos1(1) == nbb ) pos1(1)= 0
+          if ( pos1(2) == nbb ) pos1(2)= 0
+          if ( pos1(3) == nbb ) pos1(3)= 0
+#endif
           idx1=floor(pos1)+1; idx2=idx1+1
           dx1=idx1-pos1;      dx2=1-dx1
           rho_grid(idx1(1),idx1(2),idx1(3))=rho_grid(idx1(1),idx1(2),idx1(3))+dx1(1)*dx1(2)*dx1(3)
@@ -216,7 +229,7 @@ program cicpower
 #ifdef density_nu
   if (head) print*,'create delta_nu'
 
-  if (Mass_nu > 0 .and. z_checkpoint(cur_checkpoint) >= 5) then
+  if (Mass_nu > 0) then
     rho1 = rho_c
 
     call nu_correction_cic()
@@ -311,6 +324,7 @@ program cicpower
 
 #ifdef gadget
     ! read Gadget output
+    allocate(xv(6,nplocal))
     open(11,file='../output/yuyu/0.000_gadget_xv.bin',access='stream')
     read(11) xv
     close(11)
@@ -374,9 +388,9 @@ program cicpower
       write(15) xi(:,1:nbin)
       close(15)
     endif
+    deallocate(xv)
     sync all
 #endif
-    deallocate(xv)
     if (head) print*,''
   enddo
   deallocate(rho_c,rho_etc,rho_grid,rhoc)

@@ -2,11 +2,13 @@ subroutine particle_initialization
    use parameters
 #ifdef PID
    use variables, only: xp,xp_new,vp,vp_new,pid,pid_new
-   use variables, only: rhoc,sigma_vi,np_image_max,np_tile_max,Pk_step,Pk_cb_check,Pk_nu_check,a_step,tau_step,sf_step,kh_lin,s_f
 #else
    use variables, only: xp,xp_new,vp,vp_new
-   use variables, only: rhoc,sigma_vi,np_image_max,np_tile_max,Pk_step,Pk_cb_check,Pk_nu_check,a_step,tau_step,sf_step,kh_lin,s_f
 #endif
+   use variables, only: sigma_vi,np_image_max,np_tile_max,Pk_step,Pk_cb_check,Pk_nu_check,a_step,tau_step,sf_step,kh_lin,s_f
+! #ifdef ZIPX
+   use variables, only: rhoc
+! #endif
    implicit none
 
    character(100) fn10,fn11,fn12,fn13,fn14,fn15,fn16,fn17,fn18,fn19,str_z
@@ -20,7 +22,9 @@ subroutine particle_initialization
    fn10=output_name('info')
    fn11=output_name('xp')
    fn12=output_name('vp')
+! #ifdef ZIPX
    fn13=output_name('np')
+! #endif
    fn14=output_name('vc')
    fn15=output_name('id')
 
@@ -42,7 +46,9 @@ subroutine particle_initialization
 
    allocate(xp(3,np_image_max)[nn,nn,*],xp_new(3,np_tile_max))
    allocate(vp(3,np_image_max)[nn,nn,*],vp_new(3,np_tile_max))
+! #ifdef ZIPX
    allocate(rhoc(1-ncb:nt+ncb,1-ncb:nt+ncb,1-ncb:nt+ncb,nnt,nnt,nnt)[nn,nn,*])
+! #endif
    !allocate(vfield(3,1-ncb:nt+ncb,1-ncb:nt+ncb,1-ncb:nt+ncb,nnt,nnt,nnt)[nn,nn,*])
 #ifdef PID
    allocate(pid(np_image_max)[nn,nn,*],pid_new(np_tile_max))
@@ -65,9 +71,10 @@ subroutine particle_initialization
    !omp endworkshare
    !$omp section
    open(12,file=fn12,status='old',access='stream'); read(12) vp(:,:sim%nplocal); close(12)
+! #ifdef ZIPX
    !$omp section
    open(13,file=fn13,status='old',access='stream'); read(13) rhoc(1:nt,1:nt,1:nt,:,:,:); close(13)
-
+! #endif
 !!  !$omp section
 !!    open(14,file=fn14,status='old',access='stream'); read(14) vfield(:,1:nt,1:nt,1:nt,:,:,:); close(14)
 # ifdef PID

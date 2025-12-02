@@ -435,88 +435,59 @@ subroutine density_to_potential(cube1)
 endsubroutine
 
 subroutine nu_correction_cic()
-  use omp_lib
-  use parameters
-  use pencil_fft
-  implicit none
+    use omp_lib
+    use parameters
+    use pencil_fft
+    implicit none
 
-  integer i,j,k,ig,jg,kg
-  real kr,kx(3)
-  character(20) str_z
-  real(4) Pk_step(npbin),Pk_nu(npbin)
-  real kh_lin(npbin),kh_lin_log(npbin),tf_F(npbin),tf_F_log(npbin)
-  ! real tf1(nw_global/2+1,nw,npen),k_tf1(nw_global/2+1,nw,npen)
+    integer i,j,k,ig,jg,kg
+    real kr,kx(3)
+    character(20) str_z
+    real(4) Pk_step(npbin),Pk_nu(npbin)
+    real kh_lin(npbin),kh_lin_log(npbin),tf_F(npbin),tf_F_log(npbin)
+    real tf1(nw_global/2+1,nw,npen),k_tf1(nw_global/2+1,nw,npen)
 
-  write(str_z,'(f8.4)') z_powerpoint(sim%cur_powerpoint)
-  if(head) print*,'z=',str_z,npbin
-  ! open(10,file=output_name('Pk_nu'),status='old',access='stream'); read(10) Pk_nu; close(10)
-  ! open(10,file=output_name('Pk_cb'),status='old',access='stream'); read(10) Pk_step; close(10)
-  ! tf_F = (Pk_nu/Pk_step)**0.5
-  open(11,file=nupath//'Pk_nu_0.0000.txt',status='old')
-  do i=1,npbin
-     read(11,end=86,fmt='(E25.18)') Pk_nu(i)
-  enddo
-86    close(11)
-  open(12,file=nupath//'Pk_cb_0.0000.txt',status='old')
-  do i=1,npbin
-     read(12,end=96,fmt='(E25.18)') Pk_step(i)
-  enddo
-96    close(12)
-  ! open(10,file='/home/ChenBH/output_backup/600_512_2_0.1_1/neutrinos_old/neutrinos/Tf_nu_0.0000.txt',status='old')
-  ! do i=1,npbin
-  ! read(10,end=76,fmt='(E25.18)') tf_F(i)
-  ! enddo
-  ! 76 close(13)
-
-  tf_F = sqrt(pk_nu/pk_step)
-  kh_lin = -1
-  open(13,file=nupath//'k_values.txt',status='old')
-  do i=1,npbin
-     read(13,end=75,fmt='(f15.12)') kh_lin(i)
-  enddo
-75    close(13)
-  ! kh_lin = kh_lin*box/2/pi
-
-  if(head) print*,'k   ',kh_lin(1),kh_lin(2),kh_lin(npbin/2),kh_lin(npbin)
-  if(head) print*,'tf_F',tf_F(1),tf_F(2),tf_F(npbin/2),tf_F(npbin)
-  ! if(head) print*,f_nu,npen,nw,nyquist
-
-  kh_lin_log = log(kh_lin)
-  tf_F_log = log(tf_F)
-  ! print*,'tf',tf_F
-
-  call pencil_fft_forward
-
-  ! tf1 = 1
-  if (Mass_nu > 0) then
-     !$omp paralleldo default(shared) schedule(dynamic)&
-     !$omp& private(kg,jg,ig,i,j,k,kx,kr)
-     do k=1,npen
+    write(str_z,'(f8.4)') z_powerpoint(sim%cur_powerpoint)
+    print*,'z=',str_z,npbin
+    open(10,file=nupath//'tf/Tf_nu_'//trim(adjustl(str_z))//'.txt',status='old',access='stream'); read(10) tf_F; close(10)
+    tf_F = (tf_F-(1-f_nu))/f_nu
+    print*, 'tf_F',tf_F(1),tf_F(2),tf_F(npbin)
+    kh_lin = -1
+    open(13,file=nupath//'k_values.txt',status='old')
+    do i=1,npbin
+    read(13,end=75,fmt='(f15.12)') kh_lin(i)
+    enddo
+    75 close(13)
+    kh_lin_log = log(kh_lin)
+    print*,'k',kh_lin(1),kh_lin(2),kh_lin(npbin),icx,icy,icz,npen,nw,nyquist
+    tf_F_log = log(tf_F)
+    call pencil_fft_forward
+    
+    tf1 = 1
+    if (Mass_nu > 0) then
+        !$omp paralleldo default(shared) schedule(dynamic)&
+        !$omp& private(kg,jg,ig,i,j,k,kx,kr)
+        do k=1,npen
         do j=1,nw
-           do i=1,nyquist+1
-              kg=(nn*(icz-1)+icy-1)*npen+k
-              jg=(icx-1)*nw+j
-              ig=i
-              kx=(mod([ig,jg,kg]+nyquist-1,nw_global)-nyquist)*(2*pi)/box
-              if (ig==1.and.jg==1.and.kg==1) cycle ! zero frequency
-              kr=sqrt(kx(1)**2+kx(2)**2+kx(3)**2)
-              cxyz(i,j,k) = cxyz(i,j,k)*interp_tf_F(kh_lin_log,kr,tf_F_log)
-              ! tf1(i,j,k) = interp_tf_F(kh_lin_log,kr,tf_F_log)
-              ! k_tf1(i,j,k) = kr
-           enddo
+        do i=1,nyquist+1
+            kg=(nn*(icz-1)+icy-1)*npen+k
+            jg=(icx-1)*nw+j
+            ig=i
+            kx=(mod([ig,jg,kg]+nyquist-1,nw_global)-nyquist)*(2*pi)/box
+            if (ig==1.and.jg==1.and.kg==1) cycle ! zero frequency
+            kr=sqrt(kx(1)**2+kx(2)**2+kx(3)**2)
+            tf1(i,j,k) = interp_tf_F(kh_lin_log,kr,tf_F_log)
+            k_tf1(i,j,k) = kr
         enddo
-     enddo
-     !$omp endparalleldo
-  endif
+        enddo
+        enddo
+        !$omp endparalleldo
+    endif
 
+    cxyz=cxyz*tf1
+    call pencil_fft_backward
 
-  ! open(10,file='./tf_test/tf_cic1.txt',status='replace',access='stream'); write(10) tf1; close(10)
-  ! open(10,file='./tf_test/k_tf_cic1.txt',status='replace',access='stream'); write(10) k_tf1; close(10)
-
-  ! cxyz=cxyz*tf1
-  call pencil_fft_backward
-
-endsubroutine
+endsubroutine 
 
 real function interp_tf_F(k_lin_log,k_need,tf_F_log)
     implicit none
