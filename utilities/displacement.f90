@@ -24,7 +24,7 @@ program displacement
    integer(izipx),allocatable :: xp(:,:)
 
    integer :: ip,iq(3),i_dim,idx1(3),idx2(3)
-   real :: dx1(3),dx2(3)
+   real :: dx1(3),dx2(3),xi(10,nbin)[*]
    integer(8) np,istat,nthreads,plan,iplan,nlast,pid8,irange(2,3)
 
 
@@ -35,11 +35,11 @@ program displacement
 #endif
 
 #ifdef dspE
-   complex,allocatable kpsi(:,:,:)
-   real(4)allocatable :: rho_grid(:,:,:)
+   complex,allocatable :: kpsi(:,:,:)
+   real(4),allocatable :: rho_grid(:,:,:)
 #endif
-   integer :: i,j,k,l,ix,iy,iz,ilayer,itx,ity,itz,cur_checkpoint
-   real :: pos0(3),pos1(3),dpos(3),kx(3),pdim(3),xi(10,0:nbin)
+   integer :: i,j,k,l,ix,iy,iz,ilayer,itx,ity,itz,kg,jg,ig,cur_checkpoint
+   real :: pos0(3),pos1(3),dpos(3),kx(3),pdim(3)
    real,allocatable :: dsp(:,:,:,:),dsp_shift(:,:,:)
 
    real,allocatable :: rho_L(:,:,:),rho_c(:,:,:),rho_mu(:,:,:),rho_E(:,:,:)
@@ -195,8 +195,8 @@ program displacement
                   ig=i
                   kx=modulo([ig,jg,kg]+ng/2-1,ng)-ng/2 !k
                   pdim=sin(2*pi*kx/ng)
-                  cphi(i,j)=cphi(i,j)+(0,1)*rho1k(i,j)*pdim(i_dim)/(-sum(pdim**2)) !phik
-                  cdiv(i,j)=cdiv(i,j)+(0,1)*rho1k(i,j)*pdim(i_dim) !c means complex
+                  cphi(i,j,k)=cphi(i,j,k)+(0,1)*rho1k(i,j,k)*pdim(i_dim)/(-sum(pdim**2)) !phik
+                  cdiv(i,j,k)=cdiv(i,j,k)+(0,1)*rho1k(i,j,k)*pdim(i_dim) !c means complex
                enddo
             enddo
          enddo
@@ -212,26 +212,14 @@ program displacement
       cxyz=cdiv
       print*,'  btran'
       call pencil_fft_backward
-      allocate(cube1(ng,ng,ng))
-      cube1=-rho1
+      allocate(rho_E(ng,ng,ng))
+      rho_E=-rho1
       print*,'  write delta_E into file'
       open(15,file=output_name('delta_E'),status='replace',access='stream')
-      write(15) cube1
+      write(15) rho_E
       close(15)
       sync all
-
-      print*,'  read delta_L from file'
-      ! linear delta
-      allocate(cube0(ng,ng,ng))
-      open(15,file=output_dir()//'delta_L'//output_suffix(),status='old',access='stream')
-      read(15) cube0
-      close(15)
-      print*,'  compute power_LE'
-      call cross_power(xi,cube0,cube1)
-      open(15,file=output_name('power_LE'),status='replace',access='stream')
-      write(15) xi
-      close(15)
-      deallocate(cube0,cube1,cdiv,cphi)
+      deallocate(rho_E,cdiv,cphi)
 #     endif
 
 #     ifdef dspE
@@ -249,7 +237,7 @@ program displacement
                   kg=(nn*(icz-1)+icy-1)*npen+k
                   jg=(icx-1)*ng+j
                   ig=i
-                  kx=mod([pig,jg,kg]+ng/2-1,ng)-ng/2
+                  kx=mod([ig,jg,kg]+ng/2-1,ng)-ng/2
                   kpsi(i,j,k)=kpsi(i,j,k)+kx(i_dim)*cxyz(i,j,k)
                enddo
             enddo
@@ -335,38 +323,40 @@ program displacement
       write(16) rho_grid(1:ng,1:ng,1:ng)
       close(16)
       deallocate(rho_grid)
+
+      call get_mu_D  ('dsp_E')
 #     endif
-      call get_mu_D  ('dspE')
 
 #ifdef Cpower_LN
       sim%cur_checkpoint = 1
       allocate(rho_L(nw,nw,nw))
-      open(11,file=output_name('delta_L'),status='old',access='stream')
-      read(11) rho_L(1:ng,1:ng)
+      open(11,file=output_dir()//'delta_L'//output_suffix(),status='old',access='stream')
+      read(11) rho_L
 
       sim%cur_checkpoint=cur_checkpoint
 
       open(11,file=output_name('delta_c'),status='old',access='stream')
-      read(11) rho_c(1:ng,1:ng)
+      read(11) rho_c
       call cross_power(xi,rho_L,rho_c)
       print*,'   save: ',output_name('Cpower_LN')
       open(11,file=output_name('Cpower_LN'),status='replace',access='stream')
       write(11) xi
       close(11)
-      deallocate(rho_N,rho_L)
+      deallocate(rho_c,rho_L)
 #endif
+
 
 #ifdef Cpower_LE
       sim%cur_checkpoint = 1
       allocate(rho_L(nw,nw,nw))
-      open(11,file=output_name('delta_L'),status='old',access='stream')
-      read(11) rho_L(1:ng,1:ng)
+      open(11,file=output_dir()//'delta_L'//output_suffix(),status='old',access='stream')
+      read(11) rho_L
 
       sim%cur_checkpoint=cur_checkpoint
 
       allocate(rho_E(nw,nw,nw))
       open(11,file=output_name('delta_E'),status='old',access='stream')
-      read(11) rho_E(1:ng,1:ng)
+      read(11) rho_E
       call cross_power(xi,rho_L,rho_E)
       print*,'   save: ',output_name('Cpower_LE')
       open(11,file=output_name('Cpower_LE'),status='replace',access='stream')
@@ -378,14 +368,14 @@ program displacement
 #ifdef Cpower_LU
       sim%cur_checkpoint = 1
       allocate(rho_L(nw,nw,nw))
-      open(11,file=output_name('delta_L'),status='old',access='stream')
-      read(11) rho_L(1:ng,1:ng)
+      open(11,file=output_dir()//'delta_L'//output_suffix(),status='old',access='stream')
+      read(11) rho_L
 
       sim%cur_checkpoint=cur_checkpoint
 
       allocate(rho_mu(nw,nw,nw))
       open(11,file=output_name('dspu_x'),status='old',access='stream')
-      read(11) rho_mu(1:ng,1:ng)
+      read(11) rho_mu
       WHERE (rho_L > 1)
          rho_L = 1
       END WHERE
@@ -405,13 +395,13 @@ program displacement
       sim%cur_checkpoint = 1
       allocate(rho_c(nw,nw,nw))
       open(11,file=output_name('delta_c'),status='old',access='stream')
-      read(11) rho_c(1:ng,1:ng)
+      read(11) rho_c
 
       sim%cur_checkpoint=cur_checkpoint
 
       allocate(rho_mu(nw,nw,nw))
       open(11,file=output_name('dspu_x'),status='old',access='stream')
-      read(11) rho_mu(1:ng,1:ng)
+      read(11) rho_mu
       WHERE (rho_c > 1)
          rho_c = 1
       END WHERE
@@ -432,13 +422,13 @@ program displacement
       sim%cur_checkpoint = 1
       allocate(rho_E(nw,nw,nw))
       open(11,file=output_name('delta_E'),status='old',access='stream')
-      read(11) rho_E(1:ng,1:ng)
+      read(11) rho_E
 
       sim%cur_checkpoint=cur_checkpoint
 
       allocate(rho_mu(nw,nw,nw))
       open(11,file=output_name('dspu_x'),status='old',access='stream')
-      read(11) rho_mu(1:ng,1:ng)
+      read(11) rho_mu
       WHERE (rho_E > 1)
          rho_E = 1
       END WHERE

@@ -206,7 +206,7 @@ subroutine initialize
    allocate(Gk3_4(nft(3)/2+1,nft(3),nft(3)))
    allocate(Gk3_6(nft(4)/2+1,nft(4),nft(4)))
    allocate(Gk3_8(nft(5)/2+1,nft(5),nft(5)))
-   allocate(Gk3_12(nft(6)/2+1,nft(6),nft(6)))
+   ! allocate(Gk3_12(nft(6)/2+1,nft(6),nft(6)))
    !allocate(Gk3_16(nft(7)/2+1,nft(7),nft(7)))
 
    !call Green_3D(Gk1,  nc,nc/2+1,  nc, nc, apm1c,    0., real(ratio_cs))
@@ -229,9 +229,9 @@ subroutine initialize
       open(10,file=output_dir()//'Gk3_8'//output_suffix(),access='stream')
       read(10) Gk3_8
       close(10)
-      open(10,file=output_dir()//'Gk3_12'//output_suffix(),access='stream')
-      read(10) Gk3_12
-      close(10)
+      ! open(10,file=output_dir()//'Gk3_12'//output_suffix(),access='stream')
+      ! read(10) Gk3_12
+      ! close(10)
       !open(10,file=output_dir()//'Gk3_16'//output_suffix(),access='stream')
       !read(10) Gk3_16
       !close(10)
@@ -275,12 +275,12 @@ subroutine initialize
       write(10) Gk3_8
       close(10)
 
-      call tic(37)
-      call Green_3D(Gk3_12, nft(6), nft(6)/2+1,nft(6), nft(6),0, apm3f,apm2f(6),1./ratio_sf(6))
-      call toc(37)
-      open(10,file=output_dir()//'Gk3_12'//output_suffix(),status='replace',access='stream')
-      write(10) Gk3_12
-      close(10)
+      ! call tic(37)
+      ! call Green_3D(Gk3_12, nft(6), nft(6)/2+1,nft(6), nft(6),0, apm3f,apm2f(6),1./ratio_sf(6))
+      ! call toc(37)
+      ! open(10,file=output_dir()//'Gk3_12'//output_suffix(),status='replace',access='stream')
+      ! write(10) Gk3_12
+      ! close(10)
 
       !call tic(38)
       !call Green_3D(Gk3_16, nft(7), nft(7)/2+1,nft(7), nft(7),0, apm3f,apm2f(7),1./ratio_sf(7))
@@ -291,7 +291,7 @@ subroutine initialize
 
    endif
    if (head) print*,'  Gk3_8 ',minval(Gk3_8 ),maxval(Gk3_8 )
-   if (head) print*,'  Gk3_12',minval(Gk3_12),maxval(Gk3_12)
+   ! if (head) print*,'  Gk3_12',minval(Gk3_12),maxval(Gk3_12)
    !print*,'Gk3',Gk3(1:3,1,1)
    !allocate(Gk0(ng/2+1,ng,ng))
    !call Green_3D(Gk0,  ng,ng/2+1,  ng, ng, apm2,1,     0.,             1.)
@@ -312,7 +312,7 @@ subroutine initialize
       tf3_4  = (1-f_nu)*Gk3_4
       tf3_6  = (1-f_nu)*Gk3_6
       tf3_8  = (1-f_nu)*Gk3_8
-      tf3_12 = (1-f_nu)*Gk3_12
+      ! tf3_12 = (1-f_nu)*Gk3_12
    else
       tf1 = Gk1
       tf2 = Gk2
@@ -320,9 +320,9 @@ subroutine initialize
       tf3_4  = Gk3_4
       tf3_6  = Gk3_6
       tf3_8  = Gk3_8
-      tf3_12 = Gk3_12
+      ! tf3_12 = Gk3_12
       !deallocate(Gk1,,Gk2,Gk3_2,Gk3_4,Gk3_6,Gk3_8,Gk3_12)
-      deallocate(Gk1,Gk2,Gk3_2,Gk3_4,Gk3_6,Gk3_8,Gk3_12)
+      deallocate(Gk1,Gk2,Gk3_2,Gk3_4,Gk3_6,Gk3_8)!,Gk3_12)
    endif
 
    if (head) print*, '  call create_cubefft_plan'

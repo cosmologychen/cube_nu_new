@@ -121,14 +121,14 @@ subroutine kick
             ires(itile)=3
          elseif (npc_max(itile)<320) then
             ires(itile)=4
-         elseif (npc_max(itile)<1350) then
-            ires(itile)=5
+         ! elseif (npc_max(itile)<1350) then
+         !    ires(itile)=5
             !elseif (npc_max(itile)<2000) then
             !  ires(itile)=5
-         else
-            ires(itile)=6
          ! else
-         !    ires(itile)=5
+         !    ires(itile)=6
+         else
+            ires(itile)=5
          endif
          !ires(itile)=4
          napm(ires(itile))=napm(ires(itile))+1
@@ -236,8 +236,8 @@ subroutine kick
             call pm_thread(rho3_6(:,:,:,iteam),rho_th,force_th,pm,itile,iteam,f2max_team,vmax_team)
           case(5)
             call pm_thread(rho3_8(:,:,:,iteam),rho_th,force_th,pm,itile,iteam,f2max_team,vmax_team)
-          case(6)
-            call pm_thread(rho3_12(:,:,:,iteam),rho_th,force_th,pm,itile,iteam,f2max_team,vmax_team)
+         !  case(6)
+         !    call pm_thread(rho3_12(:,:,:,iteam),rho_th,force_th,pm,itile,iteam,f2max_team,vmax_team)
          endselect
          deallocate(rho_th,force_th)
          f2max=max(f2max,f2max_team); vmax=max(vmax,vmax_team)
@@ -663,8 +663,8 @@ contains
             rho3k_6(:,:,:,iteam) =rho3k_6(:,:,:,iteam)*tf3_6
           case(5)
             rho3k_8(:,:,:,iteam) =rho3k_8(:,:,:,iteam)*tf3_8
-          case(6)
-            rho3k_12(:,:,:,iteam)=rho3k_12(:,:,:,iteam)*tf3_12
+         !  case(6)
+         !    rho3k_12(:,:,:,iteam)=rho3k_12(:,:,:,iteam)*tf3_12
          endselect
          call sfftw_execute(iplan3(iteam,iapm))
       endselect
