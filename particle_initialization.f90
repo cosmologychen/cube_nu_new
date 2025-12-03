@@ -93,7 +93,7 @@ subroutine particle_initialization
    !nu
    if (sim%cur_powerpoint > 1 .and. Mass_nu > 0 ) then
       if (head) print*,Mass_nu
-      sim%cur_powerpoint = sim%cur_powerpoint-1
+      ! sim%cur_powerpoint = sim%cur_powerpoint-1
       open(16,file=output_name('steps'),status='old',access='stream')
       read(16) Pk_step
       read(16) Pk_cb_check

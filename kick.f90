@@ -135,8 +135,8 @@ subroutine kick
       enddo
       call indexed_sort(ns3,-npc_max,isort)
       !print*,npc_max
-      !print*,isort
-      !print*,npc_max(isort)
+      print*,isort
+      print*,npc_max(isort)
    endif  ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    sync all
 
