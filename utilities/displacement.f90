@@ -1,10 +1,11 @@
-#define Cpower_LN
-#define Cpower_LE
+! #define Cpower_LE
+! #define Cpower_LN
 #define Cpower_LU
-#define Cpower_EU
 #define Cpower_NU
-#define Emode
-#define dspE
+#define Cpower_EU
+! #define Emode
+! #define dspE
+! #define dsp
 
 program displacement
    use omp_lib
@@ -80,6 +81,7 @@ program displacement
       print*, 'Start analyzing redshift ',z2str(z_checkpoint(sim%cur_checkpoint))
       open(11,file=output_name('info'),access='stream'); read(11) sim; close(11)
 
+#     ifdef dsp
       if (sim%npglobal /= ng_global**3) stop 'ng^3 != npglobal'
       print*, '    ng_global =',sim%npglobal,sim%nplocal
 
@@ -170,10 +172,11 @@ program displacement
       open(15,file=output_name('dsp'),status='replace',access='stream')
       write(15) dsp
       close(15)
-
-
-
       call get_mu_D('dsp')
+#     endif
+
+
+
 
 #     ifdef Emode
       print*,''
@@ -214,7 +217,8 @@ program displacement
       call pencil_fft_backward
       allocate(rho_E(ng,ng,ng))
       rho_E=-rho1
-      print*,'  write delta_E into file'
+      print*, minval(rho_E(1:nw,1:nw,1:nw)),maxval(rho_E(1:nw,1:nw,1:nw)),sum(rho_E(1:nw,1:nw,1:nw)*1d0)/real(nw)**3
+      print*,'  write delta_E into file',output_name('delta_E')
       open(15,file=output_name('delta_E'),status='replace',access='stream')
       write(15) rho_E
       close(15)
@@ -266,7 +270,7 @@ program displacement
          if (head) then
             cxyz(1,1,1)=0
          endif
-         print*, 'sum of cxyz',minval(abs(cxyz)),maxval(abs(cxyz))
+         ! print*, 'sum of cxyz',minval(abs(cxyz)),maxval(abs(cxyz))
          call pencil_fft_backward
          print*, 'rho1',minval(rho1),maxval(rho1)
          write(16) rho1
@@ -328,13 +332,12 @@ program displacement
 #     endif
 
 #ifdef Cpower_LN
-      sim%cur_checkpoint = 1
+      print*,'Cpower_LN'
       allocate(rho_L(nw,nw,nw))
       open(11,file=output_dir()//'delta_L'//output_suffix(),status='old',access='stream')
       read(11) rho_L
 
-      sim%cur_checkpoint=cur_checkpoint
-
+      allocate(rho_c(nw,nw,nw))
       open(11,file=output_name('delta_c'),status='old',access='stream')
       read(11) rho_c
       call cross_power(xi,rho_L,rho_c)
@@ -347,15 +350,13 @@ program displacement
 
 
 #ifdef Cpower_LE
-      sim%cur_checkpoint = 1
+      print*,'Cpower_LE'
       allocate(rho_L(nw,nw,nw))
       open(11,file=output_dir()//'delta_L'//output_suffix(),status='old',access='stream')
       read(11) rho_L
 
-      sim%cur_checkpoint=cur_checkpoint
-
       allocate(rho_E(nw,nw,nw))
-      open(11,file=output_name('delta_E'),status='old',access='stream')
+      open(11,file=output_name('delta_cE'),status='old',access='stream')
       read(11) rho_E
       call cross_power(xi,rho_L,rho_E)
       print*,'   save: ',output_name('Cpower_LE')
@@ -366,16 +367,19 @@ program displacement
 #endif
 
 #ifdef Cpower_LU
-      sim%cur_checkpoint = 1
+      print*,'Cpower_LU'   
       allocate(rho_L(nw,nw,nw))
       open(11,file=output_dir()//'delta_L'//output_suffix(),status='old',access='stream')
       read(11) rho_L
 
-      sim%cur_checkpoint=cur_checkpoint
-
       allocate(rho_mu(nw,nw,nw))
       open(11,file=output_name('dspu_x'),status='old',access='stream')
       read(11) rho_mu
+      call cross_power(xi,rho_L,rho_mu)
+      print*,'   save: ',output_name('Cpower_LU')
+      open(11,file=output_name('Cpower_LU'),status='replace',access='stream')
+      write(11) xi
+      close(11)
       WHERE (rho_L > 1)
          rho_L = 1
       END WHERE
@@ -384,24 +388,27 @@ program displacement
       END WHERE
 
       call cross_power(xi,rho_L,rho_mu)
-      print*,'   save: ',output_name('Cpower_LU')
-      open(11,file=output_name('Cpower_LU'),status='replace',access='stream')
+      print*,'   save: ',output_name('Cpower_LU_low')
+      open(11,file=output_name('Cpower_LU_low'),status='replace',access='stream')
       write(11) xi
       close(11)
       deallocate(rho_mu,rho_L)
 #endif
 
 #ifdef Cpower_NU
-      sim%cur_checkpoint = 1
+      print*,'Cpower_NU'
       allocate(rho_c(nw,nw,nw))
       open(11,file=output_name('delta_c'),status='old',access='stream')
       read(11) rho_c
 
-      sim%cur_checkpoint=cur_checkpoint
-
       allocate(rho_mu(nw,nw,nw))
       open(11,file=output_name('dspu_x'),status='old',access='stream')
       read(11) rho_mu
+      call cross_power(xi,rho_c,rho_mu)
+      print*,'   save: ',output_name('Cpower_NU')
+      open(11,file=output_name('Cpower_NU'),status='replace',access='stream')
+      write(11) xi
+      close(11)
       WHERE (rho_c > 1)
          rho_c = 1
       END WHERE
@@ -410,8 +417,8 @@ program displacement
       END WHERE
 
       call cross_power(xi,rho_c,rho_mu)
-      print*,'   save: ',output_name('Cpower_NU')
-      open(11,file=output_name('Cpower_NU'),status='replace',access='stream')
+      print*,'   save: ',output_name('Cpower_NU_low')
+      open(11,file=output_name('Cpower_NU_low'),status='replace',access='stream')
       write(11) xi
       close(11)
       deallocate(rho_mu,rho_c)
@@ -419,16 +426,19 @@ program displacement
 
 
 #ifdef Cpower_EU
-      sim%cur_checkpoint = 1
+      print*,'Cpower_EU'
       allocate(rho_E(nw,nw,nw))
-      open(11,file=output_name('delta_E'),status='old',access='stream')
+      open(11,file=output_name('delta_cE'),status='old',access='stream')
       read(11) rho_E
-
-      sim%cur_checkpoint=cur_checkpoint
 
       allocate(rho_mu(nw,nw,nw))
       open(11,file=output_name('dspu_x'),status='old',access='stream')
       read(11) rho_mu
+      call cross_power(xi,rho_E,rho_mu)
+      print*,'   save: ',output_name('Cpower_EU')
+      open(11,file=output_name('Cpower_EU'),status='replace',access='stream')
+      write(11) xi
+      close(11)
       WHERE (rho_E > 1)
          rho_E = 1
       END WHERE
@@ -437,8 +447,8 @@ program displacement
       END WHERE
 
       call cross_power(xi,rho_E,rho_mu)
-      print*,'   save: ',output_name('Cpower_EU')
-      open(11,file=output_name('Cpower_EU'),status='replace',access='stream')
+      print*,'   save: ',output_name('Cpower_EU_low')
+      open(11,file=output_name('Cpower_EU_low'),status='replace',access='stream')
       write(11) xi
       close(11)
       deallocate(rho_mu,rho_E)
@@ -464,6 +474,7 @@ contains
       allocate(dsp(3,ng,ng,ng))
 
       dsp = 0
+      print*,''
       print*,'  read:'
       print*,'    ',output_name(namespace)
       open(15,file=output_name(namespace),status='old',access='stream')

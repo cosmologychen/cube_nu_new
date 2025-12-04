@@ -41,10 +41,12 @@ subroutine cross_power(xip,cube1,cube2)
   rho1=cube1
   call pencil_fft_forward
   cx1=cxyz/nw_global/nw_global/nw_global
+  print*, ' fft 1 done'
 
   rho1=cube2
   call pencil_fft_forward
   cx2=cxyz/nw_global/nw_global/nw_global
+  print*, ' fft 2 done'
   xi=0
   sync all
 #ifdef pl2d
@@ -65,9 +67,9 @@ subroutine cross_power(xip,cube1,cube2)
     if ((ig==1.or.ig==nw*nn/2+1) .and. jg>nw*nn/2+1) cycle
     if ((ig==1.or.ig==nw*nn/2+1) .and. (jg==1.or.jg==nw*nn/2+1) .and. kg>nw*nn/2+1) cycle
     kr=sqrt(kx(1)**2+kx(2)**2+kx(3)**2)
-    sincx=merge(1d0,sin(pi*kx(1)/nw_global)/(pi*kx(1)/nw_global),kx(1)==0.0)
-    sincy=merge(1d0,sin(pi*kx(2)/nw_global)/(pi*kx(2)/nw_global),kx(2)==0.0)
-    sincz=merge(1d0,sin(pi*kx(3)/nw_global)/(pi*kx(3)/nw_global),kx(3)==0.0)
+    ! sincx=merge(1d0,sin(pi*kx(1)/nw_global)/(pi*kx(1)/nw_global),kx(1)==0.0)
+    ! sincy=merge(1d0,sin(pi*kx(2)/nw_global)/(pi*kx(2)/nw_global),kx(2)==0.0)
+    ! sincz=merge(1d0,sin(pi*kx(3)/nw_global)/(pi*kx(3)/nw_global),kx(3)==0.0)
     sinc=sincx*sincy*sincz
 #   ifdef linear_kbin
       ibin=nint(kr)
@@ -77,9 +79,9 @@ subroutine cross_power(xip,cube1,cube2)
 #   endif
     xi(1,ibin)=xi(1,ibin)+1 ! number count
     xi(2,ibin)=xi(2,ibin)+kr ! k count
-    amp11=real(cx1(i,j,k)*conjg(cx1(i,j,k)))/(sinc**4.0)*4*pi*kr**3
-    amp22=real(cx2(i,j,k)*conjg(cx2(i,j,k)))/(sinc**4.0)*4*pi*kr**3
-    amp12=real(cx1(i,j,k)*conjg(cx2(i,j,k)))/(sinc**4.0)*4*pi*kr**3
+    amp11=real(cx1(i,j,k)*conjg(cx1(i,j,k)))!/(sinc**4.0)*4*pi*kr**3
+    amp22=real(cx2(i,j,k)*conjg(cx2(i,j,k)))!/(sinc**4.0)*4*pi*kr**3
+    amp12=real(cx1(i,j,k)*conjg(cx2(i,j,k)))!/(sinc**4.0)*4*pi*kr**3
 #ifdef pl2d
     kp=nint(sqrt(kx(1)**2+kx(3)**2))+1
     kl=abs(kx(2))+1
@@ -90,8 +92,8 @@ subroutine cross_power(xip,cube1,cube2)
     xi(3,ibin)=xi(3,ibin)+amp11 ! auto power 1
     xi(4,ibin)=xi(4,ibin)+amp22 ! auto power 2
     xi(5,ibin)=xi(5,ibin)+amp12 ! cross power
-    xi(6,ibin)=xi(6,ibin)+1/sinc**2.0 ! kernel 1
-    xi(7,ibin)=xi(7,ibin)+1/sinc**4.0 ! kernel 2
+    ! xi(6,ibin)=xi(6,ibin)+1/sinc**2.0 ! kernel 1
+    ! xi(7,ibin)=xi(7,ibin)+1/sinc**4.0 ! kernel 2
 
   enddo
   enddo
@@ -126,11 +128,11 @@ xip=xi(:,1:)
   xip(3,:)=xip(3,:)/xip(1,:) ! Delta_LL
   xip(4,:)=xip(4,:)/xip(1,:) ! Delta_RR
   xip(5,:)=xip(5,:)/xip(1,:) ! Delta_LR ! cross power
-  xip(6,:)=xip(6,:)/xip(1,:) ! kernel
-  xip(7,:)=xip(7,:)/xip(1,:) ! kernel
-  xip(8,:)=xip(5,:)/sqrt(xip(3,:)*xip(4,:)) ! r
-  xip(9,:)=sqrt(xip(4,:)/xip(3,:)) ! b
-  xip(10,:)=xip(8,:)**4/xip(9,:)**2 * xip(4,:) ! P_RR*r^4/b^2 reco power
+  ! xip(6,:)=xip(6,:)/xip(1,:) ! kernel
+  ! xip(7,:)=xip(7,:)/xip(1,:) ! kernel
+  ! xip(8,:)=xip(5,:)/sqrt(xip(3,:)*xip(4,:)) ! r
+  ! xip(9,:)=sqrt(xip(4,:)/xip(3,:)) ! b
+  ! xip(10,:)=xip(8,:)**4/xip(9,:)**2 * xip(4,:) ! P_RR*r^4/b^2 reco power
 
   sync all
 endsubroutine cross_power

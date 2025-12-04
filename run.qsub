@@ -24,10 +24,10 @@ ulimit -s unlimited
 ulimit -u unlimited 
 ulimit -v unlimited 
 
-# make clean &&make > make.log 
-cd utilities && make clean && make > make.log && cd .. 
-make
-echo make done
+# # make clean &&make > make.log 
+# cd utilities && make clean && make > make.log && cd .. 
+# make
+# echo make done
 
 echo ""
 echo ""
