@@ -1,5 +1,5 @@
 module power_nu
-   use cicpower_segment
+   use cicpower_global
    use parameters
    use ieee_arithmetic
    implicit none
@@ -490,15 +490,10 @@ contains
          if (head) print*,''
          if (head) print*,'Power_step'
          if (calculate_PK > 0)then
-            call get_power
+            call system_clock(tp1,tpr)
+            call global_power
             Pk_cb_check(:,sim%cur_powerpoint) = xi_cdm(5,1:)[1]
-
-            ! if ( sim%cur_powerpoint > 3 .and. z_powerpoint(sim%cur_powerpoint)>=0) then
-            !    write(str_z,'(f8.4)') z_powerpoint(sim%cur_powerpoint)
-            !    open(11,file=nupath//'Pk_cb_'//trim(adjustl(str_z))//'.txt',form='formatted')
-            !    read(11,*) Pk_cb_check(:,sim%cur_powerpoint)
-            !    close(11)
-            ! endif
+            sync all; call system_clock(tp2,tpr); if (head) print*,'     global_power elapsed time =',real(tp2-tp1)/tpr
          else
             if ( sim%cur_powerpoint > 3 .and. z_powerpoint(sim%cur_powerpoint)>=0) then
                write(str_z,'(f8.4)') z_powerpoint(sim%cur_powerpoint)
@@ -576,8 +571,7 @@ contains
       call interp_Pk_CDM
       sync all; call toc(96)
 
-      
-      Pk_step(ifs+1:,istep) = 0
+
       call tic(97)
       if (istep >0) then
          if(head) then
@@ -638,9 +632,9 @@ contains
          if(head) then
             print*,'  Pk_step',Pk_step(1,istep),Pk_step(npbin/3,istep),Pk_step(npbin/3*2,istep),Pk_step(npbin,istep)
             print*,'  Pk_nu',Pk_nu(1),Pk_nu(npbin/3),Pk_nu(npbin/3*2),Pk_nu(npbin)
-            print*,'  Pk_nu1',Pk_nus(1,1),Pk_nus(npbin/3,1),Pk_nus(npbin/3*2,1),Pk_nus(npbin,1)
-            print*,'  Pk_nu2',Pk_nus(1,2),Pk_nus(npbin/3,2),Pk_nus(npbin/3*2,2),Pk_nus(npbin,2)
-            print*,'  Pk_nu3',Pk_nus(1,3),Pk_nus(npbin/3,3),Pk_nus(npbin/3*2,3),Pk_nus(npbin,3)
+            if (m_nu(1)>0) print*,'  Pk_nu1',Pk_nus(1,1),Pk_nus(npbin/3,1),Pk_nus(npbin/3*2,1),Pk_nus(npbin,1)
+            if (m_nu(2)>0) print*,'  Pk_nu2',Pk_nus(1,2),Pk_nus(npbin/3,2),Pk_nus(npbin/3*2,2),Pk_nus(npbin,2)
+            if (m_nu(3)>0) print*,'  Pk_nu3',Pk_nus(1,3),Pk_nus(npbin/3,3),Pk_nus(npbin/3*2,3),Pk_nus(npbin,3)
             print*,'  tf_F',tf_F(1),tf_F(npbin/3),tf_F(npbin/3*2),tf_F(npbin)
             print*,'  path',nupath//'*/*_'//trim(adjustl(str_z))//'.txt'
          endif
@@ -660,6 +654,7 @@ contains
             error stop 'tf_F err'
          endif
       endif
+      Pk_step(ifs+1:,istep) = 0
       call toc(97)
 
       call tic(98)

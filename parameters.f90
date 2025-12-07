@@ -155,6 +155,7 @@ module parameters
 
 
    !nu
+   character(*),parameter :: nupath=trim(adjustl(opath))//'neutrinos/' !path for Pk_nu from camb
    real z_powerpoint(nmax_redshift)[*] ! calculate Pk
    integer(8) n_powerpoint[*]
    logical power_step[*]
@@ -170,19 +171,12 @@ module parameters
    real(8),parameter :: k_b = 8.617342e-5 !the Boltzmann’s con-stant
    real(8),parameter :: a_nu=0 ! 1./(595./5.47*(Mass_nu/3)/0.1+0.01) ! nu is matter in a_nu
 
-   integer(8),parameter :: cic_iapm=2 ! fine grid
-   real,parameter :: tile = box/nn/nnt ! length of tile
-   real,parameter :: subtile = box/nn/nnt/nns ! length of subtile
-   integer(8),parameter :: calculate_PK = 1
-   character(*),parameter :: nupath=trim(adjustl(opath))//'neutrinos/' !path for Pk_nu from camb
-   integer(8),parameter :: nfg=max((nfp(cic_iapm)*nnt*nns*1.),(ngp*nnt*1.))
-   integer(8),parameter :: nfg_global=nfg*nn
-   integer(8),parameter :: ngbin=int(nfg*nn/2*sqrt(3.))+22
-   integer(8),parameter :: npf=max((nft(6)*1.),(ngt*1.))
-   integer(8),parameter :: ncbin=int(nc*nn/2*sqrt(3.))+22
-   integer(8),parameter :: nnbin=int(npf/2*sqrt(3.))+1 !Pk_tlile bin
-   integer(8),parameter :: npbin= ncbin+nnbin! Pk bin
+   real(8),parameter :: k_smooth=max(10.0,ng_global*pi/box) !smooth the tf in k >k_smooth
    integer(8),parameter :: tf_smooth=100 !smooth the tf in k >tf_smooth*k_fs
+   integer(8),parameter :: calculate_PK = 1
+   integer(8),parameter :: nfg=min(ceiling((k_smooth*box/pi/nn) / nc)*nc*1.,ng*1.)
+   integer(8),parameter :: nfg_global=nfg*nn
+   integer(8),parameter :: npbin=int(nfg_global/2*sqrt(3.))+22
 
 
 

@@ -294,11 +294,8 @@ contains
                czzzxy_global((nfg/nn),nn,nn,nfg/2+1,(nfg/nn))[nn,nn,*])
 
       call sfftw_plan_many_dft_r2c(planx_global,1,nfg_global,nfg*(nfg/nn),cxyz_global,NULL_global,1,nfg_global+2,cxyz_global,NULL_global,1,nfg_global/2+1,FFTW_MEASURE)
-      ! call sfftw_plan_many_dft_c2r(iplanx_global,1,nfg_global,nfg*(nfg/nn),cxyz_global,NULL_global,1,nfg_global/2+1,cxyz_global,NULL_global,1,nfg_global+2,FFTW_MEASURE)
       call sfftw_plan_many_dft(plany_global,1,nfg_global,(nfg/2+1)*(nfg/nn),cyyxz_global,NULL_global,1,nfg_global,cyyxz_global,NULL_global,1,nfg_global,FFTW_FORWARD,FFTW_MEASURE)
-      ! call sfftw_plan_many_dft(iplany_global,1,nfg_global,(nfg/2+1)*(nfg/nn),cyyxz_global,NULL_global,1,nfg_global,cyyxz_global,NULL_global,1,nfg_global,FFTW_BACKWARD,FFTW_MEASURE)
       call sfftw_plan_many_dft(planz_global,1,nfg_global,(nfg/2+1)*(nfg/nn),czzzxy_global,NULL_global,1,nfg_global,czzzxy_global,NULL_global,1,nfg_global,FFTW_FORWARD,FFTW_MEASURE)
-      ! call sfftw_plan_many_dft(iplanz_global,1,nfg_global,(nfg/2+1)*(nfg/nn),czzzxy_global,NULL_global,1,nfg_global,czzzxy_global,NULL_global,1,nfg_global,FFTW_BACKWARD,FFTW_MEASURE)
       sync all
    endsubroutine
 
@@ -310,11 +307,8 @@ contains
       deallocate(rho1_global,rho1k_global,cxyz_global,cyyxz_global,czzzxy_global)
 
       call sfftw_destroy_plan(planx_global)
-      ! call sfftw_destroy_plan(iplanx_global)
       call sfftw_destroy_plan(plany_global)
-      ! call sfftw_destroy_plan(iplany_global)
       call sfftw_destroy_plan(planz_global)
-      ! call sfftw_destroy_plan(iplanz_global)
       sync all
    endsubroutine
 endmodule

@@ -36,9 +36,9 @@ gadget_snap_fof.o:parameters.o variables.o particle_initialization.o buffer_grid
 
 # cubefft.o: ../cubefft.f90
 # 	$(FC) $(OFLAG) $(OPTIONS) $< -o $@ $(FFTFLAG)
-# cicpower_segment.o: ../neutrinos/cicpower_segment.f90 variables.o cubefft.o pencil_fft.o parameters.o
+# cicpower_global.o: ../neutrinos/cicpower_global.f90 variables.o cubefft.o pencil_fft.o parameters.o
 # 	$(FC) $(OFLAG) $(OPTIONS) $< -o $@ $(FFTFLAG)
-# power_nu.o: ../neutrinos/power_nu.f90 variables.o parameters.o cicpower_segment.o
+# power_nu.o: ../neutrinos/power_nu.f90 variables.o parameters.o cicpower_global.o
 # 	$(FC) $(OFLAG) $(OPTIONS) $< -o $@ $(FFTFLAG)
 parameters.o: ../parameters.f90
 	$(FC) $(OFLAG) $(OPTIONS) $<

@@ -194,24 +194,16 @@ if (1):
     nns = match_para('nns')
     nnt = match_para('nnt')
     nn = match_para('nn')
-    ngp = ng/nnt
     ngb = match_para('ngb')
     istep_max = match_para('istep_max')
-    ngt=ngp+2*ngb 
-    nfp=(ngp/nns)*ratio_sf
-    nfb=ratio_sf*ratio_cs
-    nft=nfp+2*nfb
-    cic_iapm = 6-1#int(match_para('cic_iapm'))-1
-    tile = box/nn/nnt*ngt/ngp
-    nw = ng/ratio_cs
-    nw_global=nw*nn
-    nyquist=nw_global/2
-    subtile = box/nn/nnt/nns*(nft[cic_iapm]/nfp[cic_iapm])
-    ncbin = int(nyquist*np.sqrt(3.))+1
-    nnbin= int(np.max([nft[cic_iapm],ngt])/2*np.sqrt(3.))+1
-    npbin  = ncbin+nnbin+21
+    nc =  ng/nnt
+    ng_global = ng*nn
+    k_smooth = max(10.0,ng_global*pi/box)
+    nfg = min(np.ceil((k_smooth*box/pi/nn) / nc)*nc,ng*1.)
+    nfg_global=nfg*nn
+    npbin=int(nfg_global/2*np.sqrt(3.))+21
     kmin = 2*pi/box
-    kmax = 2*pi/(box/nn/nnt/nns/nfp[cic_iapm]*2/np.sqrt(3))
+    kmax = pi/box*nfg_global*np.sqrt(3)
     ombh2 = omega_bar*(H0/100)**2
     omch2 = omega_cdm*(H0/100)**2
 
@@ -241,7 +233,7 @@ if (1):
     print(f"Variable value of nupath : {nupath}")
     print('\n'+('+'*40+'\n')*2)
     print('Cosmology  Paras:\n\n   omega_r:   %.6f\n   omega_b:   %.6f\n   omega_c:   %.6f\n   omega_l:   %.6f\n   mass_nu:   %.3f              eV\n  mass_nus:   %.3f %.3f %.3f %s  eV\n      f_nu:   %.6f\n\n'%(omega_r,omega_bar,omega_cdm,omega_l,Mass_nu,m_nus[0],m_nus[1],m_nus[2],neutrino_hierarchy,f_nu))
-    print('Simulation Paras:\n\n     npbin:   %d\n     ncbin:   %d\n     nnbin:   %d\n      kmin:   %.3f\n      kmax:   %.3f\n\n\n'%(npbin,ncbin,nnbin,kmin,kmax))
+    print('Simulation Paras:\n\n     nfg:   %d\n     npbin:   %d\n     kmin:   %.3f\n      kmax:   %.3f\n\n\n'%(nfg,npbin,kmin,kmax))
 
 
 

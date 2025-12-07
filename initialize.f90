@@ -98,15 +98,8 @@ subroutine initialize
    if (Mass_nu > 0) then
       if (head) then
          print*,'init nu_info'
-         if (calculate_PK <2) then
-            print*,'  npb ncb nnb',npbin,ncbin,nnbin
-            print*,'  tile subtile',tile,subtile
-         else
-            print*,'  nft,ngt',nfp(cic_iapm),ngp
-            print*,'  nftg,ngtg',(nfp(cic_iapm)*nnt*nns*1.),(ngp*nnt*1.)
-            print*,'  npb ncb nnb',npbin,ncbin,nnbin
-            print*,'  npb ngb',npbin,ngbin
-            print*,'  nfg nfg_global',nfg,nfg_global
+         if (calculate_PK == 2) then
+            print*,'  nfg nfg_global,npbin',nfg,nfg_global,npbin
          endif
          print*,'  z_nu_start f_nu',1/a_nu-1,f_nu
          print*,'  nupath:',nupath

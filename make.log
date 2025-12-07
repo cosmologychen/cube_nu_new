@@ -4,7 +4,7 @@ ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file
 ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt -c -DPID pencil_fft.f90 -o pencil_fft.o -I/opt/intel2018update3/mkl/include/fftw -mkl
 ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt -c -DPID cubefft.f90 -o cubefft.o -I/opt/intel2018update3/mkl/include/fftw -mkl
 ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt -c -DPID pencil_fft_global.f90 -o pencil_fft_global.o -I/opt/intel2018update3/mkl/include/fftw -mkl
-ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt -c -DPID neutrinos/cicpower_segment.f90 -o cicpower_segment.o -I/opt/intel2018update3/mkl/include/fftw -mkl
+ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt -c -DPID neutrinos/cicpower_global.f90 -o cicpower_global.o -I/opt/intel2018update3/mkl/include/fftw -mkl
 ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt -c -DPID neutrinos/power_nu.f90 -o power_nu.o -I/opt/intel2018update3/mkl/include/fftw -mkl
 ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt -c -DPID particle_mesh.f90 -o particle_mesh.o -I/opt/intel2018update3/mkl/include/fftw -mkl
 ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt -c -DPID buffer_grid.f90 -o buffer_grid.o -I/opt/intel2018update3/mkl/include/fftw -mkl

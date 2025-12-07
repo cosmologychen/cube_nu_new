@@ -48,9 +48,9 @@ subroutine checkpoint
      write(16) sf_step
      close(16)
      if (head) then
-        print*,'save s_f:',sf_step(sim%timestep),sim%timestep
-        print*,'save Pk:',Pk_step(1:4,sim%timestep),Pk_step(1:4,sim%timestep-1)
-        print*,'save Pk_check:',Pk_cb_check(1:4,sim%cur_powerpoint)
+        print*,'save s_f:',sf_step(sim%timestep-1),sim%timestep
+        print*,'save Pk:',Pk_step(1:4,sim%timestep-1),Pk_step(1:4,sim%timestep-2)
+        print*,'save Pk_check:',Pk_cb_check(1:4,sim%cur_powerpoint-1)
         print*,'save a,tau:',a_step(sim%timestep-4:sim%timestep),tau_step(sim%timestep-4:sim%timestep)
      endif
   endif

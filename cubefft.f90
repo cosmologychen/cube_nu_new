@@ -34,14 +34,7 @@ contains
          call sfftw_plan_dft_c2r_3d(iplan3(iteam,6),nft(6),nft(6),nft(6),rho3_12(:,:,:,iteam),rho3_12(:,:,:,iteam),FFTW_MEASURE)
         !  call sfftw_plan_dft_r2c_3d( plan3(iteam,7),nft(7),nft(7),nft(7),rho3_16(:,:,:,iteam),rho3_16(:,:,:,iteam),FFTW_MEASURE)
          !call sfftw_plan_dft_c2r_3d(iplan3(iteam,7),nft(7),nft(7),nft(7),rho3_16(:,:,:,iteam),rho3_16(:,:,:,iteam),FFTW_MEASURE)
-
-         ! Power-segment
-         call sfftw_plan_dft_r2c_3d( plan2p(iteam),ngp,ngp,ngp,rho2p(:,:,:,iteam),rho2p(:,:,:,iteam),FFTW_MEASURE)
-         call sfftw_plan_dft_r2c_3d( plan3p(iteam),nfp(cic_iapm),nfp(cic_iapm),nfp(cic_iapm),rho3p(:,:,:,iteam),rho3p(:,:,:,iteam),FFTW_MEASURE)
       enddo
-
-      !call sfftw_plan_dft_r2c_3d(plan0,ng,ng,ng,rho0,rho0,FFTW_MEASURE)
-      !call sfftw_plan_dft_c2r_3d(iplan0,ng,ng,ng,rho0,rho0,FFTW_MEASURE)
    endsubroutine create_cubefft_plan
 
    subroutine destroy_cubefft_plan

@@ -31,7 +31,7 @@ module variables
    real,parameter :: G_grid=1.0/6.0/pi
 
    integer ifs,itx,ity,itz,ifx,ify,ifz,iapm,napm(7)[*]
-   integer(8) plan1,plan2(nteam),plan3(nteam,2:7),iplan1,iplan2(nteam),iplan3(nteam,2:7),plan0,iplan0,plan2p(nteam),plan3p(nteam)!,iplan2p(nteam),iplan3p(nteam,2:7) ! FFT plans
+   integer(8) plan1,plan2(nteam),plan3(nteam,2:7),iplan1,iplan2(nteam),iplan3(nteam,2:7),plan0,iplan0 ! FFT plans
    integer(4) ijk(3,n_neighbor),iteam,ipm2,ipm3,ixyz2(3,nnt**3),ixyz3(6,(nnt*nns)**3)
    integer(OMP_integer_kind) ith,nth
 
@@ -70,10 +70,6 @@ module variables
    real rho2(1-ngb:ngp+ngb+2,1-ngb:ngp+ngb,1-ngb:ngp+ngb,nteam)
    complex rho2k(ngt/2+1,ngt,ngt,nteam)
    equivalence(rho2,rho2k)
-   real rho2p(ngp+2,ngp,ngp,nteam),rho3p(nfp(cic_iapm)+2,nfp(cic_iapm),nfp(cic_iapm),nteam)
-   complex rho2kp(ngp/2+1,ngp,ngp,nteam),rho3kp(nfp(cic_iapm)/2+1,nfp(cic_iapm),nfp(cic_iapm),nteam)
-   equivalence(rho2p,rho2kp)
-   equivalence(rho3p,rho3kp)
 !#ifdef skip
    real rho3_2(1-nfb(2):nfp(2)+nfb(2)+2,1-nfb(2):nfp(2)+nfb(2),1-nfb(2):nfp(2)+nfb(2),nteam)
    real rho3_4(1-nfb(3):nfp(3)+nfb(3)+2,1-nfb(3):nfp(3)+nfb(3),1-nfb(3):nfp(3)+nfb(3),nteam)
