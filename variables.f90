@@ -40,7 +40,7 @@ module variables
    real(8) testrho,std_vsim_c[*],std_vsim_res[*],std_vsim[*]
 
    real,allocatable :: Gk1(:,:,:),Gk2(:,:,:),Gk3_2(:,:,:),Gk3_4(:,:,:)
-   real,allocatable :: Gk3_6(:,:,:),Gk3_8(:,:,:),Gk3_12(:,:,:),Gk3_16(:,:,:),Gk0(:,:,:) ! Green's functions
+   real,allocatable :: Gk3_6(:,:,:),Gk3_8(:,:,:)!,Gk3_12(:,:,:),Gk3_16(:,:,:),Gk0(:,:,:) ! Green's functions
 
    integer(4),allocatable :: rhoc(:,:,:,:,:,:)[:,:,:]
 #ifdef ZIPX
@@ -75,19 +75,19 @@ module variables
    real rho3_4(1-nfb(3):nfp(3)+nfb(3)+2,1-nfb(3):nfp(3)+nfb(3),1-nfb(3):nfp(3)+nfb(3),nteam)
    real rho3_6(1-nfb(4):nfp(4)+nfb(4)+2,1-nfb(4):nfp(4)+nfb(4),1-nfb(4):nfp(4)+nfb(4),nteam)
    real rho3_8(1-nfb(5):nfp(5)+nfb(5)+2,1-nfb(5):nfp(5)+nfb(5),1-nfb(5):nfp(5)+nfb(5),nteam)
-   real rho3_12(1-nfb(6):nfp(6)+nfb(6)+2,1-nfb(6):nfp(6)+nfb(6),1-nfb(6):nfp(6)+nfb(6),nteam)
+   !real rho3_12(1-nfb(6):nfp(6)+nfb(6)+2,1-nfb(6):nfp(6)+nfb(6),1-nfb(6):nfp(6)+nfb(6),nteam)
    !real rho3_16(1-nfb(7):nfp(7)+nfb(7)+2,1-nfb(7):nfp(7)+nfb(7),1-nfb(7):nfp(7)+nfb(7))
    complex rho3k_2(nft(2)/2+1,nft(2),nft(2),nteam)
    complex rho3k_4(nft(3)/2+1,nft(3),nft(3),nteam)
    complex rho3k_6(nft(4)/2+1,nft(4),nft(4),nteam)
    complex rho3k_8(nft(5)/2+1,nft(5),nft(5),nteam)
-   complex rho3k_12(nft(6)/2+1,nft(6),nft(6),nteam)
+   !complex rho3k_12(nft(6)/2+1,nft(6),nft(6),nteam)
    !complex rho3k_16(nft(7)/2+1,nft(7),nft(7))
    equivalence(rho3_2,rho3k_2)
    equivalence(rho3_4,rho3k_4)
    equivalence(rho3_6,rho3k_6)
    equivalence(rho3_8,rho3k_8)
-   equivalence(rho3_12,rho3k_12)
+   !equivalence(rho3_12,rho3k_12)
    !equivalence(rho3_16,rho3k_16)
 !#endif
 

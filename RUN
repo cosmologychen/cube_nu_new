@@ -28,7 +28,7 @@ M_nu=0.1
 checkpoint=1
 ng=512
 nn=1
-Cpk=1
+Cpk=2
 
 #### input_para ####
 if [ ! -z "$1" ]; then

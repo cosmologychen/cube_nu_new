@@ -173,7 +173,7 @@ module parameters
 
    real(8),parameter :: k_smooth=max(10.0,ng_global*pi/box) !smooth the tf in k >k_smooth
    integer(8),parameter :: tf_smooth=100 !smooth the tf in k >tf_smooth*k_fs
-   integer(8),parameter :: calculate_PK = 1
+   integer(8),parameter :: calculate_PK = 2
    integer(8),parameter :: nfg=min(ceiling((k_smooth*box/pi/nn) / nc)*nc*1.,ng*1.)
    integer(8),parameter :: nfg_global=nfg*nn
    integer(8),parameter :: npbin=int(nfg_global/2*sqrt(3.))+22

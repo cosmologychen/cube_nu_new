@@ -661,20 +661,16 @@ contains
       if (sim%a < 1) then
          tf_F_log = log(tf_F(:)[1])
          call nu_correction_coarse()
-         pm%nwork = ngt   ;call nu_correction(tf2   ,Gk2   ,tile   )!,k_tf2   )
-         pm%nwork = nft(2);call nu_correction(tf3_2 ,Gk3_2 ,subtile)!,k_tf3_2 )
-         pm%nwork = nft(3);call nu_correction(tf3_4 ,Gk3_4 ,subtile)!,k_tf3_4 )
-         pm%nwork = nft(4);call nu_correction(tf3_6 ,Gk3_6 ,subtile)!,k_tf3_6 )
-         pm%nwork = nft(5);call nu_correction(tf3_8 ,Gk3_8 ,subtile)!,k_tf3_8 )
-         pm%nwork = nft(6);call nu_correction(tf3_12,Gk3_12,subtile)!,k_tf3_12)
-         ! if (head) print*,'  tf3_8 ',minval(tf3_8),maxval(tf3_8),interp_tf_F(kh_lin_log,real(pm%nwork*pi/subtile))
-         ! if (head) print*,'  tf3_12',minval(tf3_12),maxval(tf3_12),interp_tf_F(kh_lin_log,real(pm%nwork*pi/subtile))
-         ! stop
+         pm%nwork = ngt   ;call nu_correction(tf2   ,Gk2   ,box/nn/nnt    )
+         pm%nwork = nft(2);call nu_correction(tf3_2 ,Gk3_2 ,box/nn/nnt/nns)
+         pm%nwork = nft(3);call nu_correction(tf3_4 ,Gk3_4 ,box/nn/nnt/nns)
+         pm%nwork = nft(4);call nu_correction(tf3_6 ,Gk3_6 ,box/nn/nnt/nns)
+         pm%nwork = nft(5);call nu_correction(tf3_8 ,Gk3_8 ,box/nn/nnt/nns)
       endif
       sync all; call toc(98)
    endsubroutine
 
-   subroutine nu_correction(tfk,Gk,size)!,k_tf)
+   subroutine nu_correction(tfk,Gk,size)
       use omp_lib
       use variables
       use parameters
