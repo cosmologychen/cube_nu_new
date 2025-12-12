@@ -78,6 +78,11 @@ use variables
    call buffer_grid
    call buffer_x
    call buffer_v
+   if (sim%cur_powerpoint == 1 .and. Mass_nu > 0 ) then
+      power_step = .true.
+      call interp_Pk_CDM
+      sim%cur_powerpoint = 2
+   endif
    sim%cur_checkpoint = sim%cur_checkpoint+1
    sim%cur_halofind = sim%cur_halofind+1
    ! print*,'checkpoint ',sim%cur_checkpoint

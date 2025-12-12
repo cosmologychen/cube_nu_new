@@ -1,11 +1,11 @@
 !! read existing random seed to generate random numbers
-#define READ_SEED
+!#define READ_SEED
 #define USE_PKIC
 ! #define READ_K_HALF
 ! #define WRITE_K_HALF
 
 !! read same random noise to generate same initial conditions
-! #define READ_NOISE
+!#define READ_NOISE
 !#define macbook
 !#define ELUCID_big
 

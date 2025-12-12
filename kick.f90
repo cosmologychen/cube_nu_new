@@ -6,8 +6,8 @@ subroutine kick
    use power_nu
    implicit none
 
-   logical,parameter :: PM3=.true.
-   logical,parameter :: PP=.true.
+  logical,parameter :: PM3=.true.
+  logical,parameter :: PP=.true.
    logical,parameter :: PP_corr=.true.
    logical,parameter :: speedtest=.false.
    integer inode,itile,np_phy,nl(3),nh(3),i1,i2,it,i3,isort(ns3),ires(ns3),rcp,npgrid,nptile
@@ -135,8 +135,8 @@ subroutine kick
       enddo
       call indexed_sort(ns3,-npc_max,isort)
       !print*,npc_max
-      print*,isort
-      print*,npc_max(isort)
+      ! print*,isort
+      ! print*,npc_max(isort)
    endif  ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    sync all
 

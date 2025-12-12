@@ -201,7 +201,7 @@ if (1):
     k_smooth = max(10.0,ng_global*pi/box)
     nfg = min(np.ceil((k_smooth*box/pi/nn) / nc)*nc,ng*1.)
     nfg_global=nfg*nn
-    npbin=int(nfg_global/2*np.sqrt(3.))+21
+    npbin=int(nfg_global/2*np.sqrt(3.))+22
     kmin = 2*pi/box
     kmax = pi/box*nfg_global*np.sqrt(3)
     ombh2 = omega_bar*(H0/100)**2

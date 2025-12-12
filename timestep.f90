@@ -15,11 +15,6 @@ subroutine timestep
    sim%timestep=sim%timestep+1
    call tic(1)
    if (head) then
-! #ifndef SPEEDTEST
-!       open(101,file=output_name('tcat'),status='replace',access='stream')
-!       write(101) int(sim%timestep,kind=4), tcat(:,:sim%timestep)
-!       close(101)
-! #endif
       print*, ''
       print*, '-------------------------------------------------------'
       print*, 'timestep    :',sim%timestep
@@ -27,11 +22,8 @@ subroutine timestep
       ntry=0
       do
          ntry=ntry+1
-         ! call expansion(sim%a,dt_e,da_1,da_2)
-         ! da=da_1+da_2
          da = expansion(sim%a,dt_e)
          ra=da/(sim%a+da)
-         ! print*,ntry,dt_e,ra,da,sim%a+da
          if (ra>ra_max) then
             dt_e=dt_e*(ra_max/ra)
          else
@@ -40,30 +32,29 @@ subroutine timestep
          if (ntry>10) exit
       enddo
       dt=min(dt_e,sim%dt_pm1,sim%dt_pm2,sim%dt_pm3,dt_refine*sim%dt_pp,sim%dt_vmax)
-      ! call expansion(sim%a,dt,da_1,da_2)
-      ! da=da_1+da_2
       da = expansion(sim%a,dt)
       ! check if checkpointing is needed
       checkpoint_step=.false.
       halofind_step=.false.
+      power_step = .false.
 #   ifdef HALOFIND
       z_next=max(z_checkpoint(sim%cur_checkpoint),z_halofind(sim%cur_halofind))
 #   else
       z_next=z_checkpoint(sim%cur_checkpoint)
 #   endif
-      a_next=1.0/(1+z_next)
+      if (Mass_nu > 0.0) z_next = max(z_next,z_powerpoint(sim%cur_powerpoint))
+      a_next=1.0/(1+z_next) 
       if (da>=a_next-sim%a) then
          if (z_next==z_checkpoint(sim%cur_checkpoint)) then
             checkpoint_step=.true.
             if (sim%cur_checkpoint==n_checkpoint) final_step=.true.
          endif
+         if (z_next==z_powerpoint(sim%cur_powerpoint)) power_step=.true.
 #   ifdef HALOFIND
          if (z_next==z_halofind(sim%cur_halofind)) halofind_step=.true.
 #   endif
          do while (abs((sim%a+da)/a_next-1)>=1e-6 .or. (sim%a+da) > 1)
             dt=dt*(a_next-sim%a)/da
-            ! call expansion(sim%a,dt,da_1,da_2)
-            ! da=da_1+da_2
             da = expansion(sim%a,dt)
             ! print*, 'a+da, dt, z+dz, err_a', sim%a+da, dt, 1.0/(sim%a+da)-1.0, (sim%a+da)/a_next-1
          enddo
@@ -79,13 +70,7 @@ subroutine timestep
       tcat(43,istep)=sim%a+da
 
       !nu
-      power_step=.false.
       dtau = dtau_a(sim%a+da)
-      z_next=z_powerpoint(sim%cur_powerpoint)
-      a_next=1.0/(1+z_next)
-      if (da>=a_next-sim%a) then
-         power_step = .true.
-      endif
 
       print*, 'tau         :',sim%tau,sim%tau+dtau
       print*, 'z         :',1.0/sim%a-1.0,1.0/(sim%a+da)-1.0
@@ -118,8 +103,6 @@ subroutine timestep
    power_step=power_step[1]
    tau_step=tau_step(:)[1]
    a_step=a_step(:)[1]
-   sync all
-
 #ifdef HALOFIND
    halofind_step=halofind_step[1]
 #endif

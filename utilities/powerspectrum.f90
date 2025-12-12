@@ -209,126 +209,6 @@ subroutine auto_power(xi,cube1,n_particle,n_interp)
   sync all
 endsubroutine auto_power
 
-subroutine auto_power_new(a,xi,cube1,n_particle,n_interp)
-  use omp_lib
-  implicit none
-  
-  integer(4) t_xi1,t_xi2,t_xi_rate
-
-  integer i,j,k,ibin,n_interp
-  integer(8) n_particle
-  logical icj,ick
-  real a,cube1(nw,nw,nw),xi(10,0:nbin)[*],kkr
-  real,allocatable :: kx(:,:,:,:),C1k(:,:,:,:),amp11(:,:,:),Dk(:,:,:),kr(:,:,:)
-
-
-
-
-  xi=0
-  rho1=cube1
-  call pencil_fft_forward
-  cxyz=cxyz/nw_global/nw_global/nw_global
-  sync all
-
-
-  icj = ((icx-1) >= nn/2)
-  ick = ((nn*(icz-1)+icy-1) >= nn*nn/2)
-  call system_clock(t_xi1,t_xi_rate)
-  allocate(kx(3,nyquist+1,nw,npen),C1k(3,nyquist+1,nw,npen),Dk(nyquist+1,nw,npen))
-  !! !$omp workshare
-  kx(3,:,:,:)=(nn*(icz-1)+icy-1)*npen
-  kx(2,:,:,:)=(icx-1)*nw
-  kx(1,:,:,:)=kx(1,:,:,:)+spread(spread([(k,k=1,nyquist+1)], dim=2, ncopies=nw), dim=3, ncopies=npen)
-  kx(2,:,:,:)=kx(2,:,:,:)+spread(spread([(k,k=1,nw)], dim=1, ncopies=nyquist+1), dim=3, ncopies=npen)
-  kx(3,:,:,:)=kx(3,:,:,:)+spread(spread([(k,k=1,npen)], dim=1, ncopies=nyquist+1), dim=2, ncopies=nw)
-  kx=mod(kx+nyquist-1,spread(spread(spread(spread(real(ng_global),dim=1,ncopies=3),dim=2,ncopies=nyquist+1), dim=3, ncopies=nw), dim=4, ncopies=npen))-nyquist
-  !! !$omp endworkshare
-  call system_clock(t_xi2,t_xi_rate)
-  print*,'    init k elapsed time =',real(t_xi2-t_xi1)/t_xi_rate,'secs';
-
-  call system_clock(t_xi1,t_xi_rate)
-  if (n_interp==1) then ! NGP
-    C1k=1
-  elseif (n_interp==2) then ! CIC
-    !! !$omp workshare
-    C1k=1-(2./3.)*sin(pi*kx/nw_global)**2
-    !! !$omp endworkshare
-  elseif (n_interp==3) then ! TSC
-    !! !$omp workshare
-    C1k=1-sin(pi*kx/nw_global)**2+(2./15.)*sin(pi*kx/nw_global)**4
-    !! !$omp endworkshare
-  endif
-  call system_clock(t_xi2,t_xi_rate)
-  print*,'    init C1k elapsed time =',real(t_xi2-t_xi1)/t_xi_rate,'secs';
-
-
-  call system_clock(t_xi1,t_xi_rate)
-  !!! $omp workshare
-  Dk=(C1k(1,:,:,:)*C1k(2,:,:,:)*C1k(3,:,:,:))/n_particle
-  !! !$omp endworkshare
-  deallocate(C1k)
-  call system_clock(t_xi2,t_xi_rate)
-  print*,'    init Dk elapsed time =',real(t_xi2-t_xi1)/t_xi_rate,'secs';
-
-  call system_clock(t_xi1,t_xi_rate)
-  allocate(kr(nyquist+1,nw,npen))
-  !! !$omp workshare
-  kr=sqrt(kx(1,:,:,:)**2+kx(2,:,:,:)**2+kx(3,:,:,:)**2)
-  !! !$omp endworkshare
-  deallocate(kx)
-  call system_clock(t_xi2,t_xi_rate)
-  print*,'    init kr elapsed time =',real(t_xi2-t_xi1)/t_xi_rate,'secs';
-
-  call system_clock(t_xi1,t_xi_rate)
-  allocate(amp11(nyquist+1,nw,npen))
-  !! !$omp workshare
-  amp11=real(cxyz*conjg(cxyz))
-  Dk=amp11-Dk
-  !! !$omp endworkshare
-  call system_clock(t_xi2,t_xi_rate)
-  print*,'    init amp11 elapsed time =',real(t_xi2-t_xi1)/t_xi_rate,'secs';
-
-  call system_clock(t_xi1,t_xi_rate)
-  do k=1,npen
-  do j=1,nw
-  do i=1,nyquist+1
-    kkr=kr(i,j,k)
-    if (kkr==0) cycle ! zero frequency
-    if ((i==1 .or. i==nyquist+1) .and. icj .and. j>1) cycle
-    if ((i==1 .or. i==nyquist+1) .and. (j == 1 .and.(icx==1 .or. icx==nn/2)) .and. ick .and. k >1) cycle
-    ibin=nint(kkr)
-    xi(1,ibin)=xi(1,ibin)+1 ! number count
-    xi(2,ibin)=xi(2,ibin)+kkr ! k count
-    xi(3,ibin)=xi(3,ibin)+amp11(i,j,k) ! raw power
-    xi(4,ibin)=xi(4,ibin)+Dk(i,j,k) ! P_r(k)
-  enddo
-  enddo
-  enddo
-  deallocate(amp11,Dk,kr)
-  sync all
-  call system_clock(t_xi2,t_xi_rate)
-  print*,'    auto power new elapsed time =',real(t_xi2-t_xi1)/t_xi_rate,'secs';
-  if (head) then ! in head node, reduce and recover P(k)
-    do i=2,nn**3
-      xi=xi+xi(:,:)[i]
-    enddo
-    xi(2,:)=xi(2,:)/xi(1,:)
-    xi(3,:)=xi(3,:)/xi(1,:) ! raw power
-    xi(4,:)=xi(4,:)/xi(1,:) ! raw power - Dk
-    xi(5,:)=xi(4,:)
-    ! if (a>0.4) call pk_correction(xi,n_interp,3)
-    ! if (a>0.4) call pk_correction(xi,n_interp,3)
-    ! if (a>0.4) call pk_correction(xi,n_interp,3)
-    ! if (a>0.4) call pk_correction(xi,n_interp,3)
-    ! divide and normalize
-    xi(2,:)=xi(2,:)*(2*pi)/box ! k_phys  
-    xi(3,:)=xi(3,:)*(box**3) ! power_phys
-    xi(4,:)=xi(4,:)*(box**3) ! power_phys
-    xi(5,:)=xi(5,:)*(box**3) ! power_phys
-  endif
-  sync all
-endsubroutine auto_power_new
-
 subroutine pk_correction(xi,p,n_int,alpha)
   use omp_lib
   implicit none
@@ -436,12 +316,13 @@ subroutine density_to_potential(cube1)
 
 endsubroutine
 
-subroutine nu_correction_cic()
+subroutine cdm_2_nu(fn_tf)
     use omp_lib
     use parameters
     use pencil_fft
     implicit none
 
+    character(300) :: fn_tf
     integer i,j,k,ig,jg,kg
     real kr,kx(3)
     character(20) str_z
@@ -451,7 +332,7 @@ subroutine nu_correction_cic()
 
     write(str_z,'(f8.4)') z_powerpoint(sim%cur_powerpoint)
     print*,'z=',str_z,npbin
-    open(10,file=nupath//'tf/Tf_nu_'//trim(adjustl(str_z))//'.txt',status='old',access='stream'); read(10) tf_F; close(10)
+    open(10,file=trim(fn_tf),status='old',access='stream'); read(10) tf_F; close(10)
     tf_F = (tf_F-(1-f_nu))/f_nu
     print*, 'tf_F',tf_F(1),tf_F(2),tf_F(npbin)
     kh_lin = -1

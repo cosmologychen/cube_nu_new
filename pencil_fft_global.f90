@@ -25,54 +25,54 @@ contains
       call system_clock(tt1,t_rate)
       call c2x_global
       sync all; call system_clock(tt2,t_rate); if (head) print*,'     c2x_global',real(tt2-tt1)/t_rate
-      call flush(6)
+      !call flush(6)
       sync all
 
       call system_clock(tt1,t_rate)
       call sfftw_execute(planx_global)
       sync all; call system_clock(tt2,t_rate); if (head) print*,'     xtran_global',real(tt2-tt1)/t_rate
-      call flush(6)
+      !call flush(6)
       sync all
 
       call system_clock(tt1,t_rate)
       call x2y_global
       sync all; call system_clock(tt2,t_rate); if (head) print*,'     x2y_global',real(tt2-tt1)/t_rate
-      call flush(6)
+      !call flush(6)
       sync all
 
       call system_clock(tt1,t_rate)
       call sfftw_execute(plany_global)
       sync all; call system_clock(tt2,t_rate); if (head) print*,'     ytran_global',real(tt2-tt1)/t_rate
-      call flush(6)
+      !call flush(6)
       sync all
 
       call system_clock(tt1,t_rate)
       call y2z_global
       sync all; call system_clock(tt2,t_rate); if (head) print*,'     y2z_global',real(tt2-tt1)/t_rate
-      call flush(6)
+      !call flush(6)
       sync all
 
       call system_clock(tt1,t_rate)
       call sfftw_execute(planz_global)
       sync all; call system_clock(tt2,t_rate); if (head) print*,'     ztran_global',real(tt2-tt1)/t_rate
-      call flush(6)
+      !call flush(6)
       sync all
 
       call system_clock(tt1,t_rate)
       call z2y_global
       sync all; call system_clock(tt2,t_rate); if (head) print*,'     z2y_global',real(tt2-tt1)/t_rate
-      call flush(6)
+      !call flush(6)
       sync all
 
       call system_clock(tt1,t_rate)
       call y2x_global
       sync all; call system_clock(tt2,t_rate); if (head) print*,'     y2x_global',real(tt2-tt1)/t_rate
-      call flush(6)
+      !call flush(6)
       sync all
       
       cxyz_global=cxyz_global/nfg_global/nfg_global/nfg_global
       sync all; call system_clock(ttt2,t_rate); if (head) print*,'     pen_forward_global time',real(ttt2-ttt1)/t_rate
-      call flush(6)
+      !call flush(6)
       sync all
       ! stop
    endsubroutine
@@ -101,8 +101,8 @@ contains
       integer(8) i1,islab
       complex,allocatable :: ctransfer(:,:,:)[:,:,:]
 
-      print*,image
-      call flush(6)
+     ! print*,image
+      !call flush(6)
       sync all
 
       rho1k_global=cmplx(rho1_global(1::2,:,:),rho1_global(2::2,:,:))
@@ -120,8 +120,8 @@ contains
          sync all
       enddo
       deallocate(ctransfer)
-      print*,'a',image
-      call flush(6)
+      !print*,'a',image
+      !call flush(6)
       sync all
    endsubroutine
 
@@ -132,8 +132,8 @@ contains
       integer(8) i1,islab
       complex,allocatable :: ctransfer(:,:,:)[:,:,:]
 
-      print*,image
-      call flush(6)
+     ! print*,image
+      !call flush(6)
       sync all
 
       allocate(ctransfer(nfg,nfg/2+1,nn)[nn,nn,*])
@@ -150,8 +150,8 @@ contains
       enddo
       deallocate(ctransfer)
       sync all
-      print*,'a',image
-      call flush(6)
+      !print*,'a',image
+      !call flush(6)
       sync all
    endsubroutine
 
@@ -162,8 +162,8 @@ contains
       integer(8) i1,i2,islab
       complex,allocatable :: ctransfer(:,:,:,:)[:,:,:]
 
-      print*,image
-      call flush(6)
+     ! print*,image
+      !call flush(6)
       sync all
 
       allocate(ctransfer((nfg/nn),(nfg/nn),nn,nn)[nn,nn,*])
@@ -184,8 +184,8 @@ contains
       enddo
       deallocate(ctransfer)
       sync all
-      print*,'a',image
-      call flush(6)
+      !print*,'a',image
+      !call flush(6)
       sync all
    endsubroutine
 
@@ -195,8 +195,8 @@ contains
       integer(8) i1,i2,islab
       complex,allocatable :: ctransfer(:,:,:,:)[:,:,:]
 
-      print*,image
-      call flush(6)
+     ! print*,image
+      !call flush(6)
       sync all
 
       allocate(ctransfer((nfg/nn),(nfg/nn),nn,nn)[nn,nn,*])
@@ -218,8 +218,8 @@ contains
       enddo
       deallocate(ctransfer)
       sync all
-      print*,'a',image
-      call flush(6)
+      !print*,'a',image
+      !call flush(6)
       sync all
    endsubroutine
 
@@ -229,8 +229,8 @@ contains
       integer(8) i1,islab
       complex,allocatable :: ctransfer(:,:,:)[:,:,:]
 
-      print*,image
-      call flush(6)
+     ! print*,image
+      !call flush(6)
       sync all
 
       allocate(ctransfer(nfg/2+1,nfg,nn)[nn,nn,*])
@@ -247,8 +247,8 @@ contains
       enddo
       deallocate(ctransfer)
       sync all
-      print*,'a',image
-      call flush(6)
+      !print*,'a',image
+      !call flush(6)
       sync all
    endsubroutine
 

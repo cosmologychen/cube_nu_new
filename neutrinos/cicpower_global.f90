@@ -323,7 +323,7 @@ contains
          k_std_max = ng_global/box*pi
          k_global_max = nfg_global/box*pi
 
-         write(str_z,'(f7.3)') 1/sim%a-1
+         write(str_z,'(f7.3)') z_powerpoint(sim%cur_powerpoint)
          print*,'Write cicpower_global into',nupath//'Pk/'//trim(adjustl(str_z))//'_cicpower_global.bin'
          open(15,file=nupath//'Pk/'//trim(adjustl(str_z))//'_cicpower_global.bin',status='replace',access='stream')
          write(15) xiglobal(:,0:npbin)[1]
@@ -348,6 +348,7 @@ contains
          enddo
 
          if (xiglobal(5,j)*2 > xiglobal(5,i)) then
+            print*,'grid effect'
             k_std_max = k_std_max/2 ! grid effect
          else
             k_std_max = k_global_max
@@ -356,8 +357,10 @@ contains
          xi_log = log(xiglobal)
          xi_cdm(:5,:26) = xiglobal(:5,:26)
 
-         i = 27
-         do while(kh_lin(i) <= k_std_max)
+         i = 26
+         do while(kh_lin(i) <= k_std_max .and. i <= npbin)
+
+            i = i+1
             k_need_log = kh_lin_log(i)
 
             i1=1; i2=npbin
@@ -399,63 +402,57 @@ contains
 
             xi_cdm(:,i) = exp(k2*k_need_log**2+b2*k_need_log+c2)
             xi_cdm(2,i) = kh_lin(i)
-
-            i = i+1
          enddo
 
          xi_cdm_log = log(xi_cdm)
 
-         if (k_global_max > k_std_max) then
-            print*,'grid'
-            i1 = i-1
+         i1 = i-1
 
-            i2 = i1
-            do while(kh_lin(i2) > kh_lin(i1)/3)
-               i2 = i2-1
-            enddo
-   
-            i3 = i2
-            do while(kh_lin(i3) > 8*pi/box)
-               i3 = i3-1
-            enddo
+         i2 = i1
+         do while(kh_lin(i2) > kh_lin(i1)/3)
+            i2 = i2-1
+         enddo
 
-            ! print*,i,i1,i2,i3
-            ! print*,k_global_max,kh_lin(i1),kh_lin(i1)/4*3,kh_lin(i1)/2
-            ! print*,kh_lin(i),kh_lin(i1),kh_lin(i2),kh_lin(i3)
-            ! print*,xi_cdm_log(5,i),xi_cdm_log(5,i1),xi_cdm_log(5,i2),xi_cdm_log(5,i3)
-            ! print*,xi_cdm(5,i),xi_cdm(5,i1),xi_cdm(5,i2),xi_cdm(5,i3)
-            i=i1
-            a1 = (xi_cdm_log(:,i1)-xi_cdm_log(:,i2))/(xi_cdm_log(2,i1)-xi_cdm_log(2,i2))
-            a2 = (xi_cdm_log(:,i2)-xi_cdm_log(:,i3))/(xi_cdm_log(2,i2)-xi_cdm_log(2,i3))
-            k2 = (a1-a2)/(xi_cdm_log(2,i1)-xi_cdm_log(2,i3))
-            b2 = a1-k2*(xi_cdm_log(2,i1)+xi_cdm_log(2,i2))
-            c2 = xi_cdm_log(:,i1)-k2*xi_cdm_log(2,i1)**2-b2*xi_cdm_log(2,i1)
-            do while (i <= npbin)
-               k_need_log = kh_lin_log(i)
-               xi_real = exp(k2*k_need_log**2+b2*k_need_log+c2)
-               if(ieee_is_nan(xi_real(5))) then
-                  print*,'global xi_real err',i
-                  print*,a1(1:5)
-                  print*,a2(1:5)
-                  print*,k2(1:5)
-                  print*,b2(1:5)
-                  print*,c2(1:5)
-                  print*,k_need_log
-                  print*,xi_real(1:5)
-                  print*,k2(1:5)*k_need_log**2+b2(1:5)*k_need_log+c2(1:5)
-                  error stop 'global xi_real err'
-               endif
-               xi_cdm(:,i) = xi_real(:)
-               xi_cdm(2,i) = kh_lin(i)
-               i = i+1
-            enddo
+         i3 = i2
+         do while(kh_lin(i3) > 8*pi/box)
+            i3 = i3-1
+         enddo
 
-         endif
+         ! print*,i,i1,i2,i3
+         ! print*,k_global_max,kh_lin(i1),kh_lin(i1)/4*3,kh_lin(i1)/2
+         ! print*,kh_lin(i),kh_lin(i1),kh_lin(i2),kh_lin(i3)
+         ! print*,xi_cdm_log(5,i),xi_cdm_log(5,i1),xi_cdm_log(5,i2),xi_cdm_log(5,i3)
+         ! print*,xi_cdm(5,i),xi_cdm(5,i1),xi_cdm(5,i2),xi_cdm(5,i3)
+         i=i1
+         a1 = (xi_cdm_log(:,i1)-xi_cdm_log(:,i2))/(xi_cdm_log(2,i1)-xi_cdm_log(2,i2))
+         a2 = (xi_cdm_log(:,i2)-xi_cdm_log(:,i3))/(xi_cdm_log(2,i2)-xi_cdm_log(2,i3))
+         k2 = (a1-a2)/(xi_cdm_log(2,i1)-xi_cdm_log(2,i3))
+         b2 = a1-k2*(xi_cdm_log(2,i1)+xi_cdm_log(2,i2))
+         c2 = xi_cdm_log(:,i1)-k2*xi_cdm_log(2,i1)**2-b2*xi_cdm_log(2,i1)
+         do while (i <= npbin)
+            i = i+1
+            k_need_log = kh_lin_log(i)
+            xi_real = exp(k2*k_need_log**2+b2*k_need_log+c2)
+            if(ieee_is_nan(xi_real(5))) then
+               print*,'global xi_real err',i
+               print*,a1(1:5)
+               print*,a2(1:5)
+               print*,k2(1:5)
+               print*,b2(1:5)
+               print*,c2(1:5)
+               print*,k_need_log
+               print*,xi_real(1:5)
+               print*,k2(1:5)*k_need_log**2+b2(1:5)*k_need_log+c2(1:5)
+               error stop 'global xi_real err'
+            endif
+            xi_cdm(:,i) = xi_real(:)
+            xi_cdm(2,i) = kh_lin(i)
+         enddo
 
-         write(str_i,'(i6)') image
-         write(str_z,'(f7.3)') 1/sim%a-1
+         write(str_z,'(f7.3)') z_powerpoint(sim%cur_powerpoint)
          print*,'   Write cicpower_global into'
          print*,'     ',nupath//'Pk/'//trim(adjustl(str_z))//'*.bin'
+         print*,'  cicpower_global_step',xi_cdm(5,1),xi_cdm(5,npbin/3),xi_cdm(5,npbin/3*2),xi_cdm(5,npbin)
          open(15,file=nupath//'Pk/'//trim(adjustl(str_z))//'_cicpower_gall.bin',status='replace',access='stream')
          write(15) xi_cdm(:,1:npbin)
          close(15)

@@ -214,6 +214,10 @@ contains
       a1 = (log(Pk(:, cur_powerpoint)) - log(Pk(:, cur_powerpoint - 1))) / (log_ap - log_ap1)
       a2 = (log(Pk(:, cur_powerpoint - 1)) - log(Pk(:, cur_powerpoint - 2))) / (log_ap1 - log_ap2)
       k2 = (a1 - a2) / (log_ap - log_ap2)
+      ! 强制曲率为非负：若为负，则退化为线性插值
+      where (k2 < 0.0d0)
+          k2 = 0.0d0
+      end where
       b2 = a1 - k2 * (log_ap + log_ap1)
       c2 = log(Pk(:, cur_powerpoint)) - k2 * log_ap ** 2 - b2 * log_ap
       result = exp(k2 * log_a ** 2 + b2 * log_a + c2)

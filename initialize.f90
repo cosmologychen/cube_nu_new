@@ -87,7 +87,6 @@ subroutine initialize
 
    !nu
    s_f=0
-   sim%cur_powerpoint=1
    z_powerpoint=-9999
    power_step=.false.
    a_step = 0
@@ -96,6 +95,7 @@ subroutine initialize
    Pk_cb_check =0
    Pk_nu_check =0
    if (Mass_nu > 0) then
+      sim%cur_powerpoint=1
       if (head) then
          print*,'init nu_info'
          if (calculate_PK == 2) then
@@ -153,6 +153,8 @@ subroutine initialize
          if (m_nu(i) /= 0) m_nu_2d(:,i)=spread(m_nu(i), dim=1, ncopies=npbin)
       enddo
       if(head) print*, 'm_nu_2d',m_nu_2d(1,:)
+   else
+      sim%cur_powerpoint = -1
    endif
 
 
@@ -283,7 +285,7 @@ subroutine initialize
       !close(10)
 
    endif
-   if (head) print*,'  Gk3_8 ',minval(Gk3_8 ),maxval(Gk3_8 )
+   ! if (head) print*,'  Gk3_8 ',minval(Gk3_8 ),maxval(Gk3_8 )
    ! if (head) print*,'  Gk3_12',minval(Gk3_12),maxval(Gk3_12)
    !print*,'Gk3',Gk3(1:3,1,1)
    !allocate(Gk0(ng/2+1,ng,ng))

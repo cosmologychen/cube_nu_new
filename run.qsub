@@ -1,15 +1,15 @@
 #!/bin/bash
-#PBS -N C2400512_0.1_1
+#PBS -N GP12001024_0.1_2
 #PBS -l nodes=1:ppn=64
 #PBS -l mem=300gb
 #PBS -q debug
 #PBS -j oe
-#PBS -o ./cic.log
+#PBS -o ./run.log
 
 
 
 cd $PBS_O_WORKDIR
-date > ./cic.log
+date > ./run.log
 export FC='ifort'
 export XFLAG_NO_OMP='-O3 -fpp -q -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt'
 export XFLAG='-O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt'
@@ -24,10 +24,6 @@ ulimit -s unlimited
 ulimit -u unlimited 
 ulimit -v unlimited 
 
-# # make clean &&make > make.log 
-# cd utilities && make clean && make > make.log && cd .. 
-# make
-# echo make done
 
 echo ""
 echo ""
@@ -39,19 +35,33 @@ sort $PBS_NODEFILE | uniq -c | awk -v npn=$ntasks_per_node  '{print \$2":"npn}' 
 HOST_FILE=./hostfile_$PROCS
 pwd
 
+run_program() {
+    local cmd="$1"
+    echo "Running $cmd"
+    echo "-genvall -machinefile $HOST_FILE -n $PROCS $cmd"   > cafconfig.txt 
+    $cmd
+    echo "Finish $cmd"
+}
 
- 
-### RUN ###.
+### RUN ###
 echo running with ${PBS_NP} processes on ${PBS_NUM_NODES} nodes
 echo "###############################################"
 echo "Start Running"
-#umask 002
-# IC="./utilities/ic.x"        &&echo "Running $IC"   &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $IC"   > cafconfig.txt &&$IC   && echo "Finish $IC"
-# cic="./utilities/cicpower.x" &&echo "Running $cic"  &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $cic"  > cafconfig.txt &&$cic  && echo "Finish $cic"
-# MAIN="./main.x"              &&echo "Running $MAIN" &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $MAIN" > cafconfig.txt &&$MAIN && echo "Finish $MAIN"
-# CIC="./utilities/cicpower.x" &&echo "Running $CIC"  &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $CIC"  > cafconfig.txt &&$CIC  && echo "Finish $CIC"
-# OCIC="./utilities/cicpower.x" &&echo "Running $OCIC"  &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $OCIC"  > cafconfig.txt &&$OCIC  && echo "Finish $OCIC"
-# FOF="./utilities/fof.x" &&echo "Running $FOF"  &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $FOF"  > cafconfig.txt &&$FOF  && echo "Finish $FOF"
-DSP="./utilities/dsp.x" &&echo "Running $DSP"  &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $DSP"  > cafconfig.txt &&$DSP  && echo "Finish $DSP"
+umask 002
+IC=./utilities/ic.x
+cic=./utilities/cic.x
+MAIN=./main.x
+CIC=./utilities/cicpower.x
+OCIC=./utilities/ocicpower.x
+FOF=./utilities/fof.x
+DSP=./utilities/dsp.x
+C2U=./utilities/cdm2nu.x
+# run_program $IC
+# run_program $cic
+run_program $MAIN
+run_program $CIC
+# run_program $FOF
+# run_program $DSP
+# run_program $C2U
 echo "Finish ALL"
 date

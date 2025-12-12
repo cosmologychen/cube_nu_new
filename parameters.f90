@@ -2,7 +2,7 @@ module parameters
    implicit none
 
    ! output directory
-   character(*),parameter :: opath='/home/cossim/cube_nu/output/2400_512_1_0.1_1/'
+  character(*),parameter :: opath='/home/cossim/cube_nu/output/GP1200_1024_1_0.0_2/'
 
   ! zip parameters
   integer,parameter :: ndim=3
@@ -16,11 +16,11 @@ module parameters
 
   ! cell resolution parameters
    integer,parameter :: nn=1
-   real,parameter :: box=2400
-   integer,parameter :: ncore=64
-   integer,parameter :: nteam=16
-   integer,parameter :: nnest=4
-   integer(8),parameter :: ng=512
+  real,parameter :: box=1200
+  integer,parameter :: ncore=64
+  integer,parameter :: nteam=16
+  integer,parameter :: nnest=4
+  integer(8),parameter :: ng=1024
 
   integer,parameter :: ratio_cs=4
   integer,dimension(7),parameter :: ratio_sf=[1,2,4,6,8,12,16]
@@ -98,9 +98,9 @@ module parameters
    integer,parameter :: zdim=2 ! the dimension being the redshift direction
 
    ! background parameters
-   real, parameter :: h0 =0.6817
+   real, parameter :: h0=0.6817
    !nu
-   real(8),dimension(3),parameter :: m_nu=[.0333333333333333,.0333333333333333,.0333333333333333] ! mass_nus/eV
+   real(8),dimension(3),parameter :: m_nu=[0.0,0.0,0.0] ! mass_nus/eV
    real(8),parameter :: Mass_nu=sum(m_nu) ! Mass_nu/eV
 
    ! real,dimension(3), parameter :: O_nu = m_nu/93.14/(h0**2)
@@ -120,8 +120,8 @@ module parameters
    ! initial conditions
    real,parameter :: f_nl=0
    real,parameter :: g_nl=0
-   real,parameter :: n_s=0.9693
-   real,parameter :: A_s=2.122e-09
+  real,parameter :: n_s=0.9693
+  real,parameter :: A_s=2.122e-09
    real,parameter :: k_o=0.05/h0
 
    integer(8),parameter :: istep_max=100000
