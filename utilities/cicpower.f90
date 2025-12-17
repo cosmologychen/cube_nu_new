@@ -49,7 +49,7 @@ program cicpower
    n_checkpoint=n_checkpoint[1]; z_checkpoint(:)=z_checkpoint(:)[1]
    call create_penfft_plan
 
-   ! do cur_checkpoint= 49,49
+   ! do cur_checkpoint= 1,n_checkpoint
    do cur_checkpoint= n_checkpoint,n_checkpoint
   !  do cur_checkpoint= 1,n_checkpoint
       sim%cur_checkpoint=cur_checkpoint

@@ -33,26 +33,26 @@ subroutine checkpoint
   open(15,file=fn15,status='replace',access='stream'); write(15) pid(:sim%nplocal); close(15)
   if (head) print*, 'check PID range: ',minval(pid(:sim%nplocal)),maxval(pid(:sim%nplocal))
   if (minval(pid(:sim%nplocal))<1) then
-     print*, 'pid are not all positive'
+    print*, 'pid are not all positive'
   endif
 # endif
   !$omp endparallelsections
   !nu
   if (Mass_nu > 0) then
-     open(16,file=output_name('steps'),status='replace',access='stream')
-     write(16) Pk_step
-    !  write(16) z_powerpoint
-     write(16) Pk_cb_check
-     write(16) a_step
-     write(16) tau_step
-     write(16) sf_step
-     close(16)
-     if (head) then
-        print*,'save s_f:',sf_step(sim%timestep-1),sim%timestep
-        print*,'save Pk:',Pk_step(1:4,sim%timestep-1),Pk_step(1:4,sim%timestep-2)
-        print*,'save Pk_check:',Pk_cb_check(1:4,sim%cur_powerpoint-1)
-        print*,'save a,tau:',a_step(sim%timestep-4:sim%timestep),tau_step(sim%timestep-4:sim%timestep)
-     endif
+    open(16,file=output_name('steps'),status='replace',access='stream')
+    write(16) Pk_step
+  !  write(16) z_powerpoint
+    write(16) Pk_cb_check
+    write(16) a_step
+    write(16) tau_step
+    write(16) sf_step
+    close(16)
+    if (head) then
+      print*,'save s_f:',sf_step(sim%timestep-1),sim%timestep
+      print*,'save Pk:',Pk_step(1:4,sim%timestep-1),Pk_step(1:4,sim%timestep-2)
+      print*,'save Pk_check:',Pk_cb_check(1:4,sim%cur_powerpoint-1)
+      print*,'save a,tau:',a_step(sim%timestep-4:sim%timestep),tau_step(sim%timestep-4:sim%timestep)
+    endif
   endif
   if (this_image()==1 .or. this_image()==num_images()) print*,'  image',this_image(),'wrote',sim%nplocal,'CDM particles'
   sync all

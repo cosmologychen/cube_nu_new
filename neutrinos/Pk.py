@@ -117,7 +117,7 @@ def interp_pk(z,s,k_new):
     return new_Pk0
 
 def get_f_nr(z):
-    y = Mass_nu/3/(sigma_nu*N_eff*k_b*T_gama*(1+z))
+    y = Mass_nu/3/(sigma_nu*N_eff*K_b*T_gama*(1+z))
     Fy=integrate.quad(lambda u: (u**2*np.sqrt(u**2+y**2))/(1+np.exp(u)), 0,300)[0]
     f1=integrate.quad(lambda u: (u**2)/((1+np.exp(u))*np.sqrt(u**2+y**2)), 0,300)[0]
     f_nr = y**2*f1/Fy#*f_nu
@@ -210,7 +210,7 @@ if (1):
     sigma_nu = (4/11)**(1/3)
     N_nu = 3
     N_eff = standard_neutrino_neff
-    k_b = 8.617342e-5
+    K_b = 8.617342e-5
     T_gama = 2.7255
     Mass_nu = mnu
     omega_m = omega_bar+omega_cdm
@@ -296,8 +296,8 @@ if (all_camb):
         Pk_nu_ic=[0,0,0]
         i=0
         for m_nu_i in m_nus:
-            print(i,'m_nu = ',m_nu_i)
             if (m_nu_i >0):
+                print(i,'m_nu = ',m_nu_i)
                 par = camb.CAMBparams()
                 par.set_cosmology(H0=H0, ombh2=ombh2, omch2=omch2, omk=omk, neutrino_hierarchy='degenerate', num_massive_neutrinos=1, mnu=m_nu_i, nnu=nnu, standard_neutrino_neff=standard_neutrino_neff)
                 par.omch2=omch2-par.omnuh2
@@ -343,23 +343,19 @@ n_a = int(istep_max)
 dt0 = 5e-4
 t = -np.arange(n_a)*dt0
 H_ex = np.ones(n_a)*H0
-tau = np.ones(n_a)
-a_ex = np.zeros(n_a)
+a_ex = np.ones(n_a)
 a_ex[0] = 1
-tau[0] = taua(1)
 for i in range(n_a-1):
     Hai = Ha(a_ex[i])
     H_ex[i] = Hai
     a_ex[i+1] = -omHsq*Hai*a_ex[i]**3 * dt0 +a_ex[i]
     dz = 1/a_ex[i]-1/a_ex[i+1]
-    tau[i+1]  = tau[i]+(1/Hz(1/a_ex[i]-1)+2/Hz(1/a_ex[i]-1+dz)+2/Hz(1/a_ex[i+1]-1-dz)+1/Hz(1/a_ex[i+1]-1))*dz/6
 
     if (a_ex[i+1]<=1./301 or np.isnan(a_ex[i+1])):
         break
 i_end = i
 T2 = time.time()
-tau[-1] = taua(1/201)
-# tau = 299792.458*tau
+tau =  result.conformal_time(1/a_ex-1)/299792.458
 os.system('rm '+nupath+'/*.txt')
 np.savetxt(nupath+'/s_a_tau_H.txt',np.array([t,a_ex,tau,H_ex]))
 print("EH:\n\n      time:   %.2f seconds\n      step:   %d\n      save:   '%s'\n\n\n"%(T2-T1,i_end,nupath+'/s_a_tau_H.txt'))

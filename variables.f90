@@ -14,10 +14,10 @@ module variables
    real(4) Pk_cb_check(npbin,nmax_redshift),Pk_nu_check(npbin,nmax_redshift),Pk_step(npbin,0:istep_max),Pk_nus(npbin,3),Pk_nu(npbin),Pk_nu_ic(npbin,3),sq_Pk_nu_ic(npbin,3)
 
 
-   real(8) m_nu_2d(npbin,3)
+   real(8) k_mnu_2d(npbin,3)
    real s_f,s_fi,k_fs,f_nr(3)
    real a_step(0:istep_max)[*],tau_step(0:istep_max)[*],sf_step(0:istep_max)[*]
-   real kh_lin(npbin),kh_lin_log(npbin),kh_lin_2d(npbin,3)
+   real kh_lin(npbin),kh_lin_log(npbin)
    real tf_F(npbin)[*],tf_F_log(npbin),tf_pp! transfer function array for neutrinos
    real tf1(nw_global/2+1,nw,npen),tf2(ngt/2+1,ngt,ngt),tf3_2(nft(2)/2+1,nft(2),nft(2))
    real tf3_4(nft(3)/2+1,nft(3),nft(3)),tf3_6(nft(4)/2+1,nft(4),nft(4)),tf3_8(nft(5)/2+1,nft(5),nft(5))!,tf3_12(nft(6)/2+1,nft(6),nft(6))

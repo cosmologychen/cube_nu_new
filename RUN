@@ -6,7 +6,7 @@ newdir=true
 # q='debug'
 # q='small'
 q='normal'
-ntasks_per_node=1
+ntasks_per_node=2
 ncore=64
 nnest=4
 mem=300
@@ -15,7 +15,7 @@ code_path=/home/cossim/cube_nu/mnus/code
 output=/home/cossim/cube_nu/output
 z_path="None"
 h_path="None"
-s_path="None"
+s_path="/home/ChenBH/output_backup/600_256_2_0.1_1" #"None"
 n_path="None"
 r_path="None"
 flag='GP'
@@ -91,6 +91,8 @@ usage() {
     echo "  -PP        <true/false>  Enable PP force                        (default: $PP)"
     echo "                                                                               "
     echo "  -box       <num>         Box size in Mpc/h                      (default: $box)"
+    echo "  -nn        <num>         image/dim                              (default: $nn)"
+    echo "  -ng        <num>         ng/dim                                 (default: $ng)"
     echo "  -h0        <num>         h0                                     (default: $h0)"
     echo "  -omb       <num>         omega_bar                              (default: $omb)"
     echo "  -omc       <num>         omega_cdm                              (default: $omc)"
@@ -100,14 +102,13 @@ usage() {
     echo "  -Mnu       <num>         num sum_of_nu                          (default: $M_nu)"
     echo "  -Hnu       <num>         secound num  and hierarchy"
     echo "                           [0 = degenerate; 1 = first mass only]  (default: $H_nu)"
-    echo "  -Cpk       <int>         功率谱来源："
+    echo "  -Cpk       <int>         功率谱来源: "
     echo "                           -1 = 完全使用CAMB"
     echo "                            0 = 部分使用CAMB"
     echo "                            1 = 使用拼接功率谱"
     echo "                            2 = 使用全局功率谱                      (default: $Cpk)"
 
     echo "                                                                               "
-    echo "  -ng        <num>         ng/dim                                 (default: 512)"
     # echo "  -nic       <num>         using nic times rho for ic             (default: 512)"
     echo "  -cp        <num>         checkpoint for runin [0=auto        ]  (default: $cp)"
     echo "  -z1        <int>         halo/power start point                 (default: 1)"
@@ -185,13 +186,17 @@ info() {
         exit 1
     fi
 
-    echo -e "${CYAN}核心数${NC}             : ${PURPLE}$nncore${NC} = ${PURPLE}$nteam${NC} x ${PURPLE}$nnest${NC}"
+    echo -e "${CYAN}核心数${NC}             : ${PURPLE}$nn${NC} , ${PURPLE}$nncore${NC} = ${PURPLE}$nteam${NC} x ${PURPLE}$nnest${NC}"
     echo -e "${CYAN}分辨率${NC}             : ${PURPLE}$box Mpc ; $ng 粒子${NC}"
-
-    if [ $(echo "$M_nu == 0.0" | bc) -eq 0 ]; then
-        echo -e "${CYAN}中微子${NC}             : ${PURPLE}$smnus${NC}"
-        echo -e "${CYAN}功率谱${NC}             : ${PURPLE}$cpktype${NC}"
-    fi
+    echo -e "${CYAN}检查点${NC}             : ${PURPLE}$checkpoint $(awk -v line=$checkpoint '
+                NR==line {
+                    raw = $1 + 0  
+                    z_sprintf = sprintf("%.3f", raw)
+                    sub(/\.$/, ".000", z_sprintf)
+                    print z_sprintf
+                    exit
+                }' z_checkpoint.txt)${NC}"
+    echo ''
 
     echo ""
     echo -e "${CYAN}计算PP${NC}             : ${PURPLE}$PP${NC}"
@@ -204,15 +209,10 @@ info() {
     echo -e "${CYAN}谱指数       n_s${NC}   : ${PURPLE}$ns${NC}"
     echo -e "${CYAN}功率谱振幅   A_s${NC}   : ${PURPLE}$As${NC}"
 
-    echo -e "${CYAN}检查点${NC}             : ${PURPLE}$checkpoint $(awk -v line=$checkpoint '
-                NR==line {
-                    raw = $1 + 0  
-                    z_sprintf = sprintf("%.3f", raw)
-                    sub(/\.$/, ".000", z_sprintf)
-                    print z_sprintf
-                    exit
-                }' z_checkpoint.txt)${NC}"
-    echo ''
+    if [ $(echo "$M_nu > 0.0" | bc) ]; then
+        echo -e "${CYAN}中微子质量${NC}         : ${YELLOW}$smnus${NC}"
+        echo -e "${CYAN}功率谱算法${NC}         : ${PURPLE}$cpktype${NC}"
+    fi
     echo ''
     echo ''
 }
@@ -285,6 +285,7 @@ para_2_code() {
 
     sed -i "s/.*parameter :: opath=.*/  character(*),parameter :: opath='${output//\//\\/}\/$opath\/'/" parameters.f90
     sed -i "s/.*parameter :: box=.*/  real,parameter :: box=$box/" parameters.f90
+    sed -i "s/.*parameter :: nn=.*/  integer,parameter :: nn=$nn/" parameters.f90
     sed -i "s/.*parameter :: ng=.*/  integer(8),parameter :: ng=$ng/" parameters.f90
     sed -i "s/.*parameter :: calculate_PK = .*/   integer(8),parameter :: calculate_PK = $Cpk/" parameters.f90
     sed -i "s/.*real(8),dimension(3),parameter :: m_nu=.*/   real(8),dimension(3),parameter :: m_nu=[$smnus] ! mass_nus\/eV/" parameters.f90
@@ -304,6 +305,8 @@ para_2_code() {
         sed -i "s/.*logical,parameter :: read_Gks=.*/   logical,parameter :: read_Gks=.true./" initialize.f90
         sed -i "s/.*sim%cur_checkpoint=.*/   sim%cur_checkpoint=$checkpoint/" main.f90
     fi
+
+    sed -i "s/\(cur_checkpoint=\) \([0-9]\+\),\([0-9]\+\)/\1 $z1,$z2/" utilities/cicpower.f90
     
     if [ "$PM3" ==  true ]; then
         sed -i "s/.*logical,parameter :: PM3=.*/  logical,parameter :: PM3=.true./" kick.f90
@@ -319,21 +322,30 @@ para_2_code() {
     fi
 
     if [ "$s_path" != "None" ]; then
-        cp -v $s_path $output/$opath/image1/seed_1.bin
+        for ((i=1; i<=nnn; i++)); do
+            mkdir -p $output/$opath/image$i
+            cp -v $s_path/image$i/seed_$i.bin $output/$opath/image$i/seed_$i.bin
+        done
         sed -i "s/.*#define READ_SEED/#define READ_SEED/" utilities/ic.f90
     else
         sed -i "s/.*#define READ_SEED/!#define READ_SEED/" utilities/ic.f90
     fi
 
     if [ "$n_path" != "None" ]; then
-        cp -v $n_path $output/$opath/image1/noise_1.bin
+        for ((i=1; i<=nnn; i++)); do
+            mkdir -p $output/$opath/image$i
+            cp -v $n_path/image$i/noise_$i.bin $output/$opath/image$i/noise_$i.bin
+        done
         sed -i "s/.*#define READ_NOISE/#define READ_NOISE/" utilities/ic.f90
     else
         sed -i "s/.*#define READ_NOISE/!#define READ_NOISE/" utilities/ic.f90
     fi
 
     if [ "$r_path" != "None" ]; then
-        cp -v $r_path $output/$opath/image1/delta_L_1.bin
+        for ((i=1; i<=nnn; i++)); do
+            mkdir -p $output/$opath/image$i
+            cp -v $r_path/image$i/delta_L_$i.bin $output/$opath/image$i/delta_L_$i.bin
+        done
         sed -i "s/.*#define READ_RHO/#define READ_RHO/" utilities/ic.f90
     else
         sed -i "s/.*#define READ_RHO/!#define READ_RHO/" utilities/ic.f90
@@ -349,7 +361,7 @@ copy_code() {
         backup_file="${timestamp}.log"
         
         if [ -f "$target_dir/run.log" ]; then
-            echo -e "${YELLOW}发现历史日志：备份为 ${backup_file}${NC}"
+            echo -e "${YELLOW}发现历史日志: 备份为 ${backup_file}${NC}"
             mkdir -pv /home/cossim/cube_nu/log_backup/$opath
             cp -v "$target_dir/run.log" "/home/cossim/cube_nu/log_backup/$opath/$backup_file"
         fi
@@ -357,22 +369,29 @@ copy_code() {
 
     # 根据模式操作目录
     if [ "$RunIC" == true ] || [ "$RunMain" == true ]; then
-        echo -e "${CYAN}全量模式：重建目录[$target_dir]${NC}"
+        echo -e "${CYAN}全量模式: 重建目录[ $target_dir ]${NC}"
         rm -r $code_path/$opath/*
         mkdir -p $code_path/$opath
         cp -r ./* $code_path/$opath
     else
-        echo -e "${CYAN}增量模式：更新CIC文件${NC}"
+        echo -e "${CYAN}增量模式: 更新CIC文件${NC}"
         cp -r ./run.qsub $code_path/$opath
         cp -r ./utilities/*  $code_path/$opath/utilities
     fi
 
     # 目录切换保护
     cd "$target_dir" || {
-        echo -e "${RED}错误：无法进入目录 $target_dir${NC}"
+        echo -e "${RED}错误: 无法进入目录 $target_dir${NC}"
         exit 1
     }
-    echo -e "${GREEN}当前工作目录：${NC}$(pwd)"
+    echo -e "${GREEN}当前工作目录: ${NC}$(pwd)"
+    if [ "$z_path" != "None" ]; then
+        cp -v $z_path $target_dir
+    fi
+
+    if [ "$h_path" != "None" ]; then
+        cp -v $h_path $target_dir
+    fi
 }
 
 # 定义执行函数（处理输出重定向） local
@@ -390,7 +409,6 @@ local_run() {
         eval "$cmd >> $log_name 2>&1"
     fi
 }
-
 
 qsub_ini() {
     sed -i "s/#PBS -N .*/#PBS -N $name/" run.qsub
@@ -474,7 +492,7 @@ pbs_run() {
             case $yn in
                 [Rr]* )  
                     while true; do
-                        read -p "确认替换原有任务($job_id 将会被取消)？ [Y/N]: " yn
+                        read -p "确认替换原有任务($job_id 将会被取消)？ [Yy/Nn]: " yn
                         case $yn in
                             [Yy]* ) qdel $job_id; break 2;; 
                             * ) echo "请重新选择"; break 1;;
@@ -506,7 +524,7 @@ pbs_run() {
     sleep 2
     qstat -tan -u ChenBH
     while true; do
-        read -t 3 -p "是否监控输出：Y/N [N]" yn
+        read -t 3 -p "是否监控输出: Yy/Nn [N]" yn
         if [ $? -ne 0 ]; then
             echo ""
             echo -e "${RED}输入超时,自动退出${NC}"
@@ -521,6 +539,7 @@ pbs_run() {
             ;;
         esac
     done
+    echo "tail -f $log_name"
     tail -f $log_name
 }
 
@@ -628,6 +647,11 @@ get_para() {
             -nnest)
                 check_para "-nnest" "$2" "int"
                 nnest="$2"
+                shift 2
+                ;;
+            -nn)
+                check_para "-ng" "$2" "int"
+                nn="$2"
                 shift 2
                 ;;
             -ng)
@@ -917,7 +941,7 @@ run_para_ini(){
             
             # 验证输出目录存在性
             if [ ! -d "$output/$opath/image1" ]; then
-                echo -e "${RED}错误：目录不存在 $output/$opath/image1${NC}"
+                echo -e "${RED}错误: 目录不存在 $output/$opath/image1${NC}"
                 exit 1
             fi
 
@@ -925,8 +949,8 @@ run_para_ini(){
             latest_file=$(ls -t "$output/$opath/image1"/*_xp_1.bin 2>/dev/null | head -n 1)
             
             if [ -z "$latest_file" ]; then
-                echo -e "${RED}错误：找不到任何xp_1.bin文件${NC}"
-                echo -e "${YELLOW}可用文件列表："
+                echo -e "${RED}错误: 找不到任何xp_1.bin文件${NC}"
+                echo -e "${YELLOW}可用文件列表: "
                 ls -halFtr "$output/$opath/image1"/*_xp_1.bin 2>/dev/null || echo "无可用文件"
                 exit 1
             fi
@@ -936,14 +960,14 @@ run_para_ini(){
             z_value=$(echo "$z_value=" | awk '{printf "%.3f", $1}')
             
             if [ -z "$z_value" ]; then
-                echo -e "${RED}文件名格式错误：${latest_file}${NC}"
-                echo -e "预期格式示例：0.123_xp_1.bin"
+                echo -e "${RED}文件名格式错误: ${latest_file}${NC}"
+                echo -e "预期格式示例: 0.123_xp_1.bin"
                 exit 1
             fi
 
             # 反向查找z_checkpoint中的行号
             if [ ! -f "z_checkpoint.txt" ]; then
-                echo -e "${RED}错误：z_checkpoint文件不存在${NC}"
+                echo -e "${RED}错误: z_checkpoint文件不存在${NC}"
                 exit 1
             fi
 
@@ -956,14 +980,14 @@ run_para_ini(){
                 }}' z_checkpoint.txt)
 
             if [ -z "$checkpoint" ]; then
-                echo -e "${RED}错误：未找到红移值 $z_value 对应的检查点${NC}"
-                echo -e "${YELLOW}z_checkpoint 内容预览："
+                echo -e "${RED}错误: 未找到红移值 $z_value 对应的检查点${NC}"
+                echo -e "${YELLOW}z_checkpoint 内容预览: "
                 head -n 5 z_checkpoint.txt
                 exit 1
             fi
 
             ls -ltr "$output/$opath/image1"/*_xp_1.bin | tail -4
-            echo -e "   ${GREEN}建议检查点：${CYAN}$checkpoint (z=$z_value)${NC}"
+            echo -e "   ${GREEN}建议检查点: ${CYAN}$checkpoint (z=$z_value)${NC}"
             while true; do
                 read -p "使用该检查点？[Y使用/N退出]: " yn
                 case $yn in
@@ -995,7 +1019,7 @@ run_para_ini(){
 
     if [ "$all_yes" == false ]; then
         while true; do
-            read -p "参数正确？[Y/N]: " yn
+            read -p "参数正确？[Yy/Nn]: " yn
             case $yn in
                 [Yy]* ) echo "继续执行..."; break;;
                 [Nn]* ) echo "退出脚本"; exit 1;;
@@ -1021,7 +1045,7 @@ fi
 if [ "$RUNtype" == "pbs" ]; then
     pbs_run
 elif [ "$RUNtype" == "local" ]; then
-    echo -e "${GREEN}当前工作目录：${NC}$(pwd)"
+    echo -e "${GREEN}当前工作目录: ${NC}$(pwd)"
 
     rm -v *.log
 

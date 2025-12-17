@@ -1,5 +1,5 @@
 !! read existing random seed to generate random numbers
-!#define READ_SEED
+#define READ_SEED
 #define USE_PKIC
 ! #define READ_K_HALF
 ! #define WRITE_K_HALF
@@ -78,7 +78,7 @@ program initial_conditions
    open(16,file='./z_checkpoint.txt',status='old') !! open redshift list to do checkpoint
    read(16,fmt='(f8.4)') z_checkpoint(sim%cur_checkpoint)
    close(16)
-   call system('cp -v /home/ChenBH/output_backup/600_256_2_0.1_1/image'//image2str(image)//'/*seed_* '//opath//'image'//image2str(image))
+   ! call system('cp -v /home/ChenBH/output_backup/600_256_2_0.1_1/image'//image2str(image)//'/*seed_* '//opath//'image'//image2str(image))
 
    if (head) then
       print*, ''

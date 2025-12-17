@@ -118,7 +118,7 @@ subroutine initialize
       n_powerpoint=n_powerpoint[1]
       z_powerpoint(:)=z_powerpoint(:)[1]
 
-      do i=1,3 ! Read the three earliest Pk_nu for linear interpolation
+      do i=1,n_powerpoint ! Read the three earliest Pk_nu for linear interpolation
          write(str_z,'(f8.4)') z_powerpoint(i)
          open(10,file=nupath//'Pk_cb_'//trim(adjustl(str_z))//'.txt',form='formatted')
          read(10,*) Pk_cb_check(:,i)
@@ -145,14 +145,12 @@ subroutine initialize
       enddo
 75    close(13)
       kh_lin_log = log(kh_lin)
-      kh_lin_2d = spread(kh_lin, dim=2, ncopies=3)
       if (head) print*,'k',kh_lin(1),kh_lin(2),kh_lin(npbin)
 
       do i=1,3
-         m_nu_2d(:,i)=spread(1, dim=1, ncopies=npbin)
-         if (m_nu(i) /= 0) m_nu_2d(:,i)=spread(m_nu(i), dim=1, ncopies=npbin)
+         k_mnu_2d(:,i)=spread(0, dim=1, ncopies=npbin)
+         if (m_nu(i) /= 0) k_mnu_2d(:,i)=kh_lin/spread(m_nu(i), dim=1, ncopies=npbin)
       enddo
-      if(head) print*, 'm_nu_2d',m_nu_2d(1,:)
    else
       sim%cur_powerpoint = -1
    endif
