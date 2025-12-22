@@ -301,7 +301,6 @@ para_2_code() {
         sed -i "s/.*logical,parameter :: read_Gks=.*/   logical,parameter :: read_Gks=.false./" initialize.f90
         sed -i "s/.*sim%cur_checkpoint=.*/   sim%cur_checkpoint=1/" main.f90
     else
-        echo check 222
         sed -i "s/.*logical,parameter :: read_Gks=.*/   logical,parameter :: read_Gks=.true./" initialize.f90
         sed -i "s/.*sim%cur_checkpoint=.*/   sim%cur_checkpoint=$checkpoint/" main.f90
     fi
@@ -516,7 +515,7 @@ pbs_run() {
 
     qsub_ini
     if [ -n "$newdir" ]; then 
-        log_name=$code_path/$log_name
+        log_name=$code_path/$opath/$log_name
     fi
 
     rm -v *.log
@@ -892,6 +891,20 @@ run_para_ini(){
         fi
     fi
 
+    code_path="${code_path/#~\//$HOME/}"
+    output="${output/#~\//$HOME/}"
+    opath=$flag$box'_'$ng'_'$nn'_'$M_nu'_'$Cpk
+    name=$flag$box$((ng*nn))'_'$M_nu'_'$Cpk
+    nnn=$((nn*nn*nn))
+    if [ $nn -gt 1 ]; then
+        nnode=$((nn*nn*nn/ntasks_per_node))
+        nncore=$((ncore/ntasks_per_node))
+    else
+        nnode=1
+        nncore=$((ncore))
+    fi
+    nteam=$((nncore/nnest))
+
     if [ "$checkpoint" -ne 1 ]; then
         rawpath=$(pwd)
         echo $rawpath
@@ -1001,19 +1014,6 @@ run_para_ini(){
         cd $rawpath
     fi
 
-    code_path="${code_path/#~\//$HOME/}"
-    output="${output/#~\//$HOME/}"
-    opath=$flag$box'_'$ng'_'$nn'_'$M_nu'_'$Cpk
-    name=$flag$box$((ng*nn))'_'$M_nu'_'$Cpk
-    nnn=$((nn*nn*nn))
-    if [ $nn -gt 1 ]; then
-        nnode=$((nn*nn*nn/ntasks_per_node))
-        nncore=$((ncore/ntasks_per_node))
-    else
-        nnode=1
-        nncore=$((ncore))
-    fi
-    nteam=$((nncore/nnest))
 
     info
 

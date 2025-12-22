@@ -335,7 +335,7 @@ contains
             j = j+1
          enddo
 
-         if(any(ieee_is_nan(xiglobal(5,1:j-1)))) xiglobal(5,1:npbin) = xiglobal(3,1:npbin)
+         if(any(ieee_is_nan(xiglobal(5,1:j-1))) .or. xiglobal(5,j-1) < xiglobal(3,j-1)) xiglobal(5,1:npbin) = xiglobal(3,1:npbin)
 
          i = 1
          do while(xiglobal(2,i) < k_std_max)
@@ -435,6 +435,12 @@ contains
             xi_real = exp(k2*k_need_log**2+b2*k_need_log+c2)
             if(ieee_is_nan(xi_real(5))) then
                print*,'global xi_real err',i
+               print*,xi_cdm(1:5,i1)
+               print*,xi_cdm(1:5,i2)
+               print*,xi_cdm(1:5,i3)
+               print*,xi_cdm_log(1:5,i1)
+               print*,xi_cdm_log(1:5,i2)
+               print*,xi_cdm_log(1:5,i3)
                print*,a1(1:5)
                print*,a2(1:5)
                print*,k2(1:5)

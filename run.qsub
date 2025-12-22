@@ -37,10 +37,19 @@ pwd
 
 run_program() {
     local cmd="$1"
+    echo ""
+    echo "++++++++++++++++++++++++++++++++++++++++++++++"
     echo "Running $cmd"
+    echo "++++++++++++++++++++++++++++++++++++++++++++++"
+    echo ""
     echo "-genvall -machinefile $HOST_FILE -n $PROCS $cmd"   > cafconfig.txt 
     $cmd
+    echo ""
+    echo "++++++++++++++++++++++++++++++++++++++++++++++"
     echo "Finish $cmd"
+    echo "++++++++++++++++++++++++++++++++++++++++++++++"
+    echo ""
+    echo ""
 }
 
 ### RUN ###

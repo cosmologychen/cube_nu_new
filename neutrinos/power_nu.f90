@@ -474,12 +474,12 @@ contains
             if (m_nu(3)>0) print*,'  Pk_nu3',Pk_nus(1,3),Pk_nus(npbin/3,3),Pk_nus(npbin/3*2,3),Pk_nus(npbin,3)
             print*,'  tf_F',tf_F(1),tf_F(npbin/3),tf_F(npbin/3*2),tf_F(npbin)
             print*,'  path',nupath//'*/*_'//trim(adjustl(str_z))//'.txt'
+            open(211,file=nupath//'a_step.txt',status='replace',access='stream'); write(211) a_step(:istep); close(211)
+            open(311,file=nupath//'Pk_nu/Pk_nu_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(311) Pk_nu; close(311)
+            open(312,file=nupath//'Pk_nus/Pk_nus_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(312) Pk_nus; close(312)
+            open(411,file=nupath//'Pk_m/Pk_m_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(411) Pk_step(:,istep)**2; close(411)
+            open(511,file=nupath//'tf/Tf_nu_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(511) tf_F; close(511)
          endif
-         open(211,file=nupath//'a_step.txt',status='replace',access='stream'); write(211) a_step(:istep); close(211)
-         open(311,file=nupath//'Pk_nu/Pk_nu_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(311) Pk_nu; close(311)
-         open(311,file=nupath//'Pk_nus/Pk_nus_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(311) Pk_nus; close(311)
-         open(411,file=nupath//'Pk_m/Pk_m_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(411) Pk_step(:,istep)**2; close(411)
-         open(511,file=nupath//'tf/Tf_nu_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(511) tf_F; close(511)
          if (minval(tf_F) < 1-1e-6-f_nu .or. any((ieee_is_nan(tf_F)))) then
             if(head) print*,'tf_F err',minval(tf_F),1-f_nu
             if(head) print*,'Pk_nu'
@@ -491,19 +491,16 @@ contains
             error stop 'tf_F err'
          endif
       endif
-      ! Pk_step(ifs+1:,istep) = 0
       call toc(97)
 
       call tic(98)
-      if (sim%a < 1) then
-         tf_F_log = log(tf_F(:)[1])
-         call nu_correction_coarse()
-         pm%nwork = ngt   ;call nu_correction(tf2   ,Gk2   ,box/nn/nnt    )
-         pm%nwork = nft(2);call nu_correction(tf3_2 ,Gk3_2 ,box/nn/nnt/nns)
-         pm%nwork = nft(3);call nu_correction(tf3_4 ,Gk3_4 ,box/nn/nnt/nns)
-         pm%nwork = nft(4);call nu_correction(tf3_6 ,Gk3_6 ,box/nn/nnt/nns)
-         pm%nwork = nft(5);call nu_correction(tf3_8 ,Gk3_8 ,box/nn/nnt/nns)
-      endif
+      tf_F_log = log(tf_F(:))
+      call nu_correction_coarse()
+      pm%nwork = ngt   ;call nu_correction(tf2   ,Gk2   ,box/nn/nnt    )
+      pm%nwork = nft(2);call nu_correction(tf3_2 ,Gk3_2 ,box/nn/nnt/nns)
+      pm%nwork = nft(3);call nu_correction(tf3_4 ,Gk3_4 ,box/nn/nnt/nns)
+      pm%nwork = nft(4);call nu_correction(tf3_6 ,Gk3_6 ,box/nn/nnt/nns)
+      pm%nwork = nft(5);call nu_correction(tf3_8 ,Gk3_8 ,box/nn/nnt/nns)
       sync all; call toc(98)
    endsubroutine
 
