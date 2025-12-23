@@ -7,7 +7,7 @@ subroutine initialize
 
    include 'fftw3.f'
 
-   logical,parameter :: read_Gks=.true.
+   logical,parameter :: read_Gks=.false.
    integer i,j,k,l
    istep=0; tictoc=0; tcat=0;
    sync all
@@ -140,10 +140,8 @@ subroutine initialize
 
       kh_lin = -1
       open(13,file=nupath//'k_values.txt',status='old')
-      do j=1,npbin
-         read(13,end=75,fmt='(f15.12)') kh_lin(j)
-      enddo
-75    close(13)
+      read(13, '(f15.12)') kh_lin(1:npbin)
+      close(13)
       kh_lin_log = log(kh_lin)
       if (head) print*,'k',kh_lin(1),kh_lin(2),kh_lin(npbin)
 

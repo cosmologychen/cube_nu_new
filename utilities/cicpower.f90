@@ -120,6 +120,7 @@ program cicpower
             enddo
          enddo
       enddo
+      deallocate(rho_grid)
 
 
       if (head) print*, 'check: min,max,sum of rho_grid = '
@@ -188,41 +189,22 @@ program cicpower
          print*,'matter_power'
          if( Mass_nu > 0 ) then
             write(str_z,'(f8.4)') z_checkpoint(cur_checkpoint)
-            if (z_checkpoint(cur_checkpoint) ==200) then
-               open(11,file=nupath//'Tf_nu_200.0000.txt',status='old',access='stream'); read(11) tf_F; close(11)
-            else
-               open(11,file=nupath//'tf/Tf_nu_'//trim(adjustl(str_z))//'.txt',status='old',access='stream'); read(11) tf_F;close(11)
-            endif
-            ! open(11,file=nupath//'tf/Tf_nu_0.0203.txt',status='old',access='stream'); read(11) tf_F; close(11)
-            ! open(12,file=output_name('Pk_nu'),status='old',access='stream'); read(12) Pk_nu; close(12)
+            open(11,file=nupath//'tf/Tf_nu_'//trim(adjustl(str_z))//'.txt',status='old',access='stream'); read(11) tf_F;close(11)
+            tf_F = (tf_F-(1-f_nu))/f_nu
             kh_lin = -1
             open(13,file=nupath//'k_values.txt',status='old')
-            do i=1,npbin
-               read(13,end=75,fmt='(f15.12)') kh_lin(i)
-            enddo
-75          close(13)
+            read(13, '(f15.12)') kh_lin(1:npbin)
+            close(13)
             kh_lin_log = log(kh_lin)
-            ! print*,'k',kh_lin(1),kh_lin(2),kh_lin(npbin),icx,icy,icz,npen,nw,nyquist
-            tf_F_log = log(tf_F)
-            ! Pk_nu_log = log(Pk_nu)
+            tf_F_log = log(tf_F**2)
             do i=1,nbin
-               ! xi(3:5,i) = xi(3:5,i)*interp_tf_F(kh_lin_log,xi(2,i),tf_F_log)
-               ! xi(6,i) = interp_tf_F(kh_lin_log,xi(2,i),Pk_nu_log)
-               xi(7,i) = xi(5,i)*(interp_tf_F(kh_lin_log,xi(2,i),tf_F_log))**2
+               xi(6,i) = xi(5,i)*interp_tf_F(kh_lin_log,xi(2,i),tf_F_log) !Pk_nu
             enddo
-            xi(8,:) = (f_nu*sqrt(xi(6,:))+(1-f_nu)*sqrt(xi(5,:)))**2
-         else
-            tf_F = 1
+            xi(7,:) = (f_nu*sqrt(xi(6,:))+(1-f_nu)*sqrt(xi(5,:)))**2  !Pk_tot
          endif
 #endif
-         if (nic >2 ) then
-            print*,'Write cicpower_F8',output_name('cicpower_F8')
-            open(15,file=output_name('cicpower_F8'),status='replace',access='stream')
-         else
-            print*,'Write cicpower',output_name('cicpower')
-            open(15,file=output_name('cicpower'),status='replace',access='stream')
-         endif
-
+         print*,'Write cicpower',output_name('cicpower')
+         open(15,file=output_name('cicpower'),status='replace',access='stream')
          write(15) xi(:,1:nbin)
          close(15)
       endif
@@ -234,11 +216,9 @@ program cicpower
       if (Mass_nu > 0) then
          rho1 = rho_c
          write(str_z,'(f8.4)') z_powerpoint(sim%cur_powerpoint)
-         call cdm_2_nu(nupath//'tf/Tf_nu_'//trim(adjustl(z2str(z_checkpoint(cur_checkpoint))))//'.txt')
-
-         rho_c = rho1
+         call cdm_2_nu(nupath//'tf/Tf_nu_'//trim(adjustl(str_z))//'.txt')
       else
-         rho_c = 0
+         rho1 = 0
       endif
 
 
@@ -246,87 +226,37 @@ program cicpower
       if (head) print*,'min',minval(rho_c),'max',maxval(rho_c),'mean',sum(rho_c*1d0)/nw/nw/nw; sync all
       if (head) print*,'Write delta_nu into',output_name('delta_nu')
       open(11,file=output_name('delta_nu'),status='replace',access='stream')
-      write(11) rho_c
+      write(11) rho1
       close(11); sync all
-
-      ! if (head) print*,'auto_power'
-      ! call auto_power(sim%a,xi,rho_c,npglobal,2)
-      ! !call density_to_potential(rho_c)
-      ! sync all
-      ! if (head) then
-      !   if (nic >2 ) then
-      !     if (head) print*,'Write cicpower_F_nu',output_name('cicpower_F_nu')
-      !     open(15,file=output_name('cicpower_F_nu'),status='replace',access='stream')
-      !   else
-      !     if (head) print*,'Write cicpower_nu',output_name('cicpower_nu')
-      !     open(15,file=output_name('cicpower_nu'),status='replace',access='stream')
-      !   endif
-      !   write(15) xi(:,1:nbin)
-      !   close(15)
-      ! endif
-      ! sync all
 
 #endif
 
 #ifdef density_matter
       if (head) print*,'create delta_matter'
 
-      do i=1,nw
-         do j=1,nw
-            do k=1,nw
-               rho_c(k,j,i)=rho_grid(k,j,i)
-            enddo
-         enddo
-      enddo
-      if (head) print*, 'check: min,max,sum of rho_grid = '
-      if (head) print*, minval(rho_c),maxval(rho_c),sum(rho_c*1d0)
-      rho8=sum(rho_c*1d0); sync all
-      if (head) then
-         do i=2,nn**3
-            rho8=rho8+rho8[i]
-         enddo
-      endif; sync all
-      rho8=rho8[1]; sync all
-      do i=1,nw
-         rho_c(:,:,i)=rho_c(:,:,i)/(rho8/nw_global/nw_global/nw_global)-1
-      enddo
-
-      rho1 = rho_c
-
-      call nu_correction_cic()
-
-      rho_c = f_nu*rho1+(1-f_nu)*rho_c
-
+      if (Mass_nu > 0) then
+#ifndef density_nu
+         rho1 = rho_c
+         write(str_z,'(f8.4)') z_powerpoint(sim%cur_powerpoint)
+         call cdm_2_nu(nupath//'tf/Tf_nu_'//trim(str_z)//'.txt')
+#endif
+         rho_1 = f_nu*rho1+(1-f_nu)*rho_c
+      else
+         rho1 = rho_c
+      endif
 
       if (head) print*, 'check: min,max,mean of rho_matter = '
       if (head) print*,'min',minval(rho_c),'max',maxval(rho_c),'mean',sum(rho_c*1d0)/nw/nw/nw; sync all
       if (head) print*,'Write delta_matter into',output_name('delta_matter')
       open(11,file=output_name('delta_matter'),status='replace',access='stream')
-      write(11) rho_c
+      write(11) rho1
       close(11); sync all
-
-      ! if (head) print*,'auto_power'
-      ! call auto_power(sim%a,xi,rho_c,npglobal,2)
-      ! !call density_to_potential(rho_c)
-      ! sync all
-      ! if (head) then
-      !   if (nic >2 ) then
-      !     if (head) print*,'Write cicpower_F_matter',output_name('cicpower_F_matter')
-      !     open(15,file=output_name('cicpower_F_matter'),status='replace',access='stream')
-      !   else
-      !     if (head) print*,'Write cicpower_matter',output_name('cicpower_matter')
-      !     open(15,file=output_name('cicpower_matter'),status='replace',access='stream')
-      !   endif
-      !   write(15) xi(:,1:nbin)
-      !   close(15)
-      ! endif
-      ! sync all
 
 #endif
 
 #ifdef gadget
       ! read Gadget output
-      allocate(xv(6,nplocal))
+      allocate(xv(6,nplocal),rho_grid(0:nw+1,0:nw+1,0:nw+1)[nn,nn,*])
       open(11,file='../output/yuyu/0.000_gadget_xv.bin',access='stream')
       read(11) xv
       close(11)
@@ -390,12 +320,12 @@ program cicpower
          write(15) xi(:,1:nbin)
          close(15)
       endif
-      deallocate(xv)
+      deallocate(xv,rho_grid)
       sync all
 #endif
       if (head) print*,''
    enddo
-   deallocate(rho_c,rho_grid,rhoc)
+   deallocate(rho_c,rhoc)
    call destroy_penfft_plan
    sync all
    if (head) print*,'cicpower done'

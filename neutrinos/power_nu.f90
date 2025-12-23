@@ -163,22 +163,25 @@ contains
       real spk(npbin)
 
       real a1(npbin), a2(npbin), k2(npbin), b2(npbin), c2(npbin)
-      real log_a, log_ap, log_ap1, log_ap2
+      real log_a, log_aps(3), log_pks(npbin,3)
 
       log_a = log(a)
-      log_ap = log(1 / (z_point(cur_powerpoint) + 1))
-      log_ap1 = log(1 / (z_point(cur_powerpoint - 1) + 1))
-      log_ap2 = log(1 / (z_point(cur_powerpoint - 2) + 1))
+      log_aps(1) = log(1 / (z_point(cur_powerpoint) + 1))
+      log_aps(2) = log(1 / (z_point(cur_powerpoint - 1) + 1))
+      log_aps(3) = log(1 / (z_point(cur_powerpoint - 2) + 1))
+      log_pks(:,1) = log(Pk(:, cur_powerpoint))
+      log_pks(:,2) = log(Pk(:, cur_powerpoint - 1))
+      log_pks(:,3) = log(Pk(:, cur_powerpoint - 2))
 
-      a1 = (log(Pk(:, cur_powerpoint)) - log(Pk(:, cur_powerpoint - 1))) / (log_ap - log_ap1)
-      a2 = (log(Pk(:, cur_powerpoint - 1)) - log(Pk(:, cur_powerpoint - 2))) / (log_ap1 - log_ap2)
-      k2 = (a1 - a2) / (log_ap - log_ap2)
+      a1 = (log_pks(:,1) - log_pks(:,2)) / (log_aps(1) - log_aps(2))
+      a2 = (log_pks(:,2) - log_pks(:,3)) / (log_aps(2) - log_aps(3))
+      k2 = (a1 - a2) / (log_aps(1) - log_aps(3))
       ! 强制曲率为非负：若为负，则退化为线性插值
       where (k2 < 0.0d0)
          k2 = 0.0d0
       end where
-      b2 = a1 - k2 * (log_ap + log_ap1)
-      c2 = log(Pk(:, cur_powerpoint)) - k2 * log_ap ** 2 - b2 * log_ap
+      b2 = a1 - k2 * (log_aps(1) + log_aps(2))
+      c2 = log_pks(:,1) - k2 * log_aps(1) ** 2 - b2 * log_aps(1)
       spk = exp((k2 * log_a ** 2 + b2 * log_a + c2)/2)
 
       if ((minval(spk(:ifs)) < -1e-5) .or. any((ieee_is_nan(spk(:ifs))))) then
@@ -188,9 +191,9 @@ contains
             print *, ''
             print *, 'Pk interp err ', minval(spk(:ifs)), 1. / a - 1, ifs
             print *, 'cur_powerpoint', cur_powerpoint, z_point(cur_powerpoint)
-            print *, 'Pk0', exp(Pk(:, cur_powerpoint))
-            print *, 'Pk-1', exp(Pk(:, cur_powerpoint - 1))
-            print *, 'Pk-2', exp(Pk(:, cur_powerpoint - 2))
+            print *, 'Pk0', Pk(:, cur_powerpoint)
+            print *, 'Pk-1', Pk(:, cur_powerpoint - 1)
+            print *, 'Pk-2', Pk(:, cur_powerpoint - 2)
             print *, 'a1', a1
             print *, 'a2', a2
             print *, 'k', k2
@@ -362,13 +365,18 @@ contains
             sync all; call system_clock(tp2,tpr); if (head) print*,'     global_power elapsed time =',real(tp2-tp1)/tpr
             i = istep-1
             interp_powerpoint = merge(sim%cur_powerpoint,3,sim%cur_powerpoint > 2)
-            a_post =  merge(1/(z_powerpoint(sim%cur_powerpoint-1)+1),1/(z_powerpoint(1)+1),sim%cur_powerpoint > 2)
-            do while (a_step(i) >= a_post)
+            a_post = 1/(z_powerpoint(sim%cur_checkpoint-1)+1)! merge(1/(z_powerpoint(interp_powerpoint-1)+1),1/(z_powerpoint(1)+1),sim%cur_powerpoint == 2)
+            if (head) print*,' ',a_post,interp_powerpoint
+            do while (a_step(i) >= a_post .and. i >= 0)
+               if (head) print*,'      interp',1/a_step(i)-1,i
                Pk_step(:,i) =  interp_quad(a_step(i),interp_powerpoint,Pk_cb_check,z_powerpoint)
                i = i-1
             enddo
          endif
          sim%cur_powerpoint=sim%cur_powerpoint+1
+         if (sim%cur_powerpoint > 2) then
+            stop
+         endif
          power_step = .false.
       endif
 

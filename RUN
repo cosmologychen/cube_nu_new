@@ -319,35 +319,39 @@ para_2_code() {
     else
         sed -i "s/.*logical,parameter :: PP=.*/  logical,parameter :: PP=.false./" kick.f90
     fi
+    
 
-    if [ "$s_path" != "None" ]; then
-        for ((i=1; i<=nnn; i++)); do
-            mkdir -p $output/$opath/image$i
-            cp -v $s_path/image$i/seed_$i.bin $output/$opath/image$i/seed_$i.bin
-        done
-        sed -i "s/.*#define READ_SEED/#define READ_SEED/" utilities/ic.f90
-    else
-        sed -i "s/.*#define READ_SEED/!#define READ_SEED/" utilities/ic.f90
-    fi
+    if [ "$RunIC" == true ]; then
 
-    if [ "$n_path" != "None" ]; then
-        for ((i=1; i<=nnn; i++)); do
-            mkdir -p $output/$opath/image$i
-            cp -v $n_path/image$i/noise_$i.bin $output/$opath/image$i/noise_$i.bin
-        done
-        sed -i "s/.*#define READ_NOISE/#define READ_NOISE/" utilities/ic.f90
-    else
-        sed -i "s/.*#define READ_NOISE/!#define READ_NOISE/" utilities/ic.f90
-    fi
+        if [ "$s_path" != "None" ]; then
+            for ((i=1; i<=nnn; i++)); do
+                mkdir -p $output/$opath/image$i
+                cp -v $s_path/image$i/seed_$i.bin $output/$opath/image$i/seed_$i.bin
+            done
+            sed -i "s/.*#define READ_SEED/#define READ_SEED/" utilities/ic.f90
+        else
+            sed -i "s/.*#define READ_SEED/!#define READ_SEED/" utilities/ic.f90
+        fi
 
-    if [ "$r_path" != "None" ]; then
-        for ((i=1; i<=nnn; i++)); do
-            mkdir -p $output/$opath/image$i
-            cp -v $r_path/image$i/delta_L_$i.bin $output/$opath/image$i/delta_L_$i.bin
-        done
-        sed -i "s/.*#define READ_RHO/#define READ_RHO/" utilities/ic.f90
-    else
-        sed -i "s/.*#define READ_RHO/!#define READ_RHO/" utilities/ic.f90
+        if [ "$n_path" != "None" ]; then
+            for ((i=1; i<=nnn; i++)); do
+                mkdir -p $output/$opath/image$i
+                cp -v $n_path/image$i/noise_$i.bin $output/$opath/image$i/noise_$i.bin
+            done
+            sed -i "s/.*#define READ_NOISE/#define READ_NOISE/" utilities/ic.f90
+        else
+            sed -i "s/.*#define READ_NOISE/!#define READ_NOISE/" utilities/ic.f90
+        fi
+
+        if [ "$r_path" != "None" ]; then
+            for ((i=1; i<=nnn; i++)); do
+                mkdir -p $output/$opath/image$i
+                cp -v $r_path/image$i/delta_L_$i.bin $output/$opath/image$i/delta_L_$i.bin
+            done
+            sed -i "s/.*#define READ_RHO/#define READ_RHO/" utilities/ic.f90
+        else
+            sed -i "s/.*#define READ_RHO/!#define READ_RHO/" utilities/ic.f90
+        fi
     fi
 }
 
@@ -443,13 +447,17 @@ qsub_ini() {
         make  || exit 1
         cd utilities && make cicpower.x && cd .. || exit 1
         sed -i "s/# $sMAIN/$sMAIN/" run.qsub
-        sed -i "s/# $sCIC/$sCIC/" run.qsub
+        if [ "$RunCIC" == true ]; then
+            sed -i "s/# $sCIC/$sCIC/" run.qsub
+        else
+            sed -i "s/^$sCIC/# $sCIC/" run.qsub
+        fi
     else
         sed -i "s/^$sMAIN/# $sMAIN/" run.qsub
         sed -i "s/^$sCIC/# $sCIC/" run.qsub
     fi
 
-    if [[ "$RunMain" == "false" ]] && [[ "$RunCIC" == "true" ]]; then 
+    if [ "$RunMain" == false ] && [ "$RunCIC" == true ]; then 
         cd utilities && make cicpower.x && cd .. || exit 1
         sed -i "s/# $sCIC/$sCIC/" run.qsub
     fi

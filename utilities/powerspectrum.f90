@@ -331,18 +331,16 @@ subroutine cdm_2_nu(fn_tf)
     real tf1(nw_global/2+1,nw,npen),k_tf1(nw_global/2+1,nw,npen)
 
     write(str_z,'(f8.4)') z_powerpoint(sim%cur_powerpoint)
-    print*,'z=',str_z,npbin
+    if (head) print*,'z=',str_z,npbin,trim(fn_tf)
     open(10,file=trim(fn_tf),status='old',access='stream'); read(10) tf_F; close(10)
     tf_F = (tf_F-(1-f_nu))/f_nu
-    print*, 'tf_F',tf_F(1),tf_F(2),tf_F(npbin)
+    if (head) print*, 'tf_F',tf_F(1),tf_F(2),tf_F(npbin)
     kh_lin = -1
     open(13,file=nupath//'k_values.txt',status='old')
-    do i=1,npbin
-    read(13,end=75,fmt='(f15.12)') kh_lin(i)
-    enddo
-    75 close(13)
+    read(13, '(f15.12)') kh_lin(1:npbin)
+    close(13)
     kh_lin_log = log(kh_lin)
-    print*,'k',kh_lin(1),kh_lin(2),kh_lin(npbin),icx,icy,icz,npen,nw,nyquist
+    if (head) print*,'k',kh_lin(1),kh_lin(2),kh_lin(npbin),icx,icy,icz,npen,nw,nyquist
     tf_F_log = log(tf_F)
     call pencil_fft_forward
     

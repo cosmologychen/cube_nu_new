@@ -72,7 +72,7 @@ use variables
       enddo
    endif
 #else
-   sim%cur_checkpoint=8
+   sim%cur_checkpoint=1
    call initialize
    call particle_initialization
    call buffer_grid
