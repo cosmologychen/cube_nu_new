@@ -5,99 +5,67 @@ module power_nu
    implicit none
 contains
 
-   real function expansion(a0,dt0)
-      use variables
-      ! use parameters
+   real function expansion(dt0)
+      use variables, only: stime,s2a,ia
       implicit none
       real(8) :: a_x,adot,t_x,tdoa,a8_0
-      real(4) :: a0,dt0
+      real(4) :: dt0
       integer i1,i2
 
-      a8_0=a0
-      i1 = 1
-      do while(s2a(i1+1)>a8_0 .and. i1 < istep_max)
-         i1 = i1+1
+      a8_0=sim%a
+      i1 = ia
+      do while(s2a(i1) <= a8_0 .and. i1 < istep_max)
+         i1 = i1-1
       enddo
-      ! print*,'a i1',i1,dt0
+      ia = i1
 
       tdoa = (stime(i1+1)-stime(i1))/(s2a(i1+1)-s2a(i1))
       t_x = stime(i1)+tdoa*(a8_0-s2a(i1))+dt0
-      ! print*,'a t_x',t_x,tdoa
 
 
       i2 = i1
       do while(stime(i2+1)<t_x .and. i2 > 1)
          i2 = i2-1
       enddo
-      ! print*,'a i2',i2
 
       adot = (s2a(i2+1)-s2a(i2))/(stime(i2+1)-stime(i2))
       a_x = s2a(i2)+adot*(t_x-stime(i2))
-      ! print*,'    i1',i1,stime(i1),s2a(i1)
-      ! print*,'    i2',i2,stime(i2),s2a(i2)
-      ! print*,a_x,a0,a8_0,t_x
 
       expansion=a_x-a8_0
-      ! da1=(a0-a_x)/2
-      ! da2=(a0-a_x)/2
    endfunction
 
-   real function H_a(a0)
-      use variables
+   real function dtau_a(da0)
+      use variables, only: stime,s2a,s2tau,ia
       implicit none
-      real a0,Hdot,t_x,tdoa
+      real a0,da0,taudot,t_x,tdoa
       integer i1,i2
 
-      i1 = 1
-      do while(s2a(i1+1)>a0 .and. i1 < istep_max)
-         i1 = i1+1
+      a0 = sim%a+da0
+      i1 = ia - 1
+      do while(s2a(i1) <= a0 .and. i1 > 1)
+         i1 = i1-1
       enddo
       i2=i1+1
       tdoa = (stime(i2)-stime(i1))/(s2a(i2)-s2a(i1))
       t_x = stime(i1)+tdoa*(a0-s2a(i1))
 
-      Hdot = (s2H(i2)-s2H(i1))/(stime(i2)-stime(i1))
-      H_a = s2H(i1)+Hdot*(t_x-stime(i1))
-   endfunction
-
-   real function dtau_a(da0)
-      use variables
-      implicit none
-      real a0,da0,taudot,t_x,tdoa
-      integer i1,i2
-      if (abs((sim%a+da0)-1)<1e-6) then
-         dtau_a = s2tau(1)-sim%tau
-         print*,'tau0'
-      else
-         a0 = sim%a+da0
-         i1 = 1
-         do while(s2a(i1+1)>a0 .and. i1 < istep_max)
-            i1 = i1+1
-         enddo
-         i2=i1+1
-         tdoa = (stime(i2)-stime(i1))/(s2a(i2)-s2a(i1))
-         t_x = stime(i1)+tdoa*(a0-s2a(i1))
-
-         taudot = (s2tau(i2)-s2tau(i1))/(stime(i2)-stime(i1))
-         dtau_a = s2tau(i1)+taudot*(t_x-stime(i1))-sim%tau
-      endif
+      taudot = (s2tau(i2)-s2tau(i1))/(stime(i2)-stime(i1))
+      dtau_a = s2tau(i1)+taudot*(t_x-stime(i1))-sim%tau
    endfunction
 
    real function sf_a(a0)
-      use variables
+      use variables, only: stime,s2a,ia,s_fi
       implicit none
       real a0,tdoa
       integer i1,i2
 
-      i1 = 1
-      do while(s2a(i1+1)>a0 .and. i1 < istep_max)
+      i1 = ia - 1
+      do while(s2a(i1+1)>=a0 .and. i1 < istep_max)
          i1 = i1+1
       enddo
       i2=i1+1
       tdoa = (stime(i2)-stime(i1))/(s2a(i2)-s2a(i1))
       sf_a = (stime(i1)+tdoa*(a0-s2a(i1)))*omhsq0-s_fi
-      ! sf_a = (stime(i1)+tdoa*(a0-s2a(i1)))*omhsq0-s_fi
-      ! print*,sf_a,'sf    i1',i1,stime(i1),s2a(i1),a0
 
    endfunction
 
@@ -365,18 +333,16 @@ contains
             sync all; call system_clock(tp2,tpr); if (head) print*,'     global_power elapsed time =',real(tp2-tp1)/tpr
             i = istep-1
             interp_powerpoint = merge(sim%cur_powerpoint,3,sim%cur_powerpoint > 2)
-            a_post = 1/(z_powerpoint(sim%cur_checkpoint-1)+1)! merge(1/(z_powerpoint(interp_powerpoint-1)+1),1/(z_powerpoint(1)+1),sim%cur_powerpoint == 2)
-            if (head) print*,' ',a_post,interp_powerpoint
+            a_post = 1/(z_powerpoint(sim%cur_powerpoint-1)+1)! merge(1/(z_powerpoint(interp_powerpoint-1)+1),1/(z_powerpoint(1)+1),sim%cur_powerpoint == 2)
+            ! if (head) print*,' ',a_post,interp_powerpoint
             do while (a_step(i) >= a_post .and. i >= 0)
-               if (head) print*,'      interp',1/a_step(i)-1,i
+               ! if (head) print*,'      interp',1/a_step(i)-1,i
                Pk_step(:,i) =  interp_quad(a_step(i),interp_powerpoint,Pk_cb_check,z_powerpoint)
                i = i-1
             enddo
+            ! stop
          endif
          sim%cur_powerpoint=sim%cur_powerpoint+1
-         if (sim%cur_powerpoint > 2) then
-            stop
-         endif
          power_step = .false.
       endif
 
@@ -472,7 +438,6 @@ contains
       if (calculate_PK > -1) call tf_F_correction
 
       if (a_nu == 0 .or. a_step(istep) > a_nu) then
-         Pk_step(:,istep) = tf_F**2*Pk_step(:,istep) !Pk_step_cdm --> Pk_step_matter
          write(str_z,'(f8.4)') 1/a_step(istep)-1
          if(head) then
             print*,'  Pk_step',Pk_step(1,istep),Pk_step(npbin/3,istep),Pk_step(npbin/3*2,istep),Pk_step(npbin,istep)
@@ -498,6 +463,7 @@ contains
             if(head) print*,tf_F
             error stop 'tf_F err'
          endif
+         Pk_step(:,istep) = tf_F**2*Pk_step(:,istep) !Pk_step_cdm --> Pk_step_matter
       endif
       call toc(97)
 

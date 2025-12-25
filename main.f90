@@ -5,7 +5,7 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 program CUBE
    use omp_lib
-use variables
+   use variables
    use power_nu
    implicit none
    save
@@ -72,7 +72,7 @@ use variables
       enddo
    endif
 #else
-   sim%cur_checkpoint=1
+   sim%cur_checkpoint=57
    call initialize
    call particle_initialization
    call buffer_grid
@@ -90,7 +90,7 @@ use variables
 
    if (head) print*, '---------- starting main loop ----------'
    do istep=sim%timestep,istep_max
-   ! do istep=sim%timestep,sim%timestep+3
+      ! do istep=sim%timestep,sim%timestep+3
       call system_clock(t_start,t_rate)
       call tic(100)
       call timestep
@@ -105,21 +105,16 @@ use variables
          if (checkpoint_step) then
             call checkpoint
             sim%cur_checkpoint = sim%cur_checkpoint+1
-            if (sim%cur_checkpoint .eq. 73) then
-               final_step=.true.
-               print*, '  final checkpoint'
-            endif
          endif
          call buffer_grid
          call buffer_x
          call buffer_v
-         if (halofind_step) then
-            !call halofind_FoF
-            sim%cur_halofind = sim%cur_halofind+1
-         endif
+         ! if (halofind_step) then
+         !    call halofind_FoF
+         !    sim%cur_halofind = sim%cur_halofind+1
+         ! endif
          call print_header(sim)
          if (final_step) exit
-         dt=0
       endif
       call system_clock(t_end,t_rate)
       call toc(100)

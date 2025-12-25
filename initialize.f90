@@ -34,6 +34,7 @@ subroutine initialize
    dt_old=0
    da=5
 
+
    ! sim%cur_checkpoint=4
    sim%cur_halofind=1
    z_checkpoint=-9999
@@ -60,7 +61,7 @@ subroutine initialize
    n_halofind=n_halofind[1]
    z_halofind(:)=z_halofind(:)[1]
 # endif
-   sim%tau=-3/sqrt(1./(1+z_checkpoint(sim%cur_checkpoint)))
+   sim%tau=0!-3/sqrt(1./(1+z_checkpoint(sim%cur_checkpoint)))
    sync all
    n_checkpoint=n_checkpoint[1]
    z_checkpoint(:)=z_checkpoint(:)[1]
@@ -82,8 +83,18 @@ subroutine initialize
    read(10,*) s2tau
    read(10,*) s2H
    close(10)
+
+   sim%a = 1./(1+z_checkpoint(1))
+
+   ia = 1
+   do while(s2a(ia+1)>=sim%a .and. ia < istep_max)
+      ia = ia+1
+   enddo
+   H_i = s2H(ia) + ((s2H(ia+1)-s2H(ia))/(s2a(ia+1)-s2a(ia)))*(sim%a-s2a(ia))
+   H_0 = h0*100
    s_fi = 0
    s_fi = sf_a(1./(1+z_checkpoint(1)))
+   
 
    !nu
    s_f=0
@@ -104,9 +115,6 @@ subroutine initialize
          print*,'  z_nu_start f_nu',1/a_nu-1,f_nu
          print*,'  nupath:',nupath
       endif
-
-      H_i = H_a(1/(z_checkpoint(1)+1))
-      H_0 = h0*100
 
       open(16,file=nupath//'z_powerpoint.txt',status='old')
       do i=1,nmax_redshift-1

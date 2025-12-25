@@ -22,7 +22,7 @@ subroutine timestep
       ntry=0
       do
          ntry=ntry+1
-         da = expansion(sim%a,dt_e)
+         da = expansion(dt_e)
          ra=da/(sim%a+da)
          if (ra>ra_max) then
             dt_e=dt_e*(ra_max/ra)
@@ -32,7 +32,7 @@ subroutine timestep
          if (ntry>10) exit
       enddo
       dt=min(dt_e,sim%dt_pm1,sim%dt_pm2,sim%dt_pm3,dt_refine*sim%dt_pp,sim%dt_vmax)
-      da = expansion(sim%a,dt)
+      da = expansion(dt)
       ! check if checkpointing is needed
       checkpoint_step=.false.
       halofind_step=.false.
@@ -43,7 +43,7 @@ subroutine timestep
       z_next=z_checkpoint(sim%cur_checkpoint)
 #   endif
       if (Mass_nu > 0.0) z_next = max(z_next,z_powerpoint(sim%cur_powerpoint))
-      a_next=1.0/(1+z_next) 
+      a_next=1.0/(1+z_next)
       if (da>=a_next-sim%a) then
          if (z_next==z_checkpoint(sim%cur_checkpoint)) then
             checkpoint_step=.true.
@@ -55,7 +55,7 @@ subroutine timestep
 #   endif
          do while (abs((sim%a+da)/a_next-1)>=1e-6 .or. (sim%a+da) > 1)
             dt=dt*(a_next-sim%a)/da
-            da = expansion(sim%a,dt)
+            da = expansion(dt)
             ! print*, 'a+da, dt, z+dz, err_a', sim%a+da, dt, 1.0/(sim%a+da)-1.0, (sim%a+da)/a_next-1
          enddo
       endif
@@ -70,7 +70,7 @@ subroutine timestep
       tcat(43,istep)=sim%a+da
 
       !nu
-      dtau = dtau_a(sim%a+da)
+      dtau = dtau_a(da)
 
       print*, 'tau         :',sim%tau,sim%tau+dtau
       print*, 'z         :',1.0/sim%a-1.0,1.0/(sim%a+da)-1.0

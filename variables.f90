@@ -8,6 +8,7 @@ module variables
    ! integer(4),allocatable :: ntpk(:),nspk(:)
    ! real(4),allocatable :: rand_num(:)pic
    real stime(istep_max),s2a(istep_max),s2tau(istep_max),s2H(istep_max)
+   integer ia
    real dtau,H_i,H_0
    character(20) str_z,str_i
    ! real tf_nu(nk),

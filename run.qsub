@@ -18,7 +18,7 @@ export OFLAG=$XFLAG' -c'
 export FFTFLAG='-I/opt/intel2018update3/mkl/include/fftw -mkl'
 export OMP_STACKSIZE=20000M
 export OMP_NUM_THREADS=64
-export FOR_COARRAY_NUM_IMAGES=1
+export FOR_COARRAY_NUM_IMAGES=8
 ulimit
 ulimit -s unlimited
 ulimit -u unlimited 
@@ -29,8 +29,8 @@ echo ""
 echo ""
 echo ""
 echo ""
-export PROCS=1
-export ntasks_per_node=1
+export PROCS=8
+export ntasks_per_node=8
 sort $PBS_NODEFILE | uniq -c | awk -v npn=$ntasks_per_node  '{print \$2":"npn}' > ./hostfile_$PROCS 
 HOST_FILE=./hostfile_$PROCS
 pwd
@@ -68,7 +68,7 @@ C2U=./utilities/cdm2nu.x
 # run_program $IC
 # run_program $cic
 run_program $MAIN
-run_program $CIC
+# run_program $CIC
 # run_program $FOF
 # run_program $DSP
 # run_program $C2U

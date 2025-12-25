@@ -327,11 +327,6 @@ else:
     Ha = interp1d(1/(H00[:,0]+1),H00[:,1], kind='cubic', bounds_error=False, fill_value="extrapolate")
     def Hz(z):
         return Ha(1/(1+z))
-# print('*'*200)
-# print(nupath+'/IC/Pnu_ic.txt')
-# print(nupath+'/IC/Pcb_ic.txt')
-# print('#'*100)
-# print(Pk_nu_ic)
     
 def taua(a):
     z=1/a-1
