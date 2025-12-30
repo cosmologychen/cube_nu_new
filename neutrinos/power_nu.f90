@@ -144,15 +144,17 @@ contains
       a1 = (log_pks(:,1) - log_pks(:,2)) / (log_aps(1) - log_aps(2))
       a2 = (log_pks(:,2) - log_pks(:,3)) / (log_aps(2) - log_aps(3))
       k2 = (a1 - a2) / (log_aps(1) - log_aps(3))
+      b2 = a1 - k2 * (log_aps(1) + log_aps(2))
+      c2 = log_pks(:,1) - k2 * log_aps(1) ** 2 - b2 * log_aps(1)
       ! 强制曲率为非负：若为负，则退化为线性插值
       where (k2 < 0.0d0)
          k2 = 0.0d0
+         b2 = (log_pks(:,1) - log_pks(:,3)) / (log_aps(1) - log_aps(3))
+         c2 = log_pks(:,1) - b2 * log_aps(1)
       end where
-      b2 = a1 - k2 * (log_aps(1) + log_aps(2))
-      c2 = log_pks(:,1) - k2 * log_aps(1) ** 2 - b2 * log_aps(1)
       spk = exp((k2 * log_a ** 2 + b2 * log_a + c2)/2)
 
-      if ((minval(spk(:ifs)) < -1e-5) .or. any((ieee_is_nan(spk(:ifs))))) then
+      if ((minval(spk(:ifs)) < 0) .or. any((ieee_is_nan(spk(:ifs))))) then
          if (head) then
             print *, ''
             print *, ''
@@ -282,7 +284,7 @@ contains
       implicit none
       real spk(npbin,3)
       real(8) L0(npbin,3),L1(npbin,3),L2(npbin,3)
-      real(8) a1(npbin,3), a2(npbin,3), k2(npbin,3), b2(npbin,3), c2(npbin,3)
+      real(8) a1(npbin,3), a2(npbin,3), k2(npbin,3), b2(npbin,3), c2(npbin,3),t0(npbin,3)
 
       integer is
       
@@ -294,7 +296,7 @@ contains
       endif
       L0 = get_L(2)
 
-      a1 = (L0 - L2) / (tau_step(2)   - tau_step(1))
+      a1 = (L0 - L2) / (tau_step(2) - tau_step(1))
       a2 = (L2 - L1) / (tau_step(1) - tau_step(0))
       k2 = (a1 - a2) / (tau_step(2) - tau_step(0))
       b2 = a1 - k2 * (tau_step(2) + tau_step(1))
@@ -307,9 +309,16 @@ contains
          L2 = get_L(is)
          a1 = (L2 - L1) / (tau_step(is)   - tau_step(is-1))
          a2 = (L1 - L0) / (tau_step(is-1) - tau_step(is-2))
-         k2 = (a1 - a2) / (tau_step(is) - tau_step(is-2))
+         k2 = (a1 - a2) / (tau_step(is)   - tau_step(is-2))
          b2 = a1 - k2 * (tau_step(is) + tau_step(is-1))
          c2 = L2 - k2 * tau_step(is) ** 2 - b2 * tau_step(is)
+         t0 = -b2 / (2.0 * k2) 
+         where (k2 > 0 .and. t0 >= tau_step(is-2) .and. t0 <= tau_step(is) .and. k2*t0**2 + b2*t0 + c2 < 0 )
+            k2 = 0
+            b2 = (L2 - L0) / (tau_step(is)   - tau_step(is-2))
+            c2 = L0 - b2 * tau_step(is-2)
+         enddo
+         
          spk = spk + k2/3 * (tau_step(is)**3-tau_step(is-2)**3) + (b2/2 * (tau_step(is)+tau_step(is-2)) + c2)*(tau_step(is)-tau_step(is-2))
       enddo
       spk = spk + k2/3 * (tau_step(istep)**3-tau_step(istep-1)**3) + (b2/2 * (tau_step(istep)+tau_step(istep-1)) + c2)*(tau_step(istep)-tau_step(istep-1))
@@ -399,9 +408,6 @@ contains
             if (calculate_PK > -1) then
                sqrt_pk_nu1 = get_sqrt_pk_nu1()
                sqrt_pk_nu2 = 0.75*sim%omega_m*H_0**2*get_sqrt_pk_nu2() ! 0.75 = (3/2)/2 
-
-
-
                Pk_nus = (sqrt_pk_nu1+sqrt_pk_nu2)
 
                if ((minval(Pk_nu(:ifs)) < -1e-5) .or. any((ieee_is_nan(Pk_nu(:ifs)))))then
@@ -544,4 +550,5 @@ contains
 
       ! call toc_nu
    endsubroutine
+   
 endmodule

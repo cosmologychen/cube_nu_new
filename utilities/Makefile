@@ -19,7 +19,7 @@ cdm2nu.x: cdm2nu.o parameters.o pencil_fft.o
 	$(FC) $(XFLAG) $(OPTIONS) $(FFTFLAG)  $^ -o $@
 write_gadget_format.x: write_gadget_format.o parameters.o
 	$(FC) $(XFLAG) $(OPTIONS) $^ -o $@
-fof.x: parameters.o variables.o particle_initialization.o buffer_grid.o buffer_particle.o fof.o
+fof.x: parameters.o variables.o fof.o
 	$(FC) $(XFLAG) $(OPTIONS) $^ -o $@
 fof_merge.x: parameters.o variables.o fof_merge.o
 	$(FC) $(XFLAG) $(OPTIONS) $^ -o $@

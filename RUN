@@ -536,18 +536,16 @@ pbs_run() {
             echo ""
             echo -e "${RED}输入超时,自动退出${NC}"
             echo "tail -f $log_name"
-            exit 0
+            break
         fi
         case $yn in
-            [Yy]* ) echo "-------------------- 程序输出 --------------------"; break;;
-            * ) 
+            [Yy]* ) 
+                echo "-------------------- 程序输出 --------------------";             
                 echo "tail -f $log_name"
-                exit 0
-            ;;
+                tail -f $log_name
+                break;;
         esac
     done
-    echo "tail -f $log_name"
-    tail -f $log_name
 }
 
 # 解析命令行参数

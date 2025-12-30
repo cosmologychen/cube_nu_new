@@ -3,15 +3,19 @@
 program CUBE_FoF
   use variables
   implicit none
-  integer i,j,k,l,cur_checkpoint,itile,np,nptile,nfof,n_refine,n1,n2,idx(3),nh_tile,nh[*]
-  integer iq1,iq2,iq3,i_neighbor,jq(3)
-  integer(8) nlast,nzero,ip,jp,np_iso,np_mem,np_head,nlist
+  integer(8),parameter:: n_refine = 4
+  integer(8),parameter:: fof_buffer = ceiling(10/box*nc*nn)*n_refine
+  integer(8),parameter:: nfof = nc*n_refine+2*fof_buffer
+  integer(8),parameter:: nfof2 = nfof/2
+  integer i,j,k,l,cur_checkpoint,np,n1,n2,idx(3),nh[*]
+  integer iq1,iq2,iq3,i_neighbor,jq(3),ijk_neighbor(3,3),neighbor_b(3,3)
+  integer(4) nlast,ip,jp,np_iso,np_head,np_max,np_neighbors(3,3,3)[nn,nn,*],np_need(3,3,3)
   integer(4),allocatable :: np_halo_all(:),np_halo(:)
-  integer(izipi),allocatable :: hoc(:,:,:),ll(:),llgp(:),hcgp(:),ecgp(:),iph_halo_all(:),iph_halo(:)
-  real rp2,rsq,xf_hoc(3)
-  real,allocatable :: xv(:,:),dxv(:,:),xv_mean(:,:)
+  integer(4),allocatable :: hoc(:,:,:),ll(:),llgp(:),hcgp(:),ecgp(:),iph_halo_all(:),iph_halo(:)
+  real rp2,rsq,dxv(3)
+  real,allocatable :: xv(:,:),xv_mean(:,:),xp_neighbors(:,:,:,:,:)[:,:,:]
   type(type_halo_catalog_header) halo_header
-  type(type_halo_catalog_array),allocatable :: hcat(:)
+  type(type_halo_catalog_array),allocatable :: hcat(:)[:]
   
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   call geometry
@@ -39,9 +43,6 @@ program CUBE_FoF
     l=l+1; ijk(:,l)=[i,-1,0]
   enddo
   l=l+1; ijk(:,l)=[-1,0,0]
-  !do i=1,13
-  !  print*,ijk(:,i)
-  !enddo
 
   if (head) print*,'  initialize tile index'
   ipm2=0;
@@ -54,146 +55,266 @@ program CUBE_FoF
   enddo
   enddo
 
-  n_refine=1
-  nfof=nt*n_refine*ratio_cs
-  n1=1-ncb*n_refine*ratio_cs; n2=(nt+ncb)*n_refine*ratio_cs
+  n1=1; n2=nc*n_refine+2*fof_buffer
   rp2=b_link**2
 
   do cur_checkpoint=100,100
     sim%cur_checkpoint=cur_checkpoint
     if (head) print*, ''
+    if (head) print*, ''
     if (head) print*, 'FoF at redshift ',z2str(z_checkpoint(cur_checkpoint))
     if (head) print*, '  read checkpoint header',output_name('info')
-    call particle_initialization
-    deallocate(xp_new,vp_new,pid_new)
-    call buffer_grid
-    call buffer_x
-    call buffer_v
 
-    halo_header%nhalo_tot=0; nh=0
-    halo_header%nhalo=0; halo_header%ninfo=ninfo; halo_header%linking_parameter=b_link
-    if (head) print*, output_name('halo')
-    open(21,file=output_name('halo'),status='replace',access='stream')
-    write(21) halo_header
-    
-    do itile=1,nnt**3 ! work on each tile
-      nlast=0
-      if (head) print*, ixyz2(:,itile)
-      nptile=sum(rhoc(:,:,:,ixyz2(1,itile),ixyz2(2,itile),ixyz2(3,itile)))
-      !print*,nfof,n1,n2,nptile
-      allocate(xv(6,nptile))
-      do k=1-ncb,nt+ncb
-      do j=1-ncb,nt+ncb
-      do i=1-ncb,nt+ncb
-        np=rhoc(i,j,k,ixyz2(1,itile),ixyz2(2,itile),ixyz2(3,itile))
-        nzero=idx_b_r(j,k,ixyz2(1,itile),ixyz2(2,itile),ixyz2(3,itile)) &
-              -sum(rhoc(i:,j,k,ixyz2(1,itile),ixyz2(2,itile),ixyz2(3,itile)))
-        do l=1,np
-          ip=nzero+l; jp=nlast+l
-          xv(1:3,jp)=ratio_cs*([i,j,k]-1+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution) ! coarse grid
-          xv(4:6,jp)=vp(:,ip)
+    !load particle
+    open(11,file=output_name('info'),access='stream'); read(11) sim; close(11)
+    allocate(rhoc(nt,nt,nt,nnt,nnt,nnt)[nn,nn,*],xp(3,sim%nplocal)[nn,nn,*])
+    open(11,file=output_name('xp'),access='stream'); read(11) xp; close(11)
+    open(11,file=output_name('np'),access='stream'); read(11) rhoc; close(11)
+
+    np_neighbors = 0
+    ! first demension [upper_boundary, lower_boundary, refine_shift] second demension [-1,0,1] image 
+    neighbor_b = reshape([int(0,kind=8),fof_buffer/n_refine,n_refine+fof_buffer  ,int(0,kind=8),nc,int(0,kind=8) ,nc-fof_buffer/n_refine,nc,-fof_buffer ],[3,3])
+
+    ! count  neighbor particle 
+    do iq1 = 1,3
+    ijk_neighbor(:,1) = neighbor_b(:,iq1)
+    do iq2 = 1,3
+    ijk_neighbor(:,2) = neighbor_b(:,iq2)
+    do iq3 = 1,3
+      if (iq1 ==0 .and. iq2 ==0 .and. iq3==0)  cycle
+      ijk_neighbor(:,3) = neighbor_b(:,iq3)
+      ! do itz=1,nnt
+      ! jq(3) = itz * nt
+      ! if (jq(3) > ijk_neighbor(2,3) + nt .and.  jq(3) < ijk_neighbor(1,3))  cycle
+      ! do ity=1,nnt
+      ! jq(2) = ity * nt
+      ! if (jq(2) > ijk_neighbor(2,2) + nt .and.  jq(2) < ijk_neighbor(1,2))  cycle
+      ! do itx=1,nnt
+      ! jq(1) = itx * nt
+      ! if (jq(1) > ijk_neighbor(2,1) + nt .and.  jq(1) < ijk_neighbor(1,1))  cycle
+      !   do k=1,nt
+      !   if (jq(3) + k  > ijk_neighbor(2,3) .and.  jq(3) + k < ijk_neighbor(1,3))  cycle
+      !   do j=1,nt
+      !   if (jq(2) + j  > ijk_neighbor(2,2) .and.  jq(2) + j < ijk_neighbor(1,2))  cycle
+      !   do i=1,nt
+      !   if (jq(1) + i  > ijk_neighbor(2,1) .and.  jq(1) + i < ijk_neighbor(1,1))  cycle
+      do itz = floor(ijk_neighbor(1,3)*1d0/nt),floor(ijk_neighbor(2,3)*1d0/nt)+1
+      do ity = floor(ijk_neighbor(1,2)*1d0/nt),floor(ijk_neighbor(2,2)*1d0/nt)+1
+      do itx = floor(ijk_neighbor(1,1)*1d0/nt),floor(ijk_neighbor(2,1)*1d0/nt)+1
+        do k = merge(1,mod(ijk_neighbor(1,3)+1,nt),itz*nt<ijk_neighbor(1,3)),merge(nt,mod(ijk_neighbor(2,3)+1,nt),itz*nt+nt>ijk_neighbor(2,3))
+        do j = merge(1,mod(ijk_neighbor(1,2)+1,nt),ity*nt<ijk_neighbor(1,2)),merge(nt,mod(ijk_neighbor(2,2)+1,nt),ity*nt+nt>ijk_neighbor(2,2))
+        do i = merge(1,mod(ijk_neighbor(1,1)+1,nt),itx*nt<ijk_neighbor(1,1)),merge(nt,mod(ijk_neighbor(2,1)+1,nt),itx*nt+nt>ijk_neighbor(2,1))
+          np_neighbors(iq1,iq2,iq3)= np_neighbors(iq1,iq2,iq3) + rhoc(i,j,k,itx,ity,itz)
         enddo
-        nlast=nlast+np
+        enddo
+        enddo
       enddo
       enddo
       enddo
-      !print*,minval(xv),maxval(xv),nlast;
+    enddo
+    enddo
+    enddo
+    sync all
 
-      ! create hoc ll
-      allocate(hoc(n1:n2,n1:n2,n1:n2),ll(nptile),llgp(nptile),hcgp(nptile),ecgp(nptile))
-      hoc=0; ll=0
-      do ip=1,nptile
-        idx=ceiling(xv(1:3,ip)*n_refine) ! index of the grid
-        if (minval(idx)<n1 .or. maxval(idx)>n2) then
-          print*, 'idx out of range'
-          print*, idx
-          stop
-        endif
-        ll(ip)=hoc(idx(1),idx(2),idx(3)) ! linked list 
-        hoc(idx(1),idx(2),idx(3))=ip ! head of chain
-        hcgp(ip)=ip ! initialize hcgp(ip)=ip for isolated particles
-      enddo
-      llgp=0; ecgp=0; ! initialize group link list
-      if (head) print*, 'percolation'
+    ! init space for all particles
+    np_max = sum(rhoc)
+    do iq1 = 1,3
+      i = modulo(icx-3+iq1,nn)+1
+    do iq2 = 1,3
+      j = modulo(icy-3+iq2,nn)+1
+    do iq3 = 1,3
+      k = modulo(icz-3+iq3,nn)+1
+      np_need(iq1,iq2,iq3) = np_neighbors(4-iq1,4-iq2,4-iq3)[i,j,k]
+    enddo
+    enddo
+    enddo
+    np_max = np_max + sum(np_need)
+    allocate(xv(3,np_max))
 
-      ! loop over fof cells
-      do iq3=n1,n2
-      do iq2=n1,n2
-      do iq1=n1,n2
-        ip=hoc(iq1,iq2,iq3)
-        do while (ip/=0)
-          jp=ll(ip)
+    !  initialize particles
+    do itz=1,nnt
+        do ity=1,nnt
+          do itx=1,nnt
+              do k=1,nt
+                do j=1,nt
+                    do i=1,nt
+                      np=rhoc(i,j,k,itx,ity,itz)
+                      do l=1,np
+                          ip=nlast+l
+#ifdef ZIPX
+                          xv(:,ip)=nt*((/itx,ity,itz/)-1)+ ((/i,j,k/)-1) + (int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution*n_refine+[fof_buffer,fof_buffer,fof_buffer]
+#else 
+                          xv(:,ip)=xp(:,ip)*n_refine/ratio_cs+[fof_buffer,fof_buffer,fof_buffer]
+#endif
+                      enddo
+                      nlast=nlast+np
+                    enddo
+                enddo
+              enddo
+          enddo
+        enddo
+    enddo
+    deallocate(xp)
+
+    ! init particles for neighbors
+    allocate(xp_neighbors(3,maxval(np_neighbors),3,3,3)[nn,nn,*])
+    do iq1 = 1,3
+    ijk_neighbor(:,1) = neighbor_b(:,iq1)
+    do iq2 = 1,3
+    ijk_neighbor(:,2) = neighbor_b(:,iq2)
+    do iq3 = 1,3
+      if (iq1 ==0 .and. iq2 ==0 .and. iq3==0)  cycle
+      ijk_neighbor(:,3) = neighbor_b(:,iq3)
+      ! do itz=1,nnt
+      ! jq(3) = itz * nt
+      ! if (jq(3) > ijk_neighbor(2,3) + nt .and.  jq(3) < ijk_neighbor(1,3))  cycle
+      ! do ity=1,nnt
+      ! jq(2) = ity * nt
+      ! if (jq(2) > ijk_neighbor(2,2) + nt .and.  jq(2) < ijk_neighbor(1,2))  cycle
+      ! do itx=1,nnt
+      ! jq(1) = itx * nt
+      ! if (jq(1) > ijk_neighbor(2,1) + nt .and.  jq(1) < ijk_neighbor(1,1))  cycle
+      !   do k=1,nt
+      !   if (jq(3) + k  > ijk_neighbor(2,3) .and.  jq(3) + k < ijk_neighbor(1,3))  cycle
+      !   do j=1,nt
+      !   if (jq(2) + j  > ijk_neighbor(2,2) .and.  jq(2) + j < ijk_neighbor(1,2))  cycle
+      !   do i=1,nt
+      !   if (jq(1) + i  > ijk_neighbor(2,1) .and.  jq(1) + i < ijk_neighbor(1,1))  cycle
+      do itz = floor(ijk_neighbor(1,3)*1d0/nt),floor(ijk_neighbor(2,3)*1d0/nt)+1
+      do ity = floor(ijk_neighbor(1,2)*1d0/nt),floor(ijk_neighbor(2,2)*1d0/nt)+1
+      do itx = floor(ijk_neighbor(1,1)*1d0/nt),floor(ijk_neighbor(2,1)*1d0/nt)+1
+        do k = merge(1,mod(ijk_neighbor(1,3)+1,nt),itz*nt<ijk_neighbor(1,3)),merge(nt,mod(ijk_neighbor(2,3)+1,nt),itz*nt+nt>ijk_neighbor(2,3))
+        do j = merge(1,mod(ijk_neighbor(1,2)+1,nt),ity*nt<ijk_neighbor(1,2)),merge(nt,mod(ijk_neighbor(2,2)+1,nt),ity*nt+nt>ijk_neighbor(2,2))
+        do i = merge(1,mod(ijk_neighbor(1,1)+1,nt),itx*nt<ijk_neighbor(1,1)),merge(nt,mod(ijk_neighbor(2,1)+1,nt),itx*nt+nt>ijk_neighbor(2,1))
+          nlast = sum(rhoc(:,:,:,:,:,:itz-1))         &
+                + sum(rhoc(:,:,:,:,:ity-1,itz))        &
+                + sum(rhoc(:,:,:,:itx-1,ity,itz))       &
+                + sum(rhoc(:,:,:k-1,itx,ity,itz))       &
+                + sum(rhoc(:,:j-1,:k-1,itx,ity,itz))    &
+                + sum(rhoc(:i-1,:j-1,:k-1,itx,ity,itz))
+          np=rhoc(i,j,k,itx,ity,itz)
+          do l=1,np
+              ip=nlast+l
+              xp_neighbors(:,jp,iq1,iq2,iq3) = xv(:,ip) + ijk_neighbor(3,:)
+          enddo
+        enddo
+        enddo
+        enddo
+      enddo
+      enddo
+      enddo
+    enddo
+    enddo
+    enddo
+    sync all
+
+    ! get  particles form neighbors
+    np_max = sum(rhoc)
+    do iq1 = 1,3
+      i = modulo(icx-3+iq1,nn)+1
+    do iq2 = 1,3
+      j = modulo(icy-3+iq2,nn)+1
+    do iq3 = 1,3
+      k = modulo(icz-3+iq3,nn)+1
+      np_max = np_max +  np_need(iq1,iq2,iq3)
+      xv(:,np_max+1:np_max+np_need(iq1,iq2,iq3)) = xp_neighbors(:,1:np_need(iq1,iq2,iq3),4-iq1,4-iq2,4-iq3)[i,j,k]
+    enddo
+    enddo
+    enddo
+    sync all
+    np_max = sum(rhoc) + sum(np_need)
+    deallocate(xp_neighbors,rhoc)
+    print*, 'particle initialized, np_max = ', np_max
+    
+
+
+
+
+    ! create hoc ll
+    allocate(hoc(n1:n2,n1:n2,n1:n2),ll(np_max),llgp(np_max),hcgp(np_max),ecgp(np_max))
+    hoc=0; ll=0
+    do ip=1,np_max
+      idx=floor(mod(xv(1:3,ip),nfof*1d0))+1 ! index of the grid
+      if (minval(idx)<n1 .or. maxval(idx)>n2) then
+        print*, 'idx out of range'
+        print*, idx
+        stop
+      endif
+      ll(ip)=hoc(idx(1),idx(2),idx(3)) ! linked list 
+      hoc(idx(1),idx(2),idx(3))=ip ! head of chain
+      hcgp(ip)=ip ! initialize hcgp(ip)=ip for isolated particles
+    enddo
+    llgp=0; ecgp=0; ! initialize group link list
+    if (head) print*, 'hoc ll created'
+
+    ! loop over fof cells
+    do iq3=n1,n2
+    do iq2=n1,n2
+    do iq1=n1,n2
+      ip=hoc(iq1,iq2,iq3)
+      do while (ip/=0)
+        jp=ll(ip)
+        do while (jp/=0)
+          rsq=sum((xv(1:3,ip)-xv(1:3,jp))**2)
+          if (rsq<=rp2) call merge_chain(ip,jp)
+          jp=ll(jp)
+        enddo
+        do i_neighbor=1,13
+          jq=[iq1,iq2,iq3]+ijk(:,i_neighbor)
+          if (minval(jq)<n1 .or. maxval(jq)>n2) cycle
+          jp=hoc(jq(1),jq(2),jq(3))
           do while (jp/=0)
             rsq=sum((xv(1:3,ip)-xv(1:3,jp))**2)
             if (rsq<=rp2) call merge_chain(ip,jp)
             jp=ll(jp)
           enddo
-          do i_neighbor=1,13
-            jq=[iq1,iq2,iq3]+ijk(:,i_neighbor)
-            if (minval(jq)<n1 .or. maxval(jq)>n2) cycle
-            jp=hoc(jq(1),jq(2),jq(3))
-            do while (jp/=0)
-              rsq=sum((xv(1:3,ip)-xv(1:3,jp))**2)
-              if (rsq<=rp2) call merge_chain(ip,jp)
-              jp=ll(jp)
-            enddo
-          enddo
-          ip=ll(ip) ! find next particle in the chain
         enddo
+        ip=ll(ip) ! find next particle in the chain
       enddo
-      enddo
-      enddo
+    enddo
+    enddo
+    enddo
+    deallocate(hoc,ll,ecgp)
 
-      !print*, 'count'
-      ! count isolated, member and leader particles
-      np_iso=0; np_mem=0; np_head=0;
-      do i=1,nptile
-        if (hcgp(i)==i) then
-          np_iso=np_iso+1
-        elseif (hcgp(i)==0) then
-          np_mem=np_mem+1
-        else
+
+
+    allocate(np_halo_all(np_max/np_halo_min),xv_mean(3,np_max/np_halo_min),np_halo(np_max/np_halo_min))
+    np_iso = 0; np_head = 0; np_halo=0; np_halo_all=0
+    do i=1,np_max
+      if (hcgp(i)==i) then
+        np_iso=np_iso+1
+      elseif (hcgp(i)/=0) then
+        ip = hcgp(i); jp = ip; np = 0; dxv = 0
+        do while (jp /= 0)
+          np = np + 1
+          dxv = dxv + modulo(xv(:,jp) - xv(:,ip)+nfof2,nfof*1d0)-nfof2
+          jp = llgp(jp)
+        enddo
+        dxv = modulo(sum(dxv)/np+xv(:,ip),nfof*1d0)
+        if (np > np_halo_min .and. minval(dxv(1:3)) > fof_buffer .and. maxval(dxv(1:3)) < nfof-fof_buffer) then
           np_head=np_head+1
+          np_halo_all(np_head) = hcgp(i)
+          xv_mean(:,np_head) =  dxv 
+          np_halo(np_head) = np
         endif
-      enddo
-      !print*,'N_iso,mem,head =',np_iso,np_mem,np_head
+      endif
+    enddo
 
-      !print*,'fof particles'
-      nlist=np_head
-      allocate(xv_mean(6,nlist),iph_halo_all(nlist),dxv(6,nlist),np_halo_all(nlist))
+    nh=np_head
 
-      nh_tile=0;
-      do ip=1,nptile
-        if (hcgp(ip)/=ip .and. hcgp(ip)/=0) then
-          np=0; jp=hcgp(ip) ! hoc of the group
-          do while (jp/=0) ! loop over group members
-            np=np+1; dxv(:,np)=xv(:,jp);
-            jp=llgp(jp) ! next particle in chain
-          enddo
-          if (np>=np_halo_min .and. minval(sum(dxv(1:3,:np),2)/np)>=0 .and. & 
-                                    maxval(sum(dxv(1:3,:np),2)/np)<nt*ratio_cs) then
-            nh_tile=nh_tile+1
-            np_halo_all(nh_tile)=np
-            iph_halo_all(nh_tile)=hcgp(ip) ! hoc of the halo "ip-header"
-            xv_mean(:,nh_tile)=sum(dxv(:,:np),2)/np+(ixyz2(:,itile)-1)*ngp+([icx,icy,icz]-1)*ng
-          endif
-        endif
-      enddo
-      !print*,'nh_tile',nh_tile
-      !print*, minval(xv_mean(:,:nhalo)),maxval(xv_mean(:,:nhalo))
+    halo_header%nhalo_tot=0
+    halo_header%nhalo=nh; halo_header%ninfo=ninfo; halo_header%linking_parameter=b_link
+    if (head) print*, output_name('halo')
+    open(21,file=output_name('halo'),status='replace',access='stream')
+    write(21) halo_header
 
-      ! transfer data to smaller arrays
-      allocate(hcat(nh_tile),iph_halo(nh_tile)); iph_halo=iph_halo_all(:nh_tile); hcat%hmass=np_halo_all(:nh_tile)
-      do i=1,6
-        hcat%xv(i)=xv_mean(i,1:nh_tile)
-      enddo
-      nh=nh+nh_tile
-      write(21) hcat 
-      deallocate(np_halo_all,xv_mean,dxv,iph_halo_all,iph_halo)
-      deallocate(xv,hoc,ll,llgp,hcgp,ecgp,hcat)
-    enddo ! itile
+    allocate(hcat(nh)[*])
+    hcat%hmass = np_halo(1:nh)
+    do i=1,3
+      hcat%xv(i)=xv_mean(i,1:nh)
+    enddo
+    write(21) hcat 
 
-    halo_header%nhalo=nh; sync all
     if (head) then
       do i=2,nn**3
         nh=nh+nh[i]
@@ -202,8 +323,24 @@ program CUBE_FoF
     sync all; nh=nh[1]; halo_header%nhalo_tot=nh; 
     rewind(21); write(21) halo_header; close(21)
     sync all
-    deallocate(xp,vp,rhoc,pid)
     if (head) print*,'halo_header',halo_header
+    deallocate(hcgp,llgp,xv,xv_mean)
+
+    nh=np_head
+    if (head) then
+      allocate(ll((ng_global)**3/np_halo_min))
+      ll(1:nh) = hcat%hmass
+      do i=2,nn**3
+        np_head = nh[i]
+        ll(nh+1:nh+np_head) = hcat[i]%hmass
+        nh=nh+np_head
+      enddo
+      if (head) print*, output_name('halo_mass')
+      open(21,file=output_name('halo_mass'),status='replace',access='stream')
+      write(21) nh
+      write(21) ll(1:nh)
+      close(21)
+    endif
   enddo ! cur_checkpoint
 
 
@@ -215,7 +352,7 @@ program CUBE_FoF
     ! ip1->ip2->...->ipn
     ! ip1 is the head of chain (hoc)
     ! ipn is the end of chain (eoc)
-    integer(8) ii,jj,ihead,jhead,iend,jend,ipart
+    integer(4) ii,jj,ihead,jhead,iend,jend,ipart
     jend=merge(jj,ecgp(jj),ecgp(jj)==0)
     iend=merge(ii,ecgp(ii),ecgp(ii)==0)
     if (iend==jend) return ! same chain

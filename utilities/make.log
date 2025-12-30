@@ -1,5 +1,0 @@
-ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -c -DFFTFINE -Dsigma8 -DPID -DZIPX ../parameters.f90
-ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -c -DFFTFINE -Dsigma8 -DPID -DZIPX ../pencil_fft.f90 -I/opt/intel2020/mkl/include/fftw -mkl
-ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -c -DFFTFINE -Dsigma8 -DPID -DZIPX -I/opt/intel2020/mkl/include/fftw -mkl powerspectrum.f90 -o powerspectrum.o
-ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -c -DFFTFINE -Dsigma8 -DPID -DZIPX -I/opt/intel2020/mkl/include/fftw -mkl cicpower.f90 -o cicpower.o
-ifort -O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -DFFTFINE -Dsigma8 -DPID -DZIPX -I/opt/intel2020/mkl/include/fftw -mkl cicpower.o parameters.o pencil_fft.o powerspectrum.o -o cicpower.x

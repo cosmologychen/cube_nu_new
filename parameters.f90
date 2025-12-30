@@ -2,7 +2,7 @@ module parameters
    implicit none
 
    ! output directory
-   character(*),parameter :: opath='/home/cossim/cube_nu/test/output/zi_nu59_600_256_2_0.06_2/'
+  character(*),parameter :: opath='/home/cossim/cube_nu/output/void1200_512_1_0.05_2/'
 
   ! zip parameters
   integer,parameter :: ndim=3
@@ -15,12 +15,12 @@ module parameters
   integer, parameter :: izipi = 8 ! if pids are on, size to store as
 
   ! cell resolution parameters
-   integer,parameter :: nn=2
-   real,parameter :: box=600
-   integer,parameter :: ncore=8
-   integer,parameter :: nteam=4
-   integer,parameter :: nnest=2
-   integer(8),parameter :: ng=256
+  integer,parameter :: nn=1
+  real,parameter :: box=1200
+  integer,parameter :: ncore=64
+  integer,parameter :: nteam=16
+  integer,parameter :: nnest=4
+  integer(8),parameter :: ng=512
 
   integer,parameter :: ratio_cs=4
   integer,dimension(7),parameter :: ratio_sf=[1,2,4,6,8,12,16]
@@ -100,7 +100,7 @@ module parameters
    ! background parameters
    real, parameter :: h0=0.6817
    !nu
-   real(8),dimension(3),parameter :: m_nu=[0.06,0.0,0.0] ! mass_nus/eV
+   real(8),dimension(3),parameter :: m_nu=[0.0,0.0,0.05] ! mass_nus/eV
    real(8),parameter :: Mass_nu=sum(m_nu) ! Mass_nu/eV
 
    ! real,dimension(3), parameter :: O_nu = m_nu/93.14/(h0**2)
@@ -134,7 +134,7 @@ module parameters
    !real(8),parameter :: vdisp_boost=1.0
    real(8),parameter :: vrel_boost=2.5
    real,parameter :: b_link=0.20 ! linking length for FoF
-   real,parameter :: np_halo_min=10 ! minimum number of particles to be a halo
+   integer,parameter :: np_halo_min=10 ! minimum number of particles to be a halo
 
    !! MPI image variables !!
    integer(8) image,rank,icx,icy,icz,inx,iny,inz,ipx,ipy,ipz
