@@ -2,7 +2,7 @@ module parameters
    implicit none
 
    ! output directory
-  character(*),parameter :: opath='/home/cossim/cube_nu/output/void1200_512_1_0.05_2/'
+  character(*),parameter :: opath='/home/cossim/cube_nu/output/GP600_256_2_0.06_2/'
 
   ! zip parameters
   integer,parameter :: ndim=3
@@ -15,12 +15,12 @@ module parameters
   integer, parameter :: izipi = 8 ! if pids are on, size to store as
 
   ! cell resolution parameters
-  integer,parameter :: nn=1
-  real,parameter :: box=1200
-  integer,parameter :: ncore=64
-  integer,parameter :: nteam=16
-  integer,parameter :: nnest=4
-  integer(8),parameter :: ng=512
+  integer,parameter :: nn=2
+  real,parameter :: box=600
+  integer,parameter :: ncore=1
+  integer,parameter :: nteam=1
+  integer,parameter :: nnest=1
+  integer(8),parameter :: ng=256
 
   integer,parameter :: ratio_cs=4
   integer,dimension(7),parameter :: ratio_sf=[1,2,4,6,8,12,16]
