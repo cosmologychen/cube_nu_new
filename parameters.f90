@@ -2,7 +2,7 @@ module parameters
    implicit none
 
    ! output directory
-  character(*),parameter :: opath='/home/cossim/cube_nu/output/GP600_256_2_0.06_2/'
+  character(*),parameter :: opath='/home/cossim/cube_nu/cube_nest/1200_8/'
 
   ! zip parameters
   integer,parameter :: ndim=3
@@ -16,11 +16,11 @@ module parameters
 
   ! cell resolution parameters
   integer,parameter :: nn=2
-  real,parameter :: box=600
+  real,parameter :: box=1200
   integer,parameter :: ncore=1
   integer,parameter :: nteam=1
   integer,parameter :: nnest=1
-  integer(8),parameter :: ng=256
+  integer(8),parameter :: ng=768
 
   integer,parameter :: ratio_cs=4
   integer,dimension(7),parameter :: ratio_sf=[1,2,4,6,8,12,16]
@@ -188,18 +188,18 @@ module parameters
       integer(8) timestep
       integer(8) cur_checkpoint
       integer(8) cur_halofind
-      integer(8) cur_powerpoint !nu
-      integer(8) calculate_PK !nu
-      integer(8) cic_iapm !nu
+      ! integer(8) cur_powerpoint !nu
+      ! integer(8) calculate_PK !nu
+      ! integer(8) cic_iapm !nu
       real a, t, tau
       real dt_pp, dt_pm3, dt_pm2, dt_pm1, dt_vmax
       real mass_p_cdm
-      real m_nu(3)!nu
-      real Mass_nu!nu
+      ! real m_nu(3)!nu
+      ! real Mass_nu!nu
       real box
       real h0
       real omega_m
-      real omega_nu!nu
+      ! real omega_nu!nu
       real omega_l
       real s8
       real vsim2phys
@@ -234,10 +234,10 @@ contains
          print*,'| dt PM123,PP     =',s%dt_pm1,s%dt_pm2,s%dt_pm3,s%dt_pp
          print*,'| dt v            =',s%dt_vmax
          print*,'| cur_checkpoint  =',int(s%cur_checkpoint,2),z_checkpoint(s%cur_checkpoint)
-         print*,'| cur_powerpoint  =',int(s%cur_powerpoint,2),z_powerpoint(s%cur_powerpoint)
+         ! print*,'| cur_powerpoint  =',int(s%cur_powerpoint,2),z_powerpoint(s%cur_powerpoint) !nu
          print*,'| cur_halofind    =',int(s%cur_halofind,2),z_halofind(s%cur_halofind)
          print*,'| mass_p          =',s%mass_p_cdm
-         print*,'| mass_nu         =',s%mass_nu,s%m_nu,s%calculate_PK
+         ! print*,'| mass_nu         =',s%mass_nu,s%m_nu,s%calculate_PK !nu
          print*,'| box             =',s%box, 'Mpc/h'
          print*,'| image           =',s%image
          print*,'| nn              =',s%nn
@@ -246,7 +246,7 @@ contains
          print*,'| izip x,v        =',int(s%izipx,1),int(s%izipv,1)
          print*,'| h_0             =',s%h0,'*100 km/s/Mpc'
          print*,'| omega_m         =',s%omega_m
-         print*,'| omega_nu         =',s%omega_nu
+         ! print*,'| omega_nu         =',s%omega_nu !nu
          print*,'| omega_l         =',s%omega_l
          print*,'| sigma_8         =',s%s8
          print*,'| vsim2phys       =',s%vsim2phys, '(km/s)/(1.0)'

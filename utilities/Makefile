@@ -52,7 +52,7 @@ buffer_grid.o: ../buffer_grid.f90
 	$(FC) $(OFLAG) $(OPTIONS) $<
 buffer_particle.o: ../buffer_particle.f90
 	$(FC) $(OFLAG) $(OPTIONS) $<
-%.o: %.f90 Makefile parameters.o pencil_fft.o powerspectrum.o
+%.o: %.f90 Makefile parameters.o# pencil_fft.o powerspectrum.o
 	$(FC) $(OFLAG) $(OPTIONS) $(FFTFLAG) $< -o $@
 pencil_fft.o: ../pencil_fft.f90 parameters.o
 	$(FC) $(OFLAG) $(OPTIONS) $< $(FFTFLAG)
