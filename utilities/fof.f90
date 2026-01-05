@@ -1,6 +1,7 @@
 !#define gadget
 
 program CUBE_FoF
+  use omp_lib
   use variables
   implicit none
   character(len = 4) str_refine
@@ -9,7 +10,7 @@ program CUBE_FoF
   ! integer(8),parameter:: nfof = nc+2*fof_buffer
   ! integer(8),parameter:: nfof2 = nfof/2
   integer i,j,k,l,cur_checkpoint,np,n1,n2,idx(3),nh[*],im,idx1(3),idx2(3)
-  integer iq1,iq2,iq3,i_neighbor,jq(3),ijk_neighbor(3,3),neighbor_b(3,3),nfofs(4),nfof,ifof,nfof1
+  integer iq1,iq2,iq3,i_neighbor,jq(3),ijk_neighbor(3,3),neighbor_b(3,3),nfofs(4),nfof,ifof,nfof1,n_layer
   integer(4) nlast,ip,jp,np_iso,np_head,np_max,np_neighbors(3,3,3)[nn,nn,*],np_need(3,3,3),max_nei[nn,nn,*]
   integer(4),allocatable :: np_halo_all(:),np_halo(:)[:]
   integer(4),allocatable :: hoc(:,:,:),ll(:),llgp(:),hcgp(:),ecgp(:),iph_halo_all(:),iph_halo(:)!,h2(:,:,:,:),l2(:,:)
@@ -21,6 +22,8 @@ program CUBE_FoF
   
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   call geometry
+
+  call omp_set_num_threads(1)
 
   if (head) then
     open(16,file='z_checkpoint.txt',status='old')
@@ -36,7 +39,7 @@ program CUBE_FoF
   z_checkpoint(:)=z_checkpoint(:)[1]
   sync all
 
-  if (head) print*,'  initialize FoF cell neighbors',n_checkpoint
+  if (head) print*,'  initialize FoF cell neighbors',fof_buffer
   l=0
   do j=-1,1
   do i=-1,1
@@ -64,7 +67,8 @@ program CUBE_FoF
   L_bL   = L_b  + nc
   L_bLb  = L_bL + fof_buffer
   L_bLb2 = L_bLb/2
-  nfofs = [400,800,1200,1600]
+  ! nfofs = [400,800,1200,1600]
+  nfofs = [300,400,500,800]
   shift_xv  = [(icx-1)*nc*1d0-fof_buffer,(icy-1)*nc*1d0-fof_buffer,(icz-1)*nc*1d0-fof_buffer]
   if (head) print*,'linking,L _b,L_bL,L_bLb',b_link/ratio_cs,L_b,L_bL,L_bLb
 
@@ -117,22 +121,11 @@ program CUBE_FoF
     enddo
     enddo
     enddo
-    !   endif
-    !   sync all
-    ! enddo
-    ! if (head) print*,sum(rhoc),sum(np_neighbors),(sum(rhoc)+sum(np_neighbors))*1d0/nfof/nfof/nfof,(sum(rhoc)+sum(np_neighbors))-nfof**3
-    ! stop
     max_nei = maxval(np_neighbors)
-
-    ! print*,maxval(np_neighbors),maxval(np_neighbors)*3*3*3*3*4*1d0/1024/1024/1024
-    ! stop
-
+    
     ! init space for all particles -检查过image——neighbor编号和np_need
     sync all
     if (head) print*,' init space for all particles'
-    ! do im = 1,nn**3
-    !   if (image == im ) then
-    !     print*,image
     np_need = 0
     np_max = sum(rhoc)
     do iq1 = 1,3
@@ -147,64 +140,50 @@ program CUBE_FoF
     enddo
     enddo
     enddo
-    !   endif
-    !   sync all
-    ! enddo
-    ! stop
     np_max = np_max + sum(np_need)
-    ! do im = 1,nn**3
-    !   if (image == im ) then
-    !     print*,image
-    !     print*,np_max,sum(rhoc),sim%nplocal,sum(np_need)
-    !     print*,np_max*1d0/n2/n2/n2,sum(rhoc)*1d0/nc/nc/nc/n_refine/n_refine/n_refine
-    !     print*,3*4*np_max*1d0/1024/1024/1024
-    !     print*,''
-    !   endif
-    !   sync all
-    ! enddo
-    ! stop
+    sync all
+    if (head) then
+      print*,'sync  max_nei'
+      do i = 1,nn
+      do j = 1,nn
+      do k = 1,nn
+        max_nei = max(max_nei,max_nei[i,j,k])
+      enddo
+      enddo
+      enddo
+    endif
+    sync all
+    max_nei = max_nei[1,1,1]
+    do im = 1,nn**3
+      if (image == im ) then
+        print*,image,np_max
+      endif
+      sync all
+    enddo
+    stop
 
     !  initialize particles  -检查过xv范围和sum得到nlast
-    ! print*,image,np_max
-    sync all
     if (head) print*,' initialize particles'
     allocate(xv(3,np_max))
-    ! do im = 1,1!nn**3
-    !   if (image == im ) then
-    !     print*,image,sum(rhoc)*1d0/nc/nc/nc
     xv = 0
     nlast=0
+    !$omp paralleldo  COLLAPSE(3) PRIVATE(itz,ity,itx,k,j,i,np,nlast,l,ip)
     do itz=1,nnt
     do ity=1,nnt
     do itx=1,nnt
-      ! dxv = 0; np_max = 0
       do k=1,nt
       do j=1,nt
       do i=1,nt
         np=rhoc(i,j,k,itx,ity,itz)
-        ! print*,i,j,k,nlast,sum(rhoc(:,:,:,:,:,:itz-1))            &
-        !             + sum(rhoc(:,:,:,:,:ity-1,itz))         &
-        !             + sum(rhoc(:,:,:,:itx-1,ity,itz))       &
-        !             + sum(rhoc(:,:,:k-1,itx,ity,itz))       &
-        !             + sum(rhoc(:,:j-1,k,itx,ity,itz))    &
-        !             + sum(rhoc(:i-1,j,k,itx,ity,itz))
-        ! if (nlast /= sum(rhoc(:,:,:,:,:,:itz-1))            &
-        !             + sum(rhoc(:,:,:,:,:ity-1,itz))         &
-        !             + sum(rhoc(:,:,:,:itx-1,ity,itz))       &
-        !             + sum(rhoc(:,:,:k-1,itx,ity,itz))       &
-        !             + sum(rhoc(:,:j-1,k,itx,ity,itz))    &
-        !             + sum(rhoc(:i-1,j,k,itx,ity,itz))) then 
-        !   print *,image,itz,ity,itx
-        !   print*,i,j,k,nlast,sum(rhoc(:,:,:,:,:,:itz-1))            &
-        !               + sum(rhoc(:,:,:,:,:ity-1,itz))         &
-        !               + sum(rhoc(:,:,:,:itx-1,ity,itz))       &
-        !               + sum(rhoc(:,:,:k-1,itx,ity,itz))       &
-        !               + sum(rhoc(:,:j-1,k,itx,ity,itz))    &
-        !               + sum(rhoc(:i-1,j,k,itx,ity,itz))
-        ! endif
+        nlast = sum(rhoc(:,:,:,:,:,:itz-1))     &
+              + sum(rhoc(:,:,:,:,:ity-1,itz))   &
+              + sum(rhoc(:,:,:,:itx-1,ity,itz)) &
+              + sum(rhoc(:,:,:k-1,itx,ity,itz)) &
+              + sum(rhoc(:,:j-1,k,itx,ity,itz)) &
+              + sum(rhoc(:i-1,j,k,itx,ity,itz))
         do l=1,np
           ip=nlast+l
-          if (ip > np_max  .or. ip < 1 .or.  ip > sim%nplocal) then
+          if (ip < 1 .or.  ip > sim%nplocal) then
             print*, image
             print*, i,j,k,itx,ity,itz
             print*,nlast,l,np,ip
@@ -215,32 +194,22 @@ program CUBE_FoF
 #else 
           xv(:,ip)=xp(:,ip)/ratio_cs+[fof_buffer,fof_buffer,fof_buffer] 
 #endif
-          !  dxv =  modulo(xv(:,nlast) - xv(:,ip)+nfof2,nfof*1d0)-nfof2
-          !  dxv =  dxv + xv(:,nlast)
         enddo
-        ! np_max =  np_max + np
-        ! dxv = modulo(sum(dxv)/np+xv(:,nlast),nfof*1d0)
-        ! dxv = sum(dxv)/np+xv(:,nlast)
-        ! print*,'  ',i,j,k,dxv
-        nlast=nlast+np
       enddo
       enddo
       enddo
-      ! dxv = sum(dxv)/np_max
-      ! print*,'   ',itx*nt-nt,ity*nt-nt,itz*nt-nt
-      ! print*,'   ',dxv
-      ! print*,'   ',itx*nt,ity*nt,itz*nt
+      if(head) print*,itz,ity,itx,sum(rhoc(:,:,:,itx,ity,itz))
     enddo
     enddo
     enddo
-    !   endif
-    !   sync all
-    ! enddo
-    ! stop
+    !$omp endparalleldo
     deallocate(xp)
+    np_max = sum(rhoc)
     ! do im = 1,nn**3
     !   if (image == im ) then
-    !     print*,image,nlast,sum(rhoc),sum(xv(1,:))/nlast,sum(xv(2,:))/nlast,sum(xv(3,:))/nlast
+    !     print*,image,sum(xv(1,:np_max))/np_max,minval(xv(1,:np_max)),maxval(xv(1,:np_max))
+    !     print*,image,sum(xv(2,:np_max))/np_max,minval(xv(2,:np_max)),maxval(xv(2,:np_max))
+    !     print*,image,sum(xv(3,:np_max))/np_max,minval(xv(3,:np_max)),maxval(xv(3,:np_max))
     !   endif
     !   sync all
     ! enddo
@@ -248,17 +217,6 @@ program CUBE_FoF
 
 
     ! init particles for neighbors  -检查粒子的中心位置和最大最小值
-    if (head) then
-    do i = 1,nn
-    do j = 1,nn
-    do k = 1,nn
-      max_nei = max(max_nei,max_nei[i,j,k])
-    enddo
-    enddo
-    enddo
-    endif
-    sync all
-    max_nei = max_nei[1,1,1]
     if (head) print*,' init particles for neighbors',max_nei,maxval(np_neighbors)
 
     allocate(xp_neighbors(3,max_nei,3,3,3)[nn,nn,*])
@@ -266,14 +224,14 @@ program CUBE_FoF
     ! do im = 1,nn**3
     !   if (image == im ) then
     !     print*,image
+    !$omp paralleldo  COLLAPSE(3) PRIVATE(iq1,iq2,iq3,jp,ijk_neighbor,itz,ity,itx,k,j,i,nlast,np,l,ip)
     do iq1 = 1, 3
-    ijk_neighbor(:, 1) = neighbor_b(:, iq1)
     do iq2 = 1, 3
-    ijk_neighbor(:, 2) = neighbor_b(:, iq2)
     do iq3 = 1, 3
-      if (head)  print*,iq1-2,iq2-2,iq3-2
-      jp = 0
       if (iq1 == 2 .and. iq2 == 2 .and. iq3 == 2) cycle
+      jp = 0
+      ijk_neighbor(:, 2) = neighbor_b(:, iq2)
+      ijk_neighbor(:, 1) = neighbor_b(:, iq1)
       ijk_neighbor(:, 3) = neighbor_b(:, iq3)
       ! 循环遍历各个维度
       do itz = floor((ijk_neighbor(1, 3))*1d0/nt)+1, floor((ijk_neighbor(2, 3)-1)*1d0/nt)+1
@@ -300,6 +258,7 @@ program CUBE_FoF
       enddo
       enddo
       enddo
+      if (head)  print*,iq1-2,iq2-2,iq3-2
       ! print*,iq1-2,iq2-2,iq3-2,np_neighbors(iq1,iq2,iq3),jp
       ! print*,sum(xp_neighbors(1,:jp,iq1,iq2,iq3))/jp,minval(xp_neighbors(1,:jp,iq1,iq2,iq3)),maxval(xp_neighbors(1,:jp,iq1,iq2,iq3)),ijk_neighbor(3,1)
       ! print*,sum(xp_neighbors(2,:jp,iq1,iq2,iq3))/jp,minval(xp_neighbors(2,:jp,iq1,iq2,iq3)),maxval(xp_neighbors(2,:jp,iq1,iq2,iq3)),ijk_neighbor(3,2)
@@ -307,26 +266,40 @@ program CUBE_FoF
     enddo
     enddo
     enddo
+    !$omp endparalleldo
+    !   endif
+    !   sync all
+    ! enddo
+    ! stop
     
 
 
     ! get  particles form neighbors  -检查粒子的中心位置和最大最小值
     sync all
-    if (head) print*,' get particles form neighbors'
-    np_max = sum(rhoc)
+    if (head) print*,' get particles form neighbors',sim%nplocal, sum(rhoc)
+    np_max = sim%nplocal
     do iq1 = 1,3
-      i = modulo(icx-3+iq1,nn)+1
     do iq2 = 1,3
-      j = modulo(icy-3+iq2,nn)+1
     do iq3 = 1,3
+      j = modulo(icy-3+iq2,nn)+1
+      i = modulo(icx-3+iq1,nn)+1
       k = modulo(icz-3+iq3,nn)+1
-      if (head)  print*,iq1-2,iq2-2,iq3-2
       if (iq1 == 2 .and. iq2 == 2 .and. iq3 == 2) cycle
       xv(:,np_max+1:np_max+np_need(iq1,iq2,iq3)) = xp_neighbors(:,:np_need(iq1,iq2,iq3),4-iq1,4-iq2,4-iq3)[i,j,k]
       np_max = np_max +  np_need(iq1,iq2,iq3)
+      if (head)  print*,iq1-2,iq2-2,iq3-2
     enddo
     enddo
     enddo
+    ! do im = 1,nn**3
+    !   if (image == im ) then
+    !     print*,image,np_max
+    !     print*,sum(xv(1,:np_max))/np_max,minval(xv(1,:np_max)),maxval(xv(1,:np_max))
+    !     print*,sum(xv(2,:np_max))/np_max,minval(xv(2,:np_max)),maxval(xv(2,:np_max))
+    !     print*,sum(xv(3,:np_max))/np_max,minval(xv(3,:np_max)),maxval(xv(3,:np_max))
+    !   endif
+    !   sync all
+    ! enddo
     ! stop
 
     sync all
@@ -337,6 +310,7 @@ program CUBE_FoF
       ! nfof=nfofs(1)
       nfof1 = nfof+1
       n_refine = nfof*1d0/(nc+fof_buffer*2+b_link/ratio_cs)!-(i-1)*0.1
+      n_layer = ceiling(fof_buffer*n_refine)+1
       write(str_refine,'(i4)')  nfof
       if(head) print*,ifof,nfof,n_refine,4/n_refine
       
@@ -357,7 +331,9 @@ program CUBE_FoF
       if (1) then
         allocate(rho_grid(0:nfof+1,0:nfof+1,0:nfof+1)[nn,nn,*])
         rho_grid=0
-        do iq3=1,nfof
+        do l=0,n_layer-1
+        !$omp paralleldo  PRIVATE(iq3,iq2,iq1,ip,pos1,idx1,idx2,dx1,dx2)
+        do iq3=1+l,nfof,n_layer
         do iq2=1,nfof
         do iq1=1,nfof
           ip=hoc(iq1,iq2,iq3)
@@ -382,32 +358,22 @@ program CUBE_FoF
         enddo
         enddo
         enddo
+        !$omp endparalleldo
+        enddo
         rho8 = sum(rho_grid(1:nfof,1:nfof,1:nfof))/(nfof**3)
-        ! do im = 1,nn**3
-        !   if (image == im ) then
-        !     print*,image,rho8
-        !     ! print*,'min',minval(rho_grid(1:nfof,1:nfof,1:nfof)),'max',maxval(rho_grid(1:nfof,1:nfof,1:nfof)),'mean',sum(rho_grid(1:nfof,1:nfof,1:nfof)*1d0)/nfof/nfof/nfof
-        !   endif
-        !   sync all
-        ! enddo
         rho_grid = rho_grid/rho8-1
         if (head) print*,'min',minval(rho_grid(1:nfof,1:nfof,1:nfof)),'max',maxval(rho_grid(1:nfof,1:nfof,1:nfof)),'mean',sum(rho_grid(1:nfof,1:nfof,1:nfof)*1d0)/nfof/nfof/nfof
         if (head) print*,'Write delta_fof into',output_name('delta_fof_'//trim(adjustl(str_refine)))
         open(11,file=output_name('delta_fof_'//trim(adjustl(str_refine))),status='replace',access='stream')
         write(11) rho_grid(1:nfof,1:nfof,1:nfof)
         close(11)
-        ! do im = 1,nn**3
-        !   if (image == im ) then
-        !     print*,image,rho8
-        !     print*,'min',minval(rho_grid(1:nfof,1:nfof,1:nfof)),'max',maxval(rho_grid(1:nfof,1:nfof,1:nfof)),'mean',sum(rho_grid(1:nfof,1:nfof,1:nfof)*1d0)/nfof/nfof/nfof
-        !   endif
-        !   sync all
-        ! enddo
         deallocate(rho_grid)
       endif
     
       ! loop over fof cells
-      do iq3=1,nfof
+      do l=0,n_layer-1
+      !$omp paralleldo  PRIVATE(iq3,iq2,iq1,ip,jp,rsq,i_neighbor)
+      do iq3=1+l,nfof,n_layer
       do iq2=1,nfof
       do iq1=1,nfof
         ip=hoc(iq1,iq2,iq3)
@@ -422,18 +388,6 @@ program CUBE_FoF
             ! jq=modulo([iq1,iq2,iq3]+ijk(:,i_neighbor)-1,nfof)+1
             jq = [iq1,iq2,iq3]+ijk(:,i_neighbor)
             if (maxval(jq)>nfof1 .or. minval(jq)<1) cycle
-            ! if (jq(1) == 0) jq(1) = nfof
-            ! if (jq(2) == 0) jq(2) = nfof
-            ! if (jq(3) == 0) jq(3) = nfof
-            ! if (jq(1) == nfof1) jq(1) = 1
-            ! if (jq(2) == nfof1) jq(2) = 1
-            ! if (jq(3) == nfof1) jq(3) = 1
-            ! if (maxval(jq)>nfof1 .or. minval(jq)<1) then 
-            !   print*, 'jq out of range'
-            !   print*,image, [iq1,iq2,iq3]+ijk(:,i_neighbor)
-            !   print*,image, jq
-            !   stop
-            ! endif
 
             jp=hoc(jq(1),jq(2),jq(3))
             do while (jp/=0)
@@ -446,6 +400,8 @@ program CUBE_FoF
         enddo
       enddo
       enddo
+      enddo
+      !$omp endparalleldo
       enddo
       deallocate(hoc,ll,ecgp)
 
@@ -498,26 +454,27 @@ program CUBE_FoF
       if (head) print*,'halo_header',halo_header,maxval(hcat%hmass)
       deallocate(hcgp,llgp,xv_mean,np_halo_all)
 
+      ! nh=np_head
+      ! if (head) then
+      !   do i=2,nn**3
+      !     np_head = nh[i]
+      !     print*,i,np_head
+      !   enddo
+      ! endif
+      ! sync all
+
+      ! nh=sum(hcat%hmass)
+      ! if (head) then
+      !   np_head =  nh[1]
+      !   do i=2,nn**3
+      !     np_head = np_head + nh[i]
+      !   enddo
+      !   print*,np_head
+      ! endif
+
+
       nh=np_head
-      if (head) then
-        do i=2,nn**3
-          np_head = nh[i]
-          print*,i,np_head
-        enddo
-      endif
       sync all
-
-      nh=sum(hcat%hmass)
-      if (head) then
-        np_head =  nh[1]
-        do i=2,nn**3
-          np_head = np_head + nh[i]
-        enddo
-        print*,np_head
-      endif
-
-
-      nh=np_head
       if (head) then
         allocate(ll((ng_global)**3/np_halo_min))
         ll(1:nh) = hcat%hmass
