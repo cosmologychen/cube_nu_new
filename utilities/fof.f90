@@ -6,21 +6,42 @@ program CUBE_FoF
   character(len = 4) str_refine
   ! integer(8),parameter:: n_refine = 5
   integer(8),parameter:: fof_buffer = ceiling(10.0/box*nc*nn)
-  ! integer(8),parameter:: nfof = nc+2*fof_buffer
-  ! integer(8),parameter:: nfof2 = nfof/2
-  integer i,j,k,l,cur_checkpoint,np,n1,n2,idx(3),nh[*],im,idx1(3),idx2(3)
-  integer iq1,iq2,iq3,i_neighbor,jq(3),ijk_neighbor(3,3),neighbor_b(3,3),nfofs(4),nfof,ifof,nfof1
+  integer(8),parameter:: nfof1 = nfof+1
+  real(8),parameter:: n_refine = nfof*1d0/(nc+fof_buffer*2+b_link/ratio_cs)
+  real(8),parameter:: L_b    = fof_buffer
+  real(8),parameter:: L_bL   = L_b  + nc
+  real(8),parameter:: L_bLb  = L_bL + fof_buffer
+  real(8),parameter:: L_bLb2 = L_bLb/2
+  real(8),parameter:: rp2=(b_link/ratio_cs)**2
+
+  integer(8),parameter:: nlayer = ceiling(fof_buffer*n_refine)+1
+  integer,parameter:: real_images = 4
+  integer,parameter:: layer_image = nn**3/real_images
+
+  integer :: my_id          ! 当前 image 的 ID
+  integer :: log_unit       ! 文件单元号
+  character(len=64) :: log_filename ! 文件名字符串
+  
+  integer image_now,i,j,k,l,cur_checkpoint,np,n1,n2,idx(3),nh[*],im,idx1(3),idx2(3),ft(5,nn*3)[*],ftr(nn*3)[*]
+  integer(8) iq1,iq2,iq3,i_neighbor,jq(3),ijk_neighbor(3,3),neighbor_b(3,3)
+  integer(8) nhalo_all,halo_images(nn**3)[*]
   integer(4) nlast,ip,jp,np_iso,np_head,np_max,np_neighbors(3,3,3)[nn,nn,*],np_need(3,3,3),max_nei[nn,nn,*]
-  integer(4),allocatable :: np_halo_all(:),np_halo(:)[:]
+  integer(4),allocatable :: np_halo_all(:),np_halo(:)[:], rhoc_local(:,:,:,:,:,:)
   integer(4),allocatable :: hoc(:,:,:),ll(:),llgp(:),hcgp(:),ecgp(:),iph_halo_all(:),iph_halo(:)!,h2(:,:,:,:),l2(:,:)
-  real rp2,rsq,pos1(3),dx1(3),dx2(3),shift_xv(3)
-  real(8) rho8,n_refine,L_b,L_bL,L_bLb,L_bLb2,dxv(3)
+  real rsq,pos1(3),dx1(3),dx2(3),shift_xv(3)
+  real(8) rho8,dxv(3)
   real,allocatable :: xv(:,:),xv_mean(:,:),xp_neighbors(:,:,:,:,:)[:,:,:],rho_grid(:,:,:)[:,:,:]
   type(type_halo_catalog_header) halo_header
   type(type_halo_catalog_array),allocatable :: hcat(:)[:]
   
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  call geometry
+  if (real_images*layer_image /= nn**3) then
+    print*,real_images,layer_image,nn**3
+    stop 'real_images*layer_image /= nn*3'
+  endif
+  head=(this_image()==1)
+  write(str_refine,'(i4)')  nfof
+  if(head) print*,nfof,n_refine,4/n_refine
 
   if (head) then
     open(16,file='z_checkpoint.txt',status='old')
@@ -36,7 +57,7 @@ program CUBE_FoF
   z_checkpoint(:)=z_checkpoint(:)[1]
   sync all
 
-  if (head) print*,'  initialize FoF cell neighbors',n_checkpoint
+  if (head) print*,'  initialize FoF cell neighbors',fof_buffer
   l=0
   do j=-1,1
   do i=-1,1
@@ -48,24 +69,8 @@ program CUBE_FoF
   enddo
   l=l+1; ijk(:,l)=[-1,0,0]
 
-  if (head) print*,'  initialize tile index'
-  ipm2=0;
-  do itz=1,nnt
-  do ity=1,nnt
-  do itx=1,nnt
-    ipm2=ipm2+1
-    ixyz2(:,ipm2)=[itx,ity,itz]
-  enddo
-  enddo
-  enddo
-  ! stop
-  rp2=(b_link/ratio_cs)**2
-  L_b    = fof_buffer
-  L_bL   = L_b  + nc
-  L_bLb  = L_bL + fof_buffer
-  L_bLb2 = L_bLb/2
-  nfofs = [400,800,1200,1600]
   shift_xv  = [(icx-1)*nc*1d0-fof_buffer,(icy-1)*nc*1d0-fof_buffer,(icz-1)*nc*1d0-fof_buffer]
+  neighbor_b = reshape([int(0,kind=8),fof_buffer,nc  ,int(0,kind=8),nc,int(0,kind=8) ,nc-fof_buffer,nc,-nc ],[3,3])
   if (head) print*,'linking,L _b,L_bL,L_bLb',b_link/ratio_cs,L_b,L_bL,L_bLb
 
   do cur_checkpoint=n_checkpoint,n_checkpoint
@@ -74,274 +79,136 @@ program CUBE_FoF
     if (head) print*, ''
     if (head) print*, ''
     if (head) print*, 'FoF at redshift ',z2str(z_checkpoint(cur_checkpoint))
-    if (head) print*, '  read checkpoint header',output_name('info')
 
-    ! load particle
-    open(11,file=output_name('info'),access='stream'); read(11) sim; close(11)
-    allocate(rhoc(nt,nt,nt,nnt,nnt,nnt)[nn,nn,*],xp(3,sim%nplocal)[nn,nn,*])
-    sim%cur_checkpoint=cur_checkpoint
-    open(11,file=output_name('xp'),access='stream'); read(11) xp; close(11)
-    open(11,file=output_name('np'),access='stream'); read(11) rhoc; close(11)
-
-    neighbor_b = reshape([int(0,kind=8),fof_buffer,nc  ,int(0,kind=8),nc,int(0,kind=8) ,nc-fof_buffer,nc,-nc ],[3,3])
-
-    ! count  neighbor particle  -所有buffer在ic是的密度一致
-    if (head) print*,' count  neighbor particle '
-    ! do im = 1,nn**3
-    !   if (image == im ) then
-    !     print*,image,sum(rhoc)*1d0/nc/nc/nc
-    np_neighbors = 0
-    do iq1 = 1, 3
-    ijk_neighbor(:, 1) = neighbor_b(:, iq1)
-    do iq2 = 1, 3
-    ijk_neighbor(:, 2) = neighbor_b(:, iq2)
-    do iq3 = 1, 3
-      np_neighbors(iq1,iq2,iq3) = 0
-      if (iq1 == 2 .and. iq2 == 2 .and. iq3 == 2) cycle
-      ijk_neighbor(:, 3) = neighbor_b(:, iq3)
-      ! 循环遍历各个维度
-      do itz = floor((ijk_neighbor(1, 3))*1d0/nt)+1, floor((ijk_neighbor(2, 3)-1)*1d0/nt)+1
-      do ity = floor((ijk_neighbor(1, 2))*1d0/nt)+1, floor((ijk_neighbor(2, 2)-1)*1d0/nt)+1
-      do itx = floor((ijk_neighbor(1, 1))*1d0/nt)+1, floor((ijk_neighbor(2, 1)-1)*1d0/nt)+1
-        do k = merge(1, mod(ijk_neighbor(1, 3)+1, nt), itz*nt-nt >= ijk_neighbor(1, 3)),merge(nt, mod(ijk_neighbor(2, 3)+1, nt)-1, itz*nt <= ijk_neighbor(2, 3))
-        do j = merge(1, mod(ijk_neighbor(1, 2)+1, nt), ity*nt-nt >= ijk_neighbor(1, 2)),merge(nt, mod(ijk_neighbor(2, 2)+1, nt)-1, ity*nt <= ijk_neighbor(2, 2))
-        do i = merge(1, mod(ijk_neighbor(1, 1)+1, nt), itx*nt-nt >= ijk_neighbor(1, 1)),merge(nt, mod(ijk_neighbor(2, 1)+1, nt)-1, itx*nt <= ijk_neighbor(2, 1))
-          np_neighbors(iq1,iq2,iq3) = np_neighbors(iq1,iq2,iq3) + rhoc(i,j,k,itx,ity,itz)
-        enddo
-        enddo
-        enddo
-      enddo
-      enddo
-      enddo
-      ! if (head) print*,iq1-2,iq2-2,iq3-2,np_neighbors(iq1,iq2,iq3)!,np_neighbors(iq1,iq2,iq3)*1d0/(ijk_neighbor(2, 1) -  ijk_neighbor(1, 1))/ (ijk_neighbor(2, 2) -  ijk_neighbor(1, 2))/  (ijk_neighbor(2, 3) -  ijk_neighbor(1, 3))
-    enddo
-    enddo
-    enddo
-    !   endif
-    !   sync all
-    ! enddo
-    ! if (head) print*,sum(rhoc),sum(np_neighbors),(sum(rhoc)+sum(np_neighbors))*1d0/nfof/nfof/nfof,(sum(rhoc)+sum(np_neighbors))-nfof**3
-    ! stop
-    max_nei = maxval(np_neighbors)
-
-    ! print*,maxval(np_neighbors),maxval(np_neighbors)*3*3*3*3*4*1d0/1024/1024/1024
-    ! stop
-
-    ! init space for all particles -检查过image——neighbor编号和np_need
-    sync all
-    if (head) print*,' init space for all particles'
-    ! do im = 1,nn**3
-    !   if (image == im ) then
-    !     print*,image
-    np_need = 0
-    np_max = sum(rhoc)
-    do iq1 = 1,3
-      i = modulo(icx-3+iq1,nn)+1
-    do iq2 = 1,3
-      j = modulo(icy-3+iq2,nn)+1
-    do iq3 = 1,3
-      k = modulo(icz-3+iq3,nn)+1
-      if (iq1 == 2 .and. iq2 == 2 .and. iq3 == 2) cycle
-      np_need(iq1,iq2,iq3) = np_neighbors(4-iq1,4-iq2,4-iq3)[i,j,k]
-      ! print*,iq1-2,iq2-2,iq3-2,np_need(iq1,iq2,iq3)
-    enddo
-    enddo
-    enddo
-    !   endif
-    !   sync all
-    ! enddo
-    ! stop
-    np_max = np_max + sum(np_need)
-    ! do im = 1,nn**3
-    !   if (image == im ) then
-    !     print*,image
-    !     print*,np_max,sum(rhoc),sim%nplocal,sum(np_need)
-    !     print*,np_max*1d0/n2/n2/n2,sum(rhoc)*1d0/nc/nc/nc/n_refine/n_refine/n_refine
-    !     print*,3*4*np_max*1d0/1024/1024/1024
-    !     print*,''
-    !   endif
-    !   sync all
-    ! enddo
-    ! stop
-
-    !  initialize particles  -检查过xv范围和sum得到nlast
-    ! print*,image,np_max
-    sync all
-    if (head) print*,' initialize particles'
-    allocate(xv(3,np_max))
-    ! do im = 1,1!nn**3
-    !   if (image == im ) then
-    !     print*,image,sum(rhoc)*1d0/nc/nc/nc
-    xv = 0
-    nlast=0
-    do itz=1,nnt
-    do ity=1,nnt
-    do itx=1,nnt
-      ! dxv = 0; np_max = 0
-      do k=1,nt
-      do j=1,nt
-      do i=1,nt
-        np=rhoc(i,j,k,itx,ity,itz)
-        ! print*,i,j,k,nlast,sum(rhoc(:,:,:,:,:,:itz-1))            &
-        !             + sum(rhoc(:,:,:,:,:ity-1,itz))         &
-        !             + sum(rhoc(:,:,:,:itx-1,ity,itz))       &
-        !             + sum(rhoc(:,:,:k-1,itx,ity,itz))       &
-        !             + sum(rhoc(:,:j-1,k,itx,ity,itz))    &
-        !             + sum(rhoc(:i-1,j,k,itx,ity,itz))
-        ! if (nlast /= sum(rhoc(:,:,:,:,:,:itz-1))            &
-        !             + sum(rhoc(:,:,:,:,:ity-1,itz))         &
-        !             + sum(rhoc(:,:,:,:itx-1,ity,itz))       &
-        !             + sum(rhoc(:,:,:k-1,itx,ity,itz))       &
-        !             + sum(rhoc(:,:j-1,k,itx,ity,itz))    &
-        !             + sum(rhoc(:i-1,j,k,itx,ity,itz))) then 
-        !   print *,image,itz,ity,itx
-        !   print*,i,j,k,nlast,sum(rhoc(:,:,:,:,:,:itz-1))            &
-        !               + sum(rhoc(:,:,:,:,:ity-1,itz))         &
-        !               + sum(rhoc(:,:,:,:itx-1,ity,itz))       &
-        !               + sum(rhoc(:,:,:k-1,itx,ity,itz))       &
-        !               + sum(rhoc(:,:j-1,k,itx,ity,itz))    &
-        !               + sum(rhoc(:i-1,j,k,itx,ity,itz))
-        ! endif
-        do l=1,np
-          ip=nlast+l
-          if (ip > np_max  .or. ip < 1 .or.  ip > sim%nplocal) then
-            print*, image
-            print*, i,j,k,itx,ity,itz
-            print*,nlast,l,np,ip
-            stop
-          endif
-#ifdef ZIPX
-          xv(:,ip)=nt*((/itx,ity,itz/)-1)+ ((/i,j,k/)-1) + (int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution+[fof_buffer,fof_buffer,fof_buffer] 
-#else 
-          xv(:,ip)=xp(:,ip)/ratio_cs+[fof_buffer,fof_buffer,fof_buffer] 
-#endif
-          !  dxv =  modulo(xv(:,nlast) - xv(:,ip)+nfof2,nfof*1d0)-nfof2
-          !  dxv =  dxv + xv(:,nlast)
-        enddo
-        ! np_max =  np_max + np
-        ! dxv = modulo(sum(dxv)/np+xv(:,nlast),nfof*1d0)
-        ! dxv = sum(dxv)/np+xv(:,nlast)
-        ! print*,'  ',i,j,k,dxv
-        nlast=nlast+np
-      enddo
-      enddo
-      enddo
-      ! dxv = sum(dxv)/np_max
-      ! print*,'   ',itx*nt-nt,ity*nt-nt,itz*nt-nt
-      ! print*,'   ',dxv
-      ! print*,'   ',itx*nt,ity*nt,itz*nt
-    enddo
-    enddo
-    enddo
-    !   endif
-    !   sync all
-    ! enddo
-    ! stop
-    deallocate(xp)
-    ! do im = 1,nn**3
-    !   if (image == im ) then
-    !     print*,image,nlast,sum(rhoc),sum(xv(1,:))/nlast,sum(xv(2,:))/nlast,sum(xv(3,:))/nlast
-    !   endif
-    !   sync all
-    ! enddo
-    ! stop
+    nhalo_all = 0
+    do image_now = this_image(),nn**3,real_images
+      write(log_filename, "('run_output_', I4.4, '.txt')") image_now
 
 
-    ! init particles for neighbors  -检查粒子的中心位置和最大最小值
-    if (head) then
-    do i = 1,nn
-    do j = 1,nn
-    do k = 1,nn
-      max_nei = max(max_nei,max_nei[i,j,k])
-    enddo
-    enddo
-    enddo
-    endif
-    sync all
-    max_nei = max_nei[1,1,1]
-    if (head) print*,' init particles for neighbors',max_nei,maxval(np_neighbors)
+      open(newunit=log_unit, file=trim(log_filename), status='replace', action='write')
+      write(log_unit, *) '  Fof at image',image_now
+      
+      ! init image
+      call geometry_images
 
-    allocate(xp_neighbors(3,max_nei,3,3,3)[nn,nn,*])
-    xp_neighbors = 0
-    ! do im = 1,nn**3
-    !   if (image == im ) then
-    !     print*,image
-    do iq1 = 1, 3
-    ijk_neighbor(:, 1) = neighbor_b(:, iq1)
-    do iq2 = 1, 3
-    ijk_neighbor(:, 2) = neighbor_b(:, iq2)
-    do iq3 = 1, 3
-      if (head)  print*,iq1-2,iq2-2,iq3-2
-      jp = 0
-      if (iq1 == 2 .and. iq2 == 2 .and. iq3 == 2) cycle
-      ijk_neighbor(:, 3) = neighbor_b(:, iq3)
-      ! 循环遍历各个维度
-      do itz = floor((ijk_neighbor(1, 3))*1d0/nt)+1, floor((ijk_neighbor(2, 3)-1)*1d0/nt)+1
-      do ity = floor((ijk_neighbor(1, 2))*1d0/nt)+1, floor((ijk_neighbor(2, 2)-1)*1d0/nt)+1
-      do itx = floor((ijk_neighbor(1, 1))*1d0/nt)+1, floor((ijk_neighbor(2, 1)-1)*1d0/nt)+1
-        do k = merge(1, mod(ijk_neighbor(1, 3)+1, nt), itz*nt-nt >= ijk_neighbor(1, 3)),merge(nt, mod(ijk_neighbor(2, 3)+1, nt)-1, itz*nt <= ijk_neighbor(2, 3))
-        do j = merge(1, mod(ijk_neighbor(1, 2)+1, nt), ity*nt-nt >= ijk_neighbor(1, 2)),merge(nt, mod(ijk_neighbor(2, 2)+1, nt)-1, ity*nt <= ijk_neighbor(2, 2))
-        do i = merge(1, mod(ijk_neighbor(1, 1)+1, nt), itx*nt-nt >= ijk_neighbor(1, 1)),merge(nt, mod(ijk_neighbor(2, 1)+1, nt)-1, itx*nt <= ijk_neighbor(2, 1))
-          nlast = sum(rhoc(:,:,:,:,:,:itz-1))     &
-                + sum(rhoc(:,:,:,:,:ity-1,itz))   &
-                + sum(rhoc(:,:,:,:itx-1,ity,itz)) &
-                + sum(rhoc(:,:,:k-1,itx,ity,itz)) &
-                + sum(rhoc(:,:j-1,k,itx,ity,itz)) &
-                + sum(rhoc(:i-1,j,k,itx,ity,itz))
-          np=rhoc(i,j,k,itx,ity,itz)
-          do l=1,np
-              ip=nlast+l
-              jp = jp + 1
-              xp_neighbors(:,jp,iq1,iq2,iq3) = xv(:,ip) + ijk_neighbor(3,:)
+      ! count  neighbor particle 
+      call system_clock(ft(1,image_now),ftr(image_now))
+      write(log_unit, *)' count  neighbor particle '
+      allocate(rhoc_local(nt,nt,nt,nnt,nnt,nnt))
+      ! do im = 1,nn**3
+      !   if (image == im ) then
+      !     print*,image,sum(rhoc_local)*1d0/nc/nc/nc
+      np_neighbors = 0
+      do iq1 = 1, 3
+      do iq2 = 1, 3
+      do iq3 = 1, 3
+        ijk_neighbor(:, 1) = neighbor_b(:, 4-iq1)
+        ijk_neighbor(:, 2) = neighbor_b(:, 4-iq2)
+        ijk_neighbor(:, 3) = neighbor_b(:, 4-iq3)
+
+        inx=modulo(icx+1-iq1,nn)+1
+        iny=modulo(icy+1-iq2,nn)
+        inz=modulo(icz+1-iq3,nn)
+        image = inz*nn**2+iny*nn+inx
+        ! write(log_unit, *)image,inx,iny,inz
+
+        open(11,file=output_name('np'),access='stream'); read(11) rhoc_local; close(11)
+        ! 循环遍历各个维度
+        do itz = floor((ijk_neighbor(1, 3))*1d0/nt)+1, floor((ijk_neighbor(2, 3)-1)*1d0/nt)+1
+        do ity = floor((ijk_neighbor(1, 2))*1d0/nt)+1, floor((ijk_neighbor(2, 2)-1)*1d0/nt)+1
+        do itx = floor((ijk_neighbor(1, 1))*1d0/nt)+1, floor((ijk_neighbor(2, 1)-1)*1d0/nt)+1
+          do k = merge(1, mod(ijk_neighbor(1, 3)+1, nt), itz*nt-nt >= ijk_neighbor(1, 3)),merge(nt, mod(ijk_neighbor(2, 3)+1, nt)-1, itz*nt <= ijk_neighbor(2, 3))
+          do j = merge(1, mod(ijk_neighbor(1, 2)+1, nt), ity*nt-nt >= ijk_neighbor(1, 2)),merge(nt, mod(ijk_neighbor(2, 2)+1, nt)-1, ity*nt <= ijk_neighbor(2, 2))
+          do i = merge(1, mod(ijk_neighbor(1, 1)+1, nt), itx*nt-nt >= ijk_neighbor(1, 1)),merge(nt, mod(ijk_neighbor(2, 1)+1, nt)-1, itx*nt <= ijk_neighbor(2, 1))
+            np_neighbors(iq1,iq2,iq3) = np_neighbors(iq1,iq2,iq3) + rhoc_local(i,j,k,itx,ity,itz)
+          enddo
+          enddo
           enddo
         enddo
         enddo
         enddo
+        ! write(log_unit, *)iq1-2,iq2-2,iq3-2,np_neighbors(iq1,iq2,iq3)!,np_neighbors(iq1,iq2,iq3)*1d0/(ijk_neighbor(2, 1) -  ijk_neighbor(1, 1))/ (ijk_neighbor(2, 2) -  ijk_neighbor(1, 2))/  (ijk_neighbor(2, 3) -  ijk_neighbor(1, 3))
       enddo
       enddo
       enddo
-      ! print*,iq1-2,iq2-2,iq3-2,np_neighbors(iq1,iq2,iq3),jp
-      ! print*,sum(xp_neighbors(1,:jp,iq1,iq2,iq3))/jp,minval(xp_neighbors(1,:jp,iq1,iq2,iq3)),maxval(xp_neighbors(1,:jp,iq1,iq2,iq3)),ijk_neighbor(3,1)
-      ! print*,sum(xp_neighbors(2,:jp,iq1,iq2,iq3))/jp,minval(xp_neighbors(2,:jp,iq1,iq2,iq3)),maxval(xp_neighbors(2,:jp,iq1,iq2,iq3)),ijk_neighbor(3,2)
-      ! print*,sum(xp_neighbors(3,:jp,iq1,iq2,iq3))/jp,minval(xp_neighbors(3,:jp,iq1,iq2,iq3)),maxval(xp_neighbors(3,:jp,iq1,iq2,iq3)),ijk_neighbor(3,3)
-    enddo
-    enddo
-    enddo
-    
+      np_max = sum(np_neighbors)
 
 
-    ! get  particles form neighbors  -检查粒子的中心位置和最大最小值
-    sync all
-    if (head) print*,' get particles form neighbors'
-    np_max = sum(rhoc)
-    do iq1 = 1,3
-      i = modulo(icx-3+iq1,nn)+1
-    do iq2 = 1,3
-      j = modulo(icy-3+iq2,nn)+1
-    do iq3 = 1,3
-      k = modulo(icz-3+iq3,nn)+1
-      if (head)  print*,iq1-2,iq2-2,iq3-2
-      if (iq1 == 2 .and. iq2 == 2 .and. iq3 == 2) cycle
-      xv(:,np_max+1:np_max+np_need(iq1,iq2,iq3)) = xp_neighbors(:,:np_need(iq1,iq2,iq3),4-iq1,4-iq2,4-iq3)[i,j,k]
-      np_max = np_max +  np_need(iq1,iq2,iq3)
-    enddo
-    enddo
-    enddo
-    ! stop
 
-    sync all
 
-    do ifof=1,4
-      call tic(11)
-      nfof=nfofs(ifof)
-      ! nfof=nfofs(1)
-      nfof1 = nfof+1
-      n_refine = nfof*1d0/(nc+fof_buffer*2+b_link/ratio_cs)!-(i-1)*0.1
-      write(str_refine,'(i4)')  nfof
-      if(head) print*,ifof,nfof,n_refine,4/n_refine
-      
+
+      !  initialize particles
+      write(log_unit, *)' initialize particles', np_max
+      jp = 0
+      allocate(xv(3,np_max))
+      do iq1 = 1, 3
+      do iq2 = 1, 3
+      do iq3 = 1, 3
+        ijk_neighbor(:, 1) = neighbor_b(:, 4-iq1)
+        ijk_neighbor(:, 2) = neighbor_b(:, 4-iq2)
+        ijk_neighbor(:, 3) = neighbor_b(:, 4-iq3)
+
+        inx=modulo(icx+1-iq1,nn)+1
+        iny=modulo(icy+1-iq2,nn)
+        inz=modulo(icz+1-iq3,nn)
+        image = inz*nn**2+iny*nn+inx
+        write(log_unit, '(I4,I4,I4,I4)')image,inx,iny,inz
+        open(11,file=output_name('np'),access='stream'); read(11) rhoc_local; close(11)
+        open(11,file=output_name('info'),access='stream'); read(11) sim; close(11)
+        sim%cur_checkpoint=cur_checkpoint
+        allocate(xp(3,sim%nplocal)[nn,nn,*])
+        open(11,file=output_name('xp'),access='stream'); read(11) xp; close(11)
+        ! 循环遍历各个维度
+        do itz = floor((ijk_neighbor(1, 3))*1d0/nt)+1, floor((ijk_neighbor(2, 3)-1)*1d0/nt)+1
+        do ity = floor((ijk_neighbor(1, 2))*1d0/nt)+1, floor((ijk_neighbor(2, 2)-1)*1d0/nt)+1
+        do itx = floor((ijk_neighbor(1, 1))*1d0/nt)+1, floor((ijk_neighbor(2, 1)-1)*1d0/nt)+1
+          do k = merge(1, mod(ijk_neighbor(1, 3)+1, nt), itz*nt-nt >= ijk_neighbor(1, 3)),merge(nt, mod(ijk_neighbor(2, 3)+1, nt)-1, itz*nt <= ijk_neighbor(2, 3))
+          do j = merge(1, mod(ijk_neighbor(1, 2)+1, nt), ity*nt-nt >= ijk_neighbor(1, 2)),merge(nt, mod(ijk_neighbor(2, 2)+1, nt)-1, ity*nt <= ijk_neighbor(2, 2))
+          do i = merge(1, mod(ijk_neighbor(1, 1)+1, nt), itx*nt-nt >= ijk_neighbor(1, 1)),merge(nt, mod(ijk_neighbor(2, 1)+1, nt)-1, itx*nt <= ijk_neighbor(2, 1))
+            np=rhoc_local(i,j,k,itx,ity,itz)
+            nlast = sum(rhoc_local(:,:,:,:,:,:itz-1))     &
+                  + sum(rhoc_local(:,:,:,:,:ity-1,itz))   &
+                  + sum(rhoc_local(:,:,:,:itx-1,ity,itz)) &
+                  + sum(rhoc_local(:,:,:k-1,itx,ity,itz)) &
+                  + sum(rhoc_local(:,:j-1,k,itx,ity,itz)) &
+                  + sum(rhoc_local(:i-1,j,k,itx,ity,itz))
+            do l=1,np
+              ip = nlast+l
+              jp = jp+1
+              if (ip < 1 .or.  ip > sim%nplocal .or. jp > np_max) then
+                print*, image
+                print*, i,j,k,itx,ity,itz
+                print*,nlast,l,np,ip,jp
+                stop 'particle index error'
+              endif
+#ifdef ZIPX
+              xv(:,jp)=nt*((/itx,ity,itz/)-1)+ ((/i,j,k/)-1) + (int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution+[fof_buffer,fof_buffer,fof_buffer]  + ijk_neighbor(3,:)
+#else 
+              xv(:,jp)=xp(:,ip)/ratio_cs+[fof_buffer,fof_buffer,fof_buffer]  + ijk_neighbor(3,:)
+#endif
+            enddo
+          enddo
+          enddo
+          enddo
+        enddo
+        enddo
+        enddo
+        deallocate(xp)
+        ! write(log_unit, *)iq1-2,iq2-2,iq3-2,np_neighbors(iq1,iq2,iq3)!,np_neighbors(iq1,iq2,iq3)*1d0/(ijk_neighbor(2, 1) -  ijk_neighbor(1, 1))/ (ijk_neighbor(2, 2) -  ijk_neighbor(1, 2))/  (ijk_neighbor(2, 3) -  ijk_neighbor(1, 3))
+      enddo
+      enddo
+      enddo
+      deallocate(rhoc_local)
+      image = image_now
+
+
       ! create hoc ll
-      if (head) print*,' create hoc ll'
+      call system_clock(ft(2,image_now),ftr(image_now))
+      write(log_unit, *) '    real time =',real(ft(2,image_now)-ft(1,image_now))/ftr(image_now),'secs';write(log_unit, *) ''
+
+
+
+      write(log_unit, *)' create hoc ll'
       allocate(hoc(nfof,nfof,nfof),ll(np_max),llgp(np_max),hcgp(np_max),ecgp(np_max))
       hoc=0; ll=0
       do ip=1,np_max
@@ -351,10 +218,9 @@ program CUBE_FoF
         hcgp(ip)=ip ! initialize hcgp(ip)=ip for isolated particles
       enddo
       llgp=0; ecgp=0; ! initialize group link list
-      if (head) print*, 'hoc ll created'
       
       ! rho
-      if (1) then
+      if (0) then
         allocate(rho_grid(0:nfof+1,0:nfof+1,0:nfof+1)[nn,nn,*])
         rho_grid=0
         do iq3=1,nfof
@@ -383,30 +249,21 @@ program CUBE_FoF
         enddo
         enddo
         rho8 = sum(rho_grid(1:nfof,1:nfof,1:nfof))/(nfof**3)
-        ! do im = 1,nn**3
-        !   if (image == im ) then
-        !     print*,image,rho8
-        !     ! print*,'min',minval(rho_grid(1:nfof,1:nfof,1:nfof)),'max',maxval(rho_grid(1:nfof,1:nfof,1:nfof)),'mean',sum(rho_grid(1:nfof,1:nfof,1:nfof)*1d0)/nfof/nfof/nfof
-        !   endif
-        !   sync all
-        ! enddo
         rho_grid = rho_grid/rho8-1
-        if (head) print*,'min',minval(rho_grid(1:nfof,1:nfof,1:nfof)),'max',maxval(rho_grid(1:nfof,1:nfof,1:nfof)),'mean',sum(rho_grid(1:nfof,1:nfof,1:nfof)*1d0)/nfof/nfof/nfof
-        if (head) print*,'Write delta_fof into',output_name('delta_fof_'//trim(adjustl(str_refine)))
+        write(log_unit, *)'min',minval(rho_grid(1:nfof,1:nfof,1:nfof)),'max',maxval(rho_grid(1:nfof,1:nfof,1:nfof)),'mean',sum(rho_grid(1:nfof,1:nfof,1:nfof)*1d0)/nfof/nfof/nfof
+        write(log_unit, *)'Write delta_fof into',output_name('delta_fof_'//trim(adjustl(str_refine)))
         open(11,file=output_name('delta_fof_'//trim(adjustl(str_refine))),status='replace',access='stream')
         write(11) rho_grid(1:nfof,1:nfof,1:nfof)
         close(11)
-        ! do im = 1,nn**3
-        !   if (image == im ) then
-        !     print*,image,rho8
-        !     print*,'min',minval(rho_grid(1:nfof,1:nfof,1:nfof)),'max',maxval(rho_grid(1:nfof,1:nfof,1:nfof)),'mean',sum(rho_grid(1:nfof,1:nfof,1:nfof)*1d0)/nfof/nfof/nfof
-        !   endif
-        !   sync all
-        ! enddo
         deallocate(rho_grid)
       endif
+
+
+      call system_clock(ft(3,image_now),ftr(image_now))
+      write(log_unit, *) '    real time =',real(ft(3,image_now)-ft(2,image_now))/ftr(image_now),'secs';write(log_unit, *) ''
     
       ! loop over fof cells
+      write(log_unit, *) 'Loop over fof cells'
       do iq3=1,nfof
       do iq2=1,nfof
       do iq1=1,nfof
@@ -422,18 +279,6 @@ program CUBE_FoF
             ! jq=modulo([iq1,iq2,iq3]+ijk(:,i_neighbor)-1,nfof)+1
             jq = [iq1,iq2,iq3]+ijk(:,i_neighbor)
             if (maxval(jq)>nfof1 .or. minval(jq)<1) cycle
-            ! if (jq(1) == 0) jq(1) = nfof
-            ! if (jq(2) == 0) jq(2) = nfof
-            ! if (jq(3) == 0) jq(3) = nfof
-            ! if (jq(1) == nfof1) jq(1) = 1
-            ! if (jq(2) == nfof1) jq(2) = 1
-            ! if (jq(3) == nfof1) jq(3) = 1
-            ! if (maxval(jq)>nfof1 .or. minval(jq)<1) then 
-            !   print*, 'jq out of range'
-            !   print*,image, [iq1,iq2,iq3]+ijk(:,i_neighbor)
-            !   print*,image, jq
-            !   stop
-            ! endif
 
             jp=hoc(jq(1),jq(2),jq(3))
             do while (jp/=0)
@@ -448,6 +293,10 @@ program CUBE_FoF
       enddo
       enddo
       deallocate(hoc,ll,ecgp)
+
+      call system_clock(ft(4,image_now),ftr(image_now))
+      write(log_unit, *) '    real time =',real(ft(4,image_now)-ft(3,image_now))/ftr(image_now),'secs';write(log_unit, *) ''
+
 
       allocate(np_halo_all(np_max/np_halo_min),xv_mean(3,np_max/np_halo_min),np_halo(np_max/np_halo_min)[*])
       np_iso = 0; np_head = 0; np_halo=0; np_halo_all=0
@@ -471,12 +320,15 @@ program CUBE_FoF
           endif
         endif
       enddo
+      deallocate(xv)
+      call system_clock(ft(5,image_now),ftr(image_now))
+      write(log_unit, *) '    real time =',real(ft(5,image_now)-ft(4,image_now))/ftr(image_now),'secs';write(log_unit, *) ''
+
 
       nh=np_head
-
       halo_header%nhalo_tot=0
       halo_header%nhalo=nh; halo_header%ninfo=ninfo; halo_header%linking_parameter=b_link
-      if (head) print*, output_name(trim('halo_'//trim(adjustl(str_refine))))
+      write(log_unit, *) output_name(trim('halo_'//trim(adjustl(str_refine))))
       open(21,file=output_name(trim('halo_'//trim(adjustl(str_refine)))),status='replace',access='stream')
       write(21) halo_header
 
@@ -485,62 +337,61 @@ program CUBE_FoF
       do i=1,3
         hcat%xv(i)=xv_mean(i,1:nh)
       enddo
-      write(21) hcat 
-
-      if (head) then
-        do i=2,nn**3
-          nh=nh+nh[i]
-        enddo
-      endif
-      sync all; nh=nh[1]; halo_header%nhalo_tot=nh; 
-      rewind(21); write(21) halo_header; close(21)
-      sync all
-      if (head) print*,'halo_header',halo_header,maxval(hcat%hmass)
-      deallocate(hcgp,llgp,xv_mean,np_halo_all)
-
-      nh=np_head
-      if (head) then
-        do i=2,nn**3
-          np_head = nh[i]
-          print*,i,np_head
-        enddo
-      endif
-      sync all
-
-      nh=sum(hcat%hmass)
-      if (head) then
-        np_head =  nh[1]
-        do i=2,nn**3
-          np_head = np_head + nh[i]
-        enddo
-        print*,np_head
-      endif
 
 
-      nh=np_head
-      if (head) then
-        allocate(ll((ng_global)**3/np_halo_min))
-        ll(1:nh) = hcat%hmass
-        do i=2,nn**3
-          np_head = nh[i]
-          print*,i,np_head
-          ll(nh+1:nh+np_head) = np_halo(1:np_head)[i]
-          nh=nh+np_head
-        enddo
-        if (head) print*, output_name(trim('halo_mass_'//trim(adjustl(str_refine))))
-        open(21,file=output_name(trim('halo_mass_'//trim(adjustl(str_refine)))),status='replace',access='stream')
-        write(21) nh
-        write(21) ll(1:nh)
-        close(21)
-        deallocate(ll)
-      endif
-      deallocate(np_halo,hcat)
-      call toc(11)
-      if (head) then
-         print*,nfof,'  real time =',tcat(11,istep),'secs'; print*,''
-      endif
+      write(21) hcat
+      close(21)
+      write(log_unit, *)'halo_header',halo_header,maxval(hcat%hmass)
+
+      write(log_unit, *) output_name(trim('halo_mass_'//trim(adjustl(str_refine))))
+      open(21,file=output_name(trim('halo_mass_'//trim(adjustl(str_refine)))),status='replace',access='stream')
+      write(21) nh
+      write(21) np_halo(1:nh)
+      close(21)
+      deallocate(np_halo,hcgp,llgp,xv_mean,np_halo_all)
+
+      deallocate(hcat)
+      halo_images(image_now) = np_head
+
+
+      write(log_unit, *) np_head,'all time =',real(ft(5,image_now)-ft(1,image_now))/ftr(image_now),'secs'
+
+      write(*,'(A, I0, A, A, I0, A, I0, A, F7.3, A)') '  Fof at image',image_now,'->'//trim(log_filename),' |  np_max', np_max,' |  find halo :',np_head,' |  used time =',real(ft(5,image_now)-ft(1,image_now))/ftr(image_now),'secs'
+      
+      close(log_unit)
     enddo
-    deallocate(xv)
+
+
+
+    ! write halo mass
+    sync all
+    if (head) then
+      print*,''
+      print*,''
+      print*,''
+      do image=2,real_images
+        halo_images = halo_images + halo_images(:)[image]
+      enddo
+      nhalo_all = sum(halo_images)
+      print*,nhalo_all
+      do image=1,nn**3
+        print*,image,halo_images(image)
+      enddo
+    endif
+    sync all
+    if (head) then
+      image = 1
+      write(*, *) output_name(trim('halo_mass_all_'//trim(adjustl(str_refine))))
+      open(111,file=output_name(trim('halo_mass_all_'//trim(adjustl(str_refine)))),status='replace',access='stream')
+      write(21) nhalo_all
+      do image=1,nn**3
+        write(*, *) output_name(trim('halo_mass_'//trim(adjustl(str_refine))))
+        open(21,file=output_name(trim('halo_mass_'//trim(adjustl(str_refine)))),status='old',access='stream')
+        read(21) np_head; allocate(np_halo_all(np_head)); read(21) np_halo_all; close(21)
+        write(111) np_halo_all
+        deallocate(np_halo_all)
+      enddo
+    endif
   enddo ! cur_checkpoint
 
 
@@ -567,6 +418,14 @@ program CUBE_FoF
     ecgp(ii)=iend
     hcgp(iend)=jhead ! change hoc
     hcgp(jend)=0 ! set jend as a member
+  endsubroutine
+
+  subroutine geometry_images
+    write(log_unit, *) 'geometry_images'
+    rank=image_now-1               ! MPI_rank
+    icz=rank/(nn**2)+1             ! image_z
+    icy=(rank-nn**2*(icz-1))/nn+1  ! image_y
+    icx=mod(rank,nn)+1             ! image_x
   endsubroutine
   
 end

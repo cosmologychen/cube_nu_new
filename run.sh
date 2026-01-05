@@ -15,4 +15,4 @@ fi
 echo "FoF编译成功，提交作业..."
 
 qsub run.qsub
-tail -f run.log
+# tail -f run.log

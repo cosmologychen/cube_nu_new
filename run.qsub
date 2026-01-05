@@ -1,8 +1,8 @@
 #!/bin/bash
-#PBS -N fof
-#PBS -l nodes=1:ppn=8
-#PBS -l mem=60gb
-#PBS -q debug
+#PBS -N fof1
+#PBS -l nodes=4:ppn=2
+#PBS -l mem=64gb
+#PBS -q normal
 #PBS -j oe
 #PBS -o ./run.log
 
@@ -10,6 +10,14 @@
 
 cd $PBS_O_WORKDIR
 date > ./run.log
+IC=./utilities/ic.x
+cic=./utilities/cic.x
+MAIN=./main.x
+CIC=./utilities/cicpower.x
+OCIC=./utilities/ocicpower.x
+FOF=./utilities/fof.x
+DSP=./utilities/dsp.x
+C2U=./utilities/cdm2nu.x
 export FC='ifort'
 export XFLAG_NO_OMP='-O3 -fpp -q -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt'
 export XFLAG='-O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt'
@@ -17,7 +25,7 @@ export OFLAG_NO_OMP=$XFLAG_NO_OMP' -c'
 export OFLAG=$XFLAG' -c'
 export FFTFLAG='-I/opt/intel2018update3/mkl/include/fftw -mkl'
 export OMP_STACKSIZE=20000M
-export OMP_NUM_THREADS=8
+export OMP_NUM_THREADS=2
 export FOR_COARRAY_NUM_IMAGES=8
 ulimit
 ulimit -s unlimited
@@ -30,7 +38,7 @@ echo ""
 echo ""
 echo ""
 export PROCS=8
-export ntasks_per_node=8
+export ntasks_per_node=2
 sort $PBS_NODEFILE | uniq -c | awk -v npn=$ntasks_per_node  '{print \$2":"npn}' > ./hostfile_$PROCS 
 HOST_FILE=./hostfile_$PROCS
 pwd
@@ -57,14 +65,6 @@ echo running with ${PBS_NP} processes on ${PBS_NUM_NODES} nodes
 echo "###############################################"
 echo "Start Running"
 umask 002
-IC=./utilities/ic.x
-cic=./utilities/cic.x
-MAIN=./main.x
-CIC=./utilities/cicpower.x
-OCIC=./utilities/ocicpower.x
-FOF=./utilities/fof.x
-DSP=./utilities/dsp.x
-C2U=./utilities/cdm2nu.x
 # run_program $IC
 # run_program $cic
 # run_program $MAIN
