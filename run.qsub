@@ -1,8 +1,8 @@
 #!/bin/bash
 #PBS -N fof2400_8
 #PBS -l nodes=1:ppn=32
-#PBS -l mem=400gb
-#PBS -q fat
+#PBS -l mem=180gb
+#PBS -q normal
 #PBS -j oe
 #PBS -o ./run.log
 

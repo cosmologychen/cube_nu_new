@@ -5,7 +5,7 @@ program CUBE_FoF
   character(len = 4) str_refine
   ! integer(8),parameter:: n_refine = 5
   integer,parameter:: fofcore = ncore
-  integer(8),parameter:: fof_buffer = ceiling(10.0/box*nc*nn)
+  integer(8),parameter:: fof_buffer = ceiling(20.0/box*nc*nn)
   integer(8),parameter:: nfof = (nc+2*fof_buffer)*ratio_cs
   real(8),parameter:: n_refine = nfof*1d0/(nc + fof_buffer*2 + b_link/ratio_cs)
   real(8),parameter:: L_b    = fof_buffer
@@ -14,14 +14,13 @@ program CUBE_FoF
   real(8),parameter:: L_bLb2 = L_bLb/2
   real(8),parameter:: rp2=(b_link/ratio_cs)**2
 
-  integer,parameter:: real_images = 8
   integer,parameter:: layer_image = nn**3/real_images
 
   integer :: my_id          ! 当前 image 的 ID
   integer :: log_unit       ! 文件单元号
   character(len=64) :: log_filename ! 文件名字符串
   
-  integer image_now,i,j,k,l,nlayer,layer_core,cur_checkpoint,np,n1,n2,idx(3),nh[*],im,idx1(3),idx2(3),ft(6,nn*3)[*],ftr(nn*3)[*]
+  integer image_now,i,j,k,l,nlayer,layer_core,cur_checkpoint,np,n1,n2,idx(3),nh[*],im,idx1(3),idx2(3),ft(6,nn*3),ftr(nn*3)
   integer(8) iq1,iq2,iq3,i_neighbor,jq(3),ijk_neighbor(3,3),neighbor_b(3,3)
   integer(8) nhalo_all,halo_images(nn**3)[*]
   integer(4) nlast,ip,jp,np_iso(fofcore),np_head(fofcore),np_max,np_neighbors(3,3,3)[nn,nn,*],np_need(3,3,3),max_nei[nn,nn,*],offset_nei(3,3,3),offset_team(fofcore)
@@ -38,11 +37,9 @@ program CUBE_FoF
     if(head) print*,real_images,layer_image,nn**3
     stop 'real_images*layer_image /= nn*3'
   endif
-
-  call system('rm run_output_*.log')
-
+  ft = 0
   
-  nlayer = ceiling(fof_buffer*n_refine)+1
+  nlayer = ceiling(fof_buffer*n_refine*2)+1
   do while (mod(nfof,nlayer) /= 0)
     nlayer = nlayer + 1
   enddo
@@ -258,32 +255,39 @@ program CUBE_FoF
 
       ! rho
       if (1) then
+        write(log_unit, *)' create rho'
         allocate(rho_grid(0:nfof+1,0:nfof+1,0:nfof+1))
         rho_grid=0
-        do iq3=1,nfof
-        do iq2=1,nfof
-        do iq1=1,nfof
-          ip=hoc(iq1,iq2,iq3)
-          do while (ip/=0)
-            pos1 = xv(1:3,ip)
-            if ( pos1(1) == L_bLb ) pos1(1)= 0
-            if ( pos1(2) == L_bLb ) pos1(2)= 0
-            if ( pos1(3) == L_bLb ) pos1(3)= 0
-            pos1 = pos1*n_refine
-            idx1=floor(pos1)+1; idx2=idx1+1
-            dx1=idx1-pos1;      dx2=1-dx1
-            rho_grid(idx1(1),idx1(2),idx1(3))=rho_grid(idx1(1),idx1(2),idx1(3))+dx1(1)*dx1(2)*dx1(3)
-            rho_grid(idx2(1),idx1(2),idx1(3))=rho_grid(idx2(1),idx1(2),idx1(3))+dx2(1)*dx1(2)*dx1(3)
-            rho_grid(idx1(1),idx2(2),idx1(3))=rho_grid(idx1(1),idx2(2),idx1(3))+dx1(1)*dx2(2)*dx1(3)
-            rho_grid(idx1(1),idx1(2),idx2(3))=rho_grid(idx1(1),idx1(2),idx2(3))+dx1(1)*dx1(2)*dx2(3)
-            rho_grid(idx1(1),idx2(2),idx2(3))=rho_grid(idx1(1),idx2(2),idx2(3))+dx1(1)*dx2(2)*dx2(3)
-            rho_grid(idx2(1),idx1(2),idx2(3))=rho_grid(idx2(1),idx1(2),idx2(3))+dx2(1)*dx1(2)*dx2(3)
-            rho_grid(idx2(1),idx2(2),idx1(3))=rho_grid(idx2(1),idx2(2),idx1(3))+dx2(1)*dx2(2)*dx1(3)
-            rho_grid(idx2(1),idx2(2),idx2(3))=rho_grid(idx2(1),idx2(2),idx2(3))+dx2(1)*dx2(2)*dx2(3)
-            ip=ll(ip) ! find next particle in the chain
+        do l = 0,nlayer-1
+          call system_clock(ft(5,image_now),ftr(image_now))
+          !$omp parallel do num_threads(layer_core) schedule(dynamic,1) default(shared) &
+          !$omp private(iq1,iq2,iq3,ip,pos1,idx1,idx2,dx1,dx2)
+          do iq3=1+l,nfof,nlayer
+          do iq2=1,nfof
+          do iq1=1,nfof
+            ip=hoc(iq1,iq2,iq3)
+            do while (ip/=0)
+              pos1 = xv(1:3,ip)
+              if ( pos1(1) == L_bLb ) pos1(1)= 0
+              if ( pos1(2) == L_bLb ) pos1(2)= 0
+              if ( pos1(3) == L_bLb ) pos1(3)= 0
+              pos1 = pos1*n_refine
+              idx1=floor(pos1)+1; idx2=idx1+1
+              dx1=idx1-pos1;      dx2=1-dx1
+              rho_grid(idx1(1),idx1(2),idx1(3))=rho_grid(idx1(1),idx1(2),idx1(3))+dx1(1)*dx1(2)*dx1(3)
+              rho_grid(idx2(1),idx1(2),idx1(3))=rho_grid(idx2(1),idx1(2),idx1(3))+dx2(1)*dx1(2)*dx1(3)
+              rho_grid(idx1(1),idx2(2),idx1(3))=rho_grid(idx1(1),idx2(2),idx1(3))+dx1(1)*dx2(2)*dx1(3)
+              rho_grid(idx1(1),idx1(2),idx2(3))=rho_grid(idx1(1),idx1(2),idx2(3))+dx1(1)*dx1(2)*dx2(3)
+              rho_grid(idx1(1),idx2(2),idx2(3))=rho_grid(idx1(1),idx2(2),idx2(3))+dx1(1)*dx2(2)*dx2(3)
+              rho_grid(idx2(1),idx1(2),idx2(3))=rho_grid(idx2(1),idx1(2),idx2(3))+dx2(1)*dx1(2)*dx2(3)
+              rho_grid(idx2(1),idx2(2),idx1(3))=rho_grid(idx2(1),idx2(2),idx1(3))+dx2(1)*dx2(2)*dx1(3)
+              rho_grid(idx2(1),idx2(2),idx2(3))=rho_grid(idx2(1),idx2(2),idx2(3))+dx2(1)*dx2(2)*dx2(3)
+              ip=ll(ip) ! find next particle in the chain
+            enddo
           enddo
-        enddo
-        enddo
+          enddo
+          enddo
+          !$omp endparalleldo
         enddo
         rho8 = sum(rho_grid(1:nfof,1:nfof,1:nfof))/(nfof**3)
         rho_grid = rho_grid/rho8-1
@@ -350,7 +354,7 @@ program CUBE_FoF
       allocate(xv_mean_team(3, nlast, fofcore),np_halo_team(nlast, fofcore))
       write(log_unit, *)  'Count halos'
       np_iso = 0; np_head = 0; np_halo_team=0; xv_mean_team=0
-      !$omp parallel do private(i, iteam, ip, jp, np, dxv)
+      !$omp parallel do private(i, iteam, ip, jp, np, dxv) default(shared)
       do i=1,np_max
         iteam = omp_get_thread_num()+1
         if (hcgp(i)==i) then
@@ -429,7 +433,7 @@ program CUBE_FoF
 
       write(log_unit, *) np_head(1),'all time =',real(ft(6,image_now)-ft(1,image_now))/ftr(image_now),'secs'
 
-      write(*,'(A, I0, A, A, I0, A, I0, A, F7.3, A)') '  Fof at image',image_now,'->'//trim(log_filename),' |  np_max', np_max,' |  find halo :',np_head(1),' |  used time =',real(ft(6,image_now)-ft(1,image_now))/ftr(image_now),'secs'
+      write(*,'(A, I0, A, A, I0, A, I0, A, F10.3, A)') '  Fof at image',image_now,'->'//trim(log_filename),' |  np_max', np_max,' |  find halo :',np_head(1),' |  used time =',real(ft(6,image_now)-ft(1,image_now))/ftr(image_now),'secs'
       
       close(log_unit)
     enddo

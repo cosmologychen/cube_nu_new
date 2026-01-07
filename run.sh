@@ -15,5 +15,6 @@ if [ ! -f "utilities/${exe}.x" ]; then
 fi
 echo "${exe}编译成功，提交作业..."
 
+rm run_output_*.log
 qsub run.qsub
 # tail -f run.log

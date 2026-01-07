@@ -3,6 +3,8 @@ module parameters
 
    ! output directory
    
+  integer,parameter:: real_images = 8
+  
   character(*),parameter :: opath='/home/cossim/cube_nu/cube_nest/2400_8/'
   real,parameter :: box=2400
   integer(8),parameter :: ng=768
