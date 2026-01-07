@@ -3,9 +3,9 @@ module parameters
 
    ! output directory
    
-!   character(*),parameter :: opath='/home/cossim/cube_nu/cube_nest/2400_8/'
-!   real,parameter :: box=2400
-!   integer(8),parameter :: ng=768
+  character(*),parameter :: opath='/home/cossim/cube_nu/cube_nest/2400_8/'
+  real,parameter :: box=2400
+  integer(8),parameter :: ng=768
 
 !   character(*),parameter :: opath='/home/cossim/cube_nu/cube_nest/1200_8/'
 !   real,parameter :: box=1200
@@ -15,9 +15,9 @@ module parameters
 !   real,parameter :: box=600
 !   integer(8),parameter :: ng=256
   
-  character(*),parameter :: opath='/home/ChenBH/output_backup/600_512_2_0.0_1'
-  real,parameter :: box=600
-  integer(8),parameter :: ng=512
+!   character(*),parameter :: opath='/home/ChenBH/output_backup/600_512_2_0.0_1'
+!   real,parameter :: box=600
+!   integer(8),parameter :: ng=512
 
   ! zip parameters
   integer,parameter :: ndim=3
@@ -31,7 +31,7 @@ module parameters
 
   ! cell resolution parameters
   integer,parameter :: nn=2
-  integer,parameter :: ncore=8
+  integer,parameter :: ncore=4
   integer,parameter :: nteam=1
   integer,parameter :: nnest=1
 

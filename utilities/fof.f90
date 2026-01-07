@@ -7,7 +7,6 @@ program CUBE_FoF
   integer,parameter:: fofcore = ncore
   integer(8),parameter:: fof_buffer = ceiling(10.0/box*nc*nn)
   integer(8),parameter:: nfof = (nc+2*fof_buffer)*ratio_cs
-  integer(8),parameter:: nfof1 = nfof+1
   real(8),parameter:: n_refine = nfof*1d0/(nc + fof_buffer*2 + b_link/ratio_cs)
   real(8),parameter:: L_b    = fof_buffer
   real(8),parameter:: L_bL   = L_b  + nc
@@ -39,6 +38,8 @@ program CUBE_FoF
     if(head) print*,real_images,layer_image,nn**3
     stop 'real_images*layer_image /= nn*3'
   endif
+
+  call system('rm run_output_*.log')
 
   
   nlayer = ceiling(fof_buffer*n_refine)+1
@@ -94,7 +95,7 @@ program CUBE_FoF
     do image_now = this_image(),nn**3,real_images
 
 
-      write(log_filename, "('run_output_', I4.4, '.txt')") image_now
+      write(log_filename, "('run_output_', I4.4, '.log')") image_now
       open(newunit=log_unit, file=trim(log_filename), status='replace', action='write')
       write(log_unit,'(A, I0, A)') '  Fof at image',image_now,'->'//trim(log_filename)
       
@@ -154,7 +155,6 @@ program CUBE_FoF
         offset_nei(iq1,iq2,iq3) =  nlast
         nlast = nlast + np_neighbors(iq1,iq2,iq3)
       enddo; enddo; enddo
-
 
       do iq1 = 1, 3
       do iq2 = 1, 3
@@ -227,6 +227,7 @@ program CUBE_FoF
           print*,image
           stop 'particle len error'
         endif
+        ! write(log_unit,'(5I4,I10)')  iq3+(iq2-1)*3+(iq1-1)*9,iq1-2,iq2-2,iq3-2,image,sim%nplocal
       enddo
       enddo
       enddo
@@ -256,7 +257,7 @@ program CUBE_FoF
       write(log_unit, '(A, F10.3, A)') '    real time =',real(ft(3,image_now)-ft(2,image_now))/ftr(image_now),'secs';write(log_unit, *) ''
 
       ! rho
-      if (0) then
+      if (1) then
         allocate(rho_grid(0:nfof+1,0:nfof+1,0:nfof+1))
         rho_grid=0
         do iq3=1,nfof
@@ -305,9 +306,9 @@ program CUBE_FoF
       write(log_unit, *) 'Loop over fof cells'
 
       do l = 0,nlayer-1
-        write(log_unit, *) 'layer = ',l
+        call system_clock(ft(2,image_now),ftr(image_now))
         !$omp parallel do num_threads(layer_core) schedule(dynamic,1) default(shared) &
-        !$omp private(iq1,iq2,iq3,ip,jp,rsq,i_neighbor)
+        !$omp private(iq1,iq2,iq3,ip,jp,jq,rsq,i_neighbor)
         do iq3=1+l,nfof,nlayer
         do iq2=1,nfof
         do iq1=1,nfof
@@ -320,10 +321,8 @@ program CUBE_FoF
               jp=ll(jp)
             enddo
             do i_neighbor=1,13
-              ! jq=modulo([iq1,iq2,iq3]+ijk(:,i_neighbor)-1,nfof)+1
               jq = [iq1,iq2,iq3]+ijk(:,i_neighbor)
-              if (maxval(jq)>nfof1 .or. minval(jq)<1) cycle
-
+              if (maxval(jq)>nfof .or. minval(jq)<1) cycle
               jp=hoc(jq(1),jq(2),jq(3))
               do while (jp/=0)
                 rsq=sum((xv(1:3,ip)-xv(1:3,jp))**2)
@@ -337,6 +336,8 @@ program CUBE_FoF
         enddo
         enddo
         !$omp endparalleldo
+        call system_clock(ft(3,image_now),ftr(image_now))
+        write(log_unit, '(A, I2, A, F10.3, A)') 'layer = ',l,'    real time =',real(ft(3,image_now)-ft(2,image_now))/ftr(image_now),'secs'
       enddo
       deallocate(hoc,ll,ecgp)
 
@@ -393,7 +394,7 @@ program CUBE_FoF
 
 
       np_head(1) = nlast
-      write(log_unit,'(A, I10, A, I10)') '        np_iso: ',np_iso(1),'  np_head: ',np_head(1)
+      write(log_unit,'(A, I10, A, I10, I10)') '        np_iso: ',np_iso(1),'  np_head: ',np_head(1),sum(np_halo)
       call system_clock(ft(6,image_now),ftr(image_now))
       write(log_unit, '(A, F10.3, A)') '    real time =',real(ft(6,image_now)-ft(5,image_now))/ftr(image_now),'secs';write(log_unit, *) ''
 
