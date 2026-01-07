@@ -7,7 +7,7 @@ OPTIONS+=-DZIPX
 MODEFILE:=$(wildcard *.f90)
 OBJFILE:=$(addprefix ,$(notdir $(MODEFILE:.f90=.o)))
 
-all: cicpower.x ic.x gadget_snap_fof.x fof.x dsp.x cdm2nu.x# fof_merge.x #write_gadget_format.x
+all: cicpower.x ic.x gadget_snap_fof.x fof.x dsp.x cdm2nu.x# int2real.x# fof_merge.x #write_gadget_format.x
 	@echo "made:" $^
 ic.x: ic.o parameters.o  parameters.o pencil_fft.o# power_nu.o  variables.o
 	$(FC) $(XFLAG) $(OPTIONS) $(FFTFLAG) $^ -o $@
@@ -20,6 +20,8 @@ cdm2nu.x: cdm2nu.o parameters.o pencil_fft.o
 write_gadget_format.x: write_gadget_format.o parameters.o
 	$(FC) $(XFLAG) $(OPTIONS) $^ -o $@
 fof.x: parameters.o variables.o fof.o
+	$(FC) $(XFLAG) $(OPTIONS) $^ -o $@
+int2real.x: parameters.o variables.o int2real.o
 	$(FC) $(XFLAG) $(OPTIONS) $^ -o $@
 fof_merge.x: parameters.o variables.o fof_merge.o
 	$(FC) $(XFLAG) $(OPTIONS) $^ -o $@
