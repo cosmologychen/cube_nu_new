@@ -1,7 +1,7 @@
 #!/bin/bash
-#PBS -N fof2400_8
-#PBS -l nodes=1:ppn=32
-#PBS -l mem=180gb
+#PBS -N fof1200_8
+#PBS -l nodes=1:ppn=66
+#PBS -l mem=300gb
 #PBS -q normal
 #PBS -j oe
 #PBS -o ./run.log
@@ -10,36 +10,28 @@
 
 cd $PBS_O_WORKDIR
 date > ./run.log
-IC=./utilities/ic.x
-cic=./utilities/cic.x
-MAIN=./main.x
-CIC=./utilities/cicpower.x
-OCIC=./utilities/ocicpower.x
-FOF=./utilities/fof.x
-DSP=./utilities/dsp.x
-C2U=./utilities/cdm2nu.x
-I2R=./utilities/int2real.x
+export OMP_STACKSIZE=20000M
+export OMP_NUM_THREADS=40
+export FOR_COARRAY_NUM_IMAGES=8
+export PROCS=8
+export ntasks_per_node=8
+ulimit
+ulimit -s unlimited
+ulimit -u unlimited 
+ulimit -v unlimited 
 export FC='ifort'
 export XFLAG_NO_OMP='-O3 -fpp -q -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt'
 export XFLAG='-O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt'
 export OFLAG_NO_OMP=$XFLAG_NO_OMP' -c'
 export OFLAG=$XFLAG' -c'
 export FFTFLAG='-I/opt/intel2018update3/mkl/include/fftw -mkl'
-export OMP_STACKSIZE=20000M
-export OMP_NUM_THREADS=32
-export FOR_COARRAY_NUM_IMAGES=8
-ulimit
-ulimit -s unlimited
-ulimit -u unlimited 
-ulimit -v unlimited 
 
 
 echo ""
 echo ""
 echo ""
 echo ""
-export PROCS=8
-export ntasks_per_node=8
+rm ./hostfile_*
 sort $PBS_NODEFILE | uniq -c | awk -v npn=$ntasks_per_node  '{print \$2":"npn}' > ./hostfile_$PROCS 
 HOST_FILE=./hostfile_$PROCS
 pwd
@@ -60,6 +52,15 @@ run_program() {
     echo ""
     echo ""
 }
+IC=./utilities/ic.x
+cic=./utilities/cic.x
+MAIN=./main.x
+CIC=./utilities/cicpower.x
+OCIC=./utilities/ocicpower.x
+FOF=./utilities/fof.x
+DSP=./utilities/dsp.x
+C2U=./utilities/cdm2nu.x
+I2R=./utilities/int2real.x
 
 ### RUN ###
 echo running with ${PBS_NP} processes on ${PBS_NUM_NODES} nodes
@@ -83,3 +84,8 @@ run_program $FOF
 
 echo "Finish ALL"
 date
+
+
+
+
+

@@ -1,4 +1,10 @@
 
+export FC='ifort'
+export XFLAG_NO_OMP='-O3 -fpp -q -coarray=distributed -mcmodel=large'
+export XFLAG='-O3 -fpp -qopenmp -coarray=distributed -mcmodel=large'
+export OFLAG_NO_OMP=$XFLAG_NO_OMP' -c'
+export OFLAG=$XFLAG' -c'
+export FFTFLAG='-I/opt/intel2018update3/mkl/include/fftw -mkl'
 exe=int2real
 exe=fof
 echo "编译${exe}工具..."
@@ -15,6 +21,5 @@ if [ ! -f "utilities/${exe}.x" ]; then
 fi
 echo "${exe}编译成功，提交作业..."
 
-rm run_output_*.log
 qsub run.qsub
 # tail -f run.log
