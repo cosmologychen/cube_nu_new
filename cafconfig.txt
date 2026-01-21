@@ -1,1 +1,1 @@
--genvall -machinefile ./hostfile_8 -n 8 ./utilities/fof.x
+-genvall -machinefile ./hostfile_16 -n 16 ./utilities/fof.x

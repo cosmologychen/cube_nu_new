@@ -2,14 +2,13 @@ module parameters
    implicit none
 
    ! output directory
-   
-  character(*),parameter :: opath='/home/cossim/cube_nu/cube_nest/2400_8/'
-  real,parameter :: box=2400
-  integer(8),parameter :: ng=768
-
-!   character(*),parameter :: opath='/home/cossim/cube_nu/cube_nest/1200_8/'
-!   real,parameter :: box=1200
+!   character(*),parameter :: opath='/home/cossim/cube_nu/cube_nest/2400_8/'
+!   real,parameter :: box=2400
 !   integer(8),parameter :: ng=768
+
+  character(*),parameter :: opath='/home/cossim/cube_nu/cube_nest/1200/'
+  real,parameter :: box=1200
+  integer(8),parameter :: ng=768
 
 !   character(*),parameter :: opath='/home/cossim/cube_nu/output/GP600_256_2_0.06_2/'
 !   real,parameter :: box=600
@@ -30,8 +29,8 @@ module parameters
   integer, parameter :: izipi = 8 ! if pids are on, size to store as
 
   ! cell resolution parameters
-  integer,parameter :: nn=2
-  integer,parameter :: ncore=4
+  integer,parameter :: nn=8
+  integer,parameter :: ncore=2
   integer,parameter :: nteam=1
   integer,parameter :: nnest=1
 
