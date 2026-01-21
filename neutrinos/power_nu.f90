@@ -272,7 +272,7 @@ contains
       implicit none
       integer i_step
       real si
-      real(8) X(npbin,3),L(npbin,3)
+      real(16) X(npbin,3),L(npbin,3)
       si = s_f-sf_step(i_step)
       X = si*k_mnu_2d*T_nu0*C
       L = ((1+0.0168*X**2+0.0407*X**4)/(1+2.1734*X**2+1.6787*X**4.1811+0.1467*X**8))*spread(Pk_step(:,i_step), dim=2, ncopies=3)*si
@@ -283,7 +283,7 @@ contains
       use parameters
       implicit none
       real spk(npbin,3)
-      real(16) L0(npbin,3),L1(npbin,3),L2(npbin,3)
+      real(16) spk16(npbin,3),L0(npbin,3),L1(npbin,3),L2(npbin,3),dtau21,dtau10,dtau20,dtaup
       real(16) a1(npbin,3), a2(npbin,3), k2(npbin,3), b2(npbin,3), c2(npbin,3),t0(npbin,3)
 
       integer is
@@ -296,27 +296,37 @@ contains
       endif
       L0 = get_L(2)
 
-      a1 = (L0 - L2) / (tau_step(2) - tau_step(1))
-      a2 = (L2 - L1) / (tau_step(1) - tau_step(0))
-      k2 = (a1 - a2) / (tau_step(2) - tau_step(0))
-      b2 = a1 - k2 * (tau_step(2) + tau_step(1))
-      c2 = L0 - k2 * tau_step(2) ** 2 - b2 * tau_step(2)
-      spk = (k2/3 * ( tau_step(1)* (tau_step(1)+tau_step(0)) + tau_step(0)**2 ) + b2/2 * (tau_step(1)+tau_step(0)) + c2)*(tau_step(1)-tau_step(0))
+      dtau21 = tau_step(2) - tau_step(1)
+      dtau10 = tau_step(1) - tau_step(0)
+      dtau20 = tau_step(2) - tau_step(0)
+      dtaup  = tau_step(2) + tau_step(1)
+      a1 = (L0 - L2) / dtau21
+      a2 = (L2 - L1) / dtau10
+      k2 = (a1 - a2) / dtau20
+      b2 = a1 - k2 * dtaup
+      c2 = L1
+      spk16 =  (k2/3 * dtau10**2 + b2/2 * dtau10 + c2) * dtau10
 
       do is = 2,istep
          L0 = L1
          L1 = L2
          L2 = get_L(is)
-         a1 = (L2 - L1) / (tau_step(is)   - tau_step(is-1))
-         a2 = (L1 - L0) / (tau_step(is-1) - tau_step(is-2))
-         k2 = (a1 - a2) / (tau_step(is)   - tau_step(is-2))
-         b2 = a1 - k2 * (tau_step(is) + tau_step(is-1))
-         c2 = L2 - k2 * tau_step(is) ** 2 - b2 * tau_step(is)
-         t0 = -b2 / (2.0 * k2)
+         
+         dtau21 = tau_step(is)   - tau_step(is-1)
+         dtau10 = tau_step(is-1) - tau_step(is-2)
+         dtau20 = tau_step(is)   - tau_step(is-2)
+         dtaup  = tau_step(is)   + tau_step(is-1)
+         a1 = (L0 - L2) / dtau21
+         a2 = (L2 - L1) / dtau10
+         k2 = (a1 - a2) / dtau20
+         b2 = a1 - k2 * dtaup
+         c2 = L0
 
-         spk = spk + (k2/3 * ( tau_step(is)* (tau_step(is)+tau_step(is-2)) + tau_step(is-2)**2 )  + b2/2 * (tau_step(is)+tau_step(is-2)) + c2)*(tau_step(is)-tau_step(is-2))
+         spk16 =  spk16 + (k2/3 * dtau20**2 + b2/2 * dtau20 + c2) * dtau20
       enddo
-      spk = spk + (k2/3 * (tau_step(istep)*(tau_step(istep)+tau_step(istep-1)) + tau_step(istep-1)**2)  + b2/2 * (tau_step(istep)+tau_step(istep-1)) + c2)*(tau_step(istep)-tau_step(istep-1))
+      spk16 =  spk16 + (k2/3 * dtau21**2 + b2/2 * dtau21+ c2) * dtau21
+
+      spk = spk16
    endfunction
 
    subroutine interp_Pk_CDM
