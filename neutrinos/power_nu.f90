@@ -131,48 +131,49 @@ contains
       real spk(npbin)
 
       real a1(npbin), a2(npbin), k2(npbin), b2(npbin), c2(npbin)
-      real log_a, log_aps(3), log_pks(npbin,3)
+      real log_a, la(3), lpk(npbin,3)
 
-      log_a = log(a)
-      log_aps(1) = log(1 / (z_point(cur_powerpoint) + 1))
-      log_aps(2) = log(1 / (z_point(cur_powerpoint - 1) + 1))
-      log_aps(3) = log(1 / (z_point(cur_powerpoint - 2) + 1))
-      log_pks(:,1) = log(Pk(:, cur_powerpoint))
-      log_pks(:,2) = log(Pk(:, cur_powerpoint - 1))
-      log_pks(:,3) = log(Pk(:, cur_powerpoint - 2))
 
-      a1 = (log_pks(:,1) - log_pks(:,2)) / (log_aps(1) - log_aps(2))
-      a2 = (log_pks(:,2) - log_pks(:,3)) / (log_aps(2) - log_aps(3))
-      k2 = (a1 - a2) / (log_aps(1) - log_aps(3))
-      b2 = a1 - k2 * (log_aps(1) + log_aps(2))
-      c2 = log_pks(:,1) - k2 * log_aps(1) ** 2 - b2 * log_aps(1)
+      la(1) = log(1 / (z_point(cur_powerpoint) + 1))
+      la(2) = log(1 / (z_point(cur_powerpoint - 1) + 1))
+      la(3) = log(1 / (z_point(cur_powerpoint - 2) + 1))
+
+      lpk(:,1) = log(Pk(:, cur_powerpoint))
+      lpk(:,2) = log(Pk(:, cur_powerpoint - 1))
+      lpk(:,3) = log(Pk(:, cur_powerpoint - 2))
+
+      a1 = (lpk(:,1) - lpk(:,2)) / (la(1) - la(2))
+      a2 = (lpk(:,2) - lpk(:,3)) / (la(2) - la(3))
+      k2 = (a1 - a2) / (la(1) - la(3))
+      b2 = a1 - k2 * (la(1) + la(2))
       ! 强制曲率为非负：若为负，则退化为线性插值
-      where (k2 < 0.0d0)
+      where (k2 < 0.0d0 .or. -b2/2/k2 > la(1))
          k2 = 0.0d0
-         b2 = (log_pks(:,1) - log_pks(:,3)) / (log_aps(1) - log_aps(3))
-         c2 = log_pks(:,1) - b2 * log_aps(1)
+         b2 = (lpk(:,1) - lpk(:,3)) / (la(1) - la(3))
       end where
+      c2 = lpk(:,1)
+      log_a = log(a)-la(1)
       spk = exp((k2 * log_a ** 2 + b2 * log_a + c2)/2)
 
-      if ((minval(spk(:ifs)) < 0) .or. any((ieee_is_nan(spk(:ifs))))) then
-         if (head) then
-            print *, ''
-            print *, ''
-            print *, ''
-            print *, 'Pk interp err ', minval(spk(:ifs)), 1. / a - 1, ifs
-            print *, 'cur_powerpoint', cur_powerpoint, z_point(cur_powerpoint)
-            print *, 'Pk0', Pk(:, cur_powerpoint)
-            print *, 'Pk-1', Pk(:, cur_powerpoint - 1)
-            print *, 'Pk-2', Pk(:, cur_powerpoint - 2)
-            print *, 'a1', a1
-            print *, 'a2', a2
-            print *, 'k', k2
-            print *, 'b', b2
-            print *, 'c', c2
-            print *, 'result', spk(:ifs)
-         endif
-         error stop 'Pk interp err '
-      endif
+      ! if (any((ieee_is_nan(spk(:ifs))))) then
+      !    if (head) then
+      !       print *, ''
+      !       print *, ''
+      !       print *, ''
+      !       print *, 'Pk interp err ', minval(spk(:ifs)), 1. / a - 1, ifs
+      !       print *, 'cur_powerpoint', cur_powerpoint, z_point(cur_powerpoint)
+      !       print *, 'Pk0', Pk(:, cur_powerpoint)
+      !       print *, 'Pk-1', Pk(:, cur_powerpoint - 1)
+      !       print *, 'Pk-2', Pk(:, cur_powerpoint - 2)
+      !       print *, 'a1', a1
+      !       print *, 'a2', a2
+      !       print *, 'k', k2
+      !       print *, 'b', b2
+      !       print *, 'c', c2
+      !       print *, 'result', spk(:ifs)
+      !    endif
+      !    error stop 'Pk interp err '
+      ! endif
    endfunction
 
    real function interp_tf_F(k_lin_log,k_need)
@@ -283,48 +284,30 @@ contains
       use parameters
       implicit none
       real spk(npbin,3)
-      real(16) spk16(npbin,3),L0(npbin,3),L1(npbin,3),L2(npbin,3),dtau21,dtau10,dtau20,dtaup
-      real(16) a1(npbin,3), a2(npbin,3), k2(npbin,3), b2(npbin,3), c2(npbin,3),t0(npbin,3)
+      real(16) dtau21,dtau10,dtau20
+      real(16) spk16(npbin,3),L0(npbin,3),L1(npbin,3),L2(npbin,3)
+      real(16) a1(npbin,3), a2(npbin,3), k2(npbin,3), b2(npbin,3)
 
       integer is
 
-      L1 = get_L(0)
-      L2 = get_L(1)
       if (istep == 1) then
-         spk = (L1+L2)*(tau_step(1)-tau_step(0))
+         spk = (get_L(1)+get_L(0))*(tau_step(1)-tau_step(0))
          return
       endif
-      L0 = get_L(2)
+      
+      L1 = get_L(0); L2 = get_L(1); L0 = get_L(2)
 
-      dtau21 = tau_step(2) - tau_step(1)
-      dtau10 = tau_step(1) - tau_step(0)
-      dtau20 = tau_step(2) - tau_step(0)
-      dtaup  = tau_step(2) + tau_step(1)
-      a1 = (L0 - L2) / dtau21
-      a2 = (L2 - L1) / dtau10
-      k2 = (a1 - a2) / dtau20
-      b2 = a1 - k2 * dtaup
-      c2 = L1
-      spk16 =  (k2/3 * dtau10**2 + b2/2 * dtau10 + c2) * dtau10
+      dtau21 = tau_step(2) - tau_step(1); dtau10 = tau_step(1) - tau_step(0); dtau20 = tau_step(2) - tau_step(0)
+      a1 = (L0 - L2) / dtau21; a2 = (L2 - L1) / dtau10; k2 = (a1 - a2) / dtau20; b2 = a2 - k2 * dtau10
+      spk16 = dtau10**3/3*k2 + dtau10**2/2*b2 + L1*dtau10
 
       do is = 2,istep
-         L0 = L1
-         L1 = L2
-         L2 = get_L(is)
-         
-         dtau21 = tau_step(is)   - tau_step(is-1)
-         dtau10 = tau_step(is-1) - tau_step(is-2)
-         dtau20 = tau_step(is)   - tau_step(is-2)
-         dtaup  = tau_step(is)   + tau_step(is-1)
-         a1 = (L0 - L2) / dtau21
-         a2 = (L2 - L1) / dtau10
-         k2 = (a1 - a2) / dtau20
-         b2 = a1 - k2 * dtaup
-         c2 = L0
-
-         spk16 =  spk16 + (k2/3 * dtau20**2 + b2/2 * dtau20 + c2) * dtau20
+         L0 = L1; L1 = L2; L2 = get_L(is)
+         dtau21 = tau_step(is)-tau_step(is-1); dtau10 = tau_step(is-1)-tau_step(is-2); dtau20 = tau_step(is)-tau_step(is-2)
+         a1 = (L2 - L1) / dtau21; a2 = (L1 - L0) / dtau10; k2 = (a1 - a2) / dtau20; b2 = a2 - k2 * dtau10
+         spk16 =  spk16 + dtau20**3/3*k2 + dtau20**2/2*b2 + L0*dtau20
       enddo
-      spk16 =  spk16 + (k2/3 * dtau21**2 + b2/2 * dtau21+ c2) * dtau21
+      spk16 =  spk16 +  (k2/3 * (dtau20*(dtau20+dtau10) + dtau10**2)  + b2/2 * (dtau20+dtau10) + L0)*(dtau20-dtau10)
 
       spk = spk16
    endfunction
