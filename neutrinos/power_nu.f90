@@ -216,13 +216,6 @@ contains
       b2 = a1-k2*(k_lin_log(i1)+k_lin_log(i2))
       c2 = tf_F_log(i1)-k2*k_lin_log(i1)**2-b2*k_lin_log(i1)
       interp_tf_F = exp(k2*k_need_log**2+b2*k_need_log+c2)
-
-      ! print*,'interp:++++++++++++++'
-      ! print*,i1,i2,i3
-      ! print*,kh_lin(i1),kh_lin(i2),kh_lin(i3),k_need
-      ! print*,tf_F(i1),tf_F(i2),tf_F(i3),interp_tf_F
-      ! print*,'interp,done'
-
    endfunction
 
    subroutine tf_F_correction
@@ -294,7 +287,7 @@ contains
          spk = (get_L(1)+get_L(0))*(tau_step(1)-tau_step(0))
          return
       endif
-      
+
       L1 = get_L(0); L2 = get_L(1); L0 = get_L(2)
 
       dtau21 = tau_step(2) - tau_step(1); dtau10 = tau_step(1) - tau_step(0); dtau20 = tau_step(2) - tau_step(0)

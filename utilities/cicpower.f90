@@ -17,7 +17,7 @@ program cicpower
    integer i,j,k,l,np,idx(3),idx1(3),idx2(3),itx,ity,itz,cur_checkpoint,ix,iy,iz
    integer(8) nlast,ip,nplocal,npglobal
    character(20) str_z,str_i
-   real pos1(3),dx1(3),dx2(3),xi(10,0:nbin)[*],nbb!,xi_new(10,0:nbin)[*]
+   real pos1(3),dx1(3),dx2(3),xi(10,0:nbin)[*],nbb
    real(8) rho8[*]
    integer(4),allocatable :: rhoc(:,:,:,:,:,:)
 
@@ -177,11 +177,6 @@ program cicpower
 
       if (head) print*,'auto_power'
       call auto_power(xi,rho_c,npglobal,2)
-      ! if (head) print*,'auto_power'
-      ! call auto_power_new(sim%a,xi_new,rho_c,npglobal,2)
-      ! stop
-
-      !call density_to_potential(rho_c)
 
       if (head) then
 #ifdef power_matter

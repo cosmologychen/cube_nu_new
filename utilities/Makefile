@@ -37,6 +37,7 @@ buffer_grid.o: variables.o
 buffer_particle.o: variables.o
 ic.o:parameters.o pencil_fft.o #power_nu.o
 gadget_snap_fof.o:parameters.o variables.o particle_initialization.o buffer_grid.o buffer_particle.o
+cicpower.o: parameters.o pencil_fft.o powerspectrum.o
 
 # cubefft.o: ../cubefft.f90
 # 	$(FC) $(OFLAG) $(OPTIONS) $< -o $@ $(FFTFLAG)

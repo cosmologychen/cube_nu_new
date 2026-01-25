@@ -1,1 +1,0 @@
--genvall -genv I_MPI_FABRICS=shm:ofa -machinefile ./hostfile_1 -n 1 python ./Pk.py

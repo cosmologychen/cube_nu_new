@@ -1,1 +1,0 @@
--genvall -machinefile ./hostfile_16 -n 16 ./utilities/fof.x

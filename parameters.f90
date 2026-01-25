@@ -200,18 +200,18 @@ module parameters
       integer(8) timestep
       integer(8) cur_checkpoint
       integer(8) cur_halofind
-      ! integer(8) cur_powerpoint !nu
-      ! integer(8) calculate_PK !nu
-      ! integer(8) cic_iapm !nu
+      integer(8) cur_powerpoint !nu
+      integer(8) calculate_PK !nu
+      integer(8) cic_iapm !nu
       real a, t, tau
       real dt_pp, dt_pm3, dt_pm2, dt_pm1, dt_vmax
       real mass_p_cdm
-      ! real m_nu(3)!nu
-      ! real Mass_nu!nu
+      real m_nu(3)!nu
+      real Mass_nu!nu
       real box
       real h0
       real omega_m
-      ! real omega_nu!nu
+      real omega_nu!nu
       real omega_l
       real s8
       real vsim2phys
