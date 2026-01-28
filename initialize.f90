@@ -100,11 +100,12 @@ subroutine initialize
    s_f=0
    z_powerpoint=-9999
    power_step=.false.
+   nu_step = merge(0,1,a_nu>0.0)
    a_step = 0
    tau_step = 0
    Pk_step = 0
-   Pk_cb_check =0
-   Pk_nu_check =0
+   Pk_cb_check = 0
+   Pk_nu_check = 0
    if (Mass_nu > 0) then
       sim%cur_powerpoint=1
       if (head) then
@@ -140,11 +141,17 @@ subroutine initialize
       open(10,file=nupath//'IC/Pnu_ic.txt',form='formatted')
       read(10,*) Pk_nu_ic
       close(10)
-      ! print*,'  Pk_nu_ic1',Pk_nu_ic(1,1),Pk_nu_ic(npbin/3,1),Pk_nu_ic(npbin/3*2,1),Pk_nu_ic(npbin,1)
-      ! print*,'  Pk_nu_ic2',Pk_nu_ic(1,2),Pk_nu_ic(npbin/3,2),Pk_nu_ic(npbin/3*2,2),Pk_nu_ic(npbin,2)
-      ! print*,'  Pk_nu_ic3',Pk_nu_ic(1,3),Pk_nu_ic(npbin/3,3),Pk_nu_ic(npbin/3*2,3),Pk_nu_ic(npbin,3)
-      ! stop
       sq_Pk_nu_ic = sqrt(Pk_nu_ic)
+
+      kh_lin = -1
+      open(13,file=nupath//'f_growth_nu.txt',status='old')
+      read(13, '(f15.12)') kh_lin(1:npbin)
+      close(13)
+      f_growth_nu = spread(kh_lin, dim=2, ncopies=3)
+      if (head) print*,'k',f_growth_nu(1,1),f_growth_nu(100,1),f_growth_nu(npbin,1)
+      if (head) print*,'k',f_growth_nu(1,2),f_growth_nu(100,2),f_growth_nu(npbin,2)
+      if (head) print*,'k',f_growth_nu(1,3),f_growth_nu(100,3),f_growth_nu(npbin,3)
+
 
       kh_lin = -1
       open(13,file=nupath//'k_values.txt',status='old')

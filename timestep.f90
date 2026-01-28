@@ -44,6 +44,7 @@ subroutine timestep
 #   endif
       if (Mass_nu > 0.0) z_next = max(z_next,z_powerpoint(sim%cur_powerpoint))
       a_next=1.0/(1+z_next)
+      if (nu_step == 0) a_next=min(a_next,a_nu)
       if (da>=a_next-sim%a) then
          if (z_next==z_checkpoint(sim%cur_checkpoint)) then
             checkpoint_step=.true.
@@ -58,9 +59,8 @@ subroutine timestep
             da = expansion(dt)
             ! print*, 'a+da, dt, z+dz, err_a', sim%a+da, dt, 1.0/(sim%a+da)-1.0, (sim%a+da)/a_next-1
          enddo
+         if (nu_step == 0 .and. a_next == a_nu ) nu_step = istep
       endif
-
-      if (da < 1e-6) stop
 
       ra=da/(sim%a+da)
       a_mid=sim%a+(da/2)
@@ -84,6 +84,7 @@ subroutine timestep
       print*, 'dt_pp     :',sim%dt_pp
       print*, 'dt_vmax   :',sim%dt_vmax
       print*, 'cur_powerpoint :',sim%cur_powerpoint,z_powerpoint(sim%cur_powerpoint)
+      print*, 'nu_step   :',nu_step,a_nu
       print*, ''
       sim%tau=sim%tau+dtau
       sim%t=sim%t+dt

@@ -21,11 +21,11 @@ r_path="None"
 flag='GP'
 log_name='None'
 
-RunIC=false
+RunIC=true
 RunMain=true
 RunCIC=false
-Findhalo=true
-RunDSP=true
+Findhalo=false
+RunDSP=false
 Runc2u=false
 
 ZIPX=1
@@ -186,8 +186,8 @@ info() {
         exit 1
     fi
 
-    echo -e "${CYAN}核心数${NC}             : ${PURPLE}$nn${NC} , ${PURPLE}$nncore${NC} = ${PURPLE}$nteam${NC} x ${PURPLE}$nnest${NC}"
-    echo -e "${CYAN}分辨率${NC}             : ${PURPLE}$box Mpc ; $ng 粒子${NC}"
+    echo -e "${CYAN}核心数${NC}             : ${PURPLE}$nn^3 image${NC} ; ${PURPLE}$nteam${NC} x ${PURPLE}$nnest${NC} = ${PURPLE}$nncore${NC} core/image"
+    echo -e "${CYAN}分辨率${NC}             : ${PURPLE}$box Mpc ; ${ng}^3 粒子${NC}"
     echo -e "${CYAN}检查点${NC}             : ${PURPLE}$checkpoint $(awk -v line=$checkpoint '
                 NR==line {
                     raw = $1 + 0  
@@ -908,8 +908,14 @@ run_para_ini(){
     else
         nnode=1
         nncore=$((ncore))
+        ntasks_per_node=1
     fi
+
     nteam=$((nncore/nnest))
+    if [ $nteam -lt 1 ]; then
+        nteam=$nncore
+        nnest=1
+    fi
 
     if [ "$checkpoint" -ne 1 ]; then
         rawpath=$(pwd)
@@ -1037,83 +1043,84 @@ run_para_ini(){
     fi
 }
 
+main(){
+    make clean && cd utilities && make clean && cd ..
 
-get_para "$@"
-
-run_para_ini
-
-make clean && cd utilities && make clean && cd ..
-
-if [ "$RunIC" == true ] || [ "$RunMain" == true ]; then
-    para_2_code
-fi
-
-if [ "$RUNtype" == "pbs" ]; then
-    pbs_run
-elif [ "$RUNtype" == "local" ]; then
-    echo -e "${GREEN}当前工作目录: ${NC}$(pwd)"
-
-    rm -v *.log
-
-
-    # 输出运行信息
-    if [ "$log_name" != "None" ]; then
-        date > "$log_name"
-        info >> "$log_name"
+    if [ "$RunIC" == true ] || [ "$RunMain" == true ]; then
+        para_2_code
     fi
 
-    # 运行IC生成
-    if [ "$RunIC" == true ]; then
-        cd utilities
-        make clean
-        make ic.x
-        cd ..
-        [ "$log_name" != "None" ] && echo "RunIC" >> "$log_name"
-        local_run "./utilities/ic.x"
+    if [ "$RUNtype" == "pbs" ]; then
+        pbs_run
+    elif [ "$RUNtype" == "local" ]; then
+        echo -e "${GREEN}当前工作目录: ${NC}$(pwd)"
 
-        if [ "$RunCIC" == true ]; then
-            sed -i "s/\(cur_checkpoint=\) \([0-9]\+\),\([0-9]\+\)/\1 1,1/" utilities/cicpower.f90
-            cd utilities
-            make cicpower.x
-            cd ..
-            local_run "./utilities/cicpower.x"
+        rm -v *.log
+
+
+        # 输出运行信息
+        if [ "$log_name" != "None" ]; then
+            date > "$log_name"
+            info >> "$log_name"
         fi
-    fi
 
-    # 运行主程序
-    if [ "$RunMain" == true ]; then
-        make clean
-        make 
-        [ "$log_name" != "None" ] && echo "RunMain" >> "$log_name"
-        local_run "time ./main.x"
-        if [ "$RunCIC" == true ]; then
+        # 运行IC生成
+        if [ "$RunIC" == true ]; then
+            cd utilities
+            make clean
+            make ic.x
+            cd ..
+            [ "$log_name" != "None" ] && echo "RunIC" >> "$log_name"
+            local_run "./utilities/ic.x"
+
+            if [ "$RunCIC" == true ]; then
+                sed -i "s/\(cur_checkpoint=\) \([0-9]\+\),\([0-9]\+\)/\1 1,1/" utilities/cicpower.f90
+                cd utilities
+                make cicpower.x
+                cd ..
+                local_run "./utilities/cicpower.x"
+            fi
+        fi
+
+        # 运行主程序
+        if [ "$RunMain" == true ]; then
+            make clean
+            make 
+            [ "$log_name" != "None" ] && echo "RunMain" >> "$log_name"
+            local_run "time ./main.x"
+            if [ "$RunCIC" == true ]; then
+                sed -i "s/\(cur_checkpoint=\) \([0-9]\+\),\([0-9]\+\)/\1 $z1,$z2/" utilities/cicpower.f90
+                cd utilities
+                make cicpower.x
+                cd ..
+                local_run "./utilities/cicpower.x"
+            fi
+        fi  
+
+        # 单独运行CIC
+        if [ "$RunCIC" == true ] && [ "$RunMain" != true ] && [ "$RunIC" != true ] && [ "$Findhalo" != true ]; then
             sed -i "s/\(cur_checkpoint=\) \([0-9]\+\),\([0-9]\+\)/\1 $z1,$z2/" utilities/cicpower.f90
             cd utilities
             make cicpower.x
             cd ..
+            [ "$log_name" != "None" ] && echo "CIC" >> "$log_name"
             local_run "./utilities/cicpower.x"
         fi
-    fi  
 
-    # 单独运行CIC
-    if [ "$RunCIC" == true ] && [ "$RunMain" != true ] && [ "$RunIC" != true ] && [ "$Findhalo" != true ]; then
-        sed -i "s/\(cur_checkpoint=\) \([0-9]\+\),\([0-9]\+\)/\1 $z1,$z2/" utilities/cicpower.f90
-        cd utilities
-        make cicpower.x
-        cd ..
-        [ "$log_name" != "None" ] && echo "CIC" >> "$log_name"
-        local_run "./utilities/cicpower.x"
+        if [ "$Findhalo" == true ]; then
+            [ "$log_name" != "None" ] && echo "Findhalo" >> "$log_name"
+            sed -i "s/\(cur_checkpoint=\) \([0-9]\+\),\([0-9]\+\)/\1 $z1,$z2/" utilities/fof.f90
+            cd utilities
+            make clean
+            make fof.x
+            cd ..
+            local_run "./utilities/fof.x"
+        fi
+
+
     fi
+}
 
-    if [ "$Findhalo" == true ]; then
-        [ "$log_name" != "None" ] && echo "Findhalo" >> "$log_name"
-        sed -i "s/\(cur_checkpoint=\) \([0-9]\+\),\([0-9]\+\)/\1 $z1,$z2/" utilities/fof.f90
-        cd utilities
-        make clean
-        make fof.x
-        cd ..
-        local_run "./utilities/fof.x"
-    fi
-
-
-fi
+get_para "$@"
+run_para_ini
+main

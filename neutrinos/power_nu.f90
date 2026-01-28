@@ -246,18 +246,15 @@ contains
    endsubroutine
 
    function get_sqrt_pk_nu1() result(spk)
-      use variables, only: s_f,a_step,sq_Pk_nu_ic,k_mnu_2d,H_i,H_0
+      use variables, only: s_f,a_step,sq_Pk_nu_ic,k_mnu_2d,H_i,H_0,f_growth_nu
       use parameters
       implicit none
       real  spk(npbin,3)
       real(8) X(npbin,3)
-      real f,omega_m_zi,omega_l_zi
+      real omega_m_zi,omega_l_zi
 
-      omega_m_zi=(H_0/H_i)**2*sim%omega_m*(1/a_step(0))**3
-      omega_l_zi=(H_0)**2/H_i**2*sim%omega_l
-      f=omega_m_zi**(4.0/7.0)+omega_l_zi/70.0*(1+omega_m_zi/2.0)
       X = s_f*k_mnu_2d*T_nu0*C
-      spk = ((1+0.0168*X**2+0.0407*X**4)/(1+2.1734*X**2+1.6787*X**4.1811+0.1467*X**8))*sq_Pk_nu_ic*(1+s_f*a_step(0)**2*H_i*f)
+      spk = ((1+0.0168*X**2+0.0407*X**4)/(1+2.1734*X**2+1.6787*X**4.1811+0.1467*X**8))*sq_Pk_nu_ic*(1+s_f*a_step(0)**2*H_i*f_growth_nu)
    endfunction
 
    function get_L(i_step) result(L)
@@ -288,13 +285,13 @@ contains
          return
       endif
 
-      L1 = get_L(0); L2 = get_L(1); L0 = get_L(2)
+      L1 = get_L(nu_step-2); L2 = get_L(nu_step-1); L0 = get_L(nu_step)
 
-      dtau21 = tau_step(2) - tau_step(1); dtau10 = tau_step(1) - tau_step(0); dtau20 = tau_step(2) - tau_step(0)
+      dtau21 = tau_step(nu_step) - tau_step(nu_step-1); dtau10 = tau_step(nu_step-1) - tau_step(nu_step-2); dtau20 = tau_step(nu_step) - tau_step(nu_step-2)
       a1 = (L0 - L2) / dtau21; a2 = (L2 - L1) / dtau10; k2 = (a1 - a2) / dtau20; b2 = a2 - k2 * dtau10
       spk16 = dtau10**3/3*k2 + dtau10**2/2*b2 + L1*dtau10
 
-      do is = 2,istep
+      do is = nu_step,istep
          L0 = L1; L1 = L2; L2 = get_L(is)
          dtau21 = tau_step(is)-tau_step(is-1); dtau10 = tau_step(is-1)-tau_step(is-2); dtau20 = tau_step(is)-tau_step(is-2)
          a1 = (L2 - L1) / dtau21; a2 = (L1 - L0) / dtau10; k2 = (a1 - a2) / dtau20; b2 = a2 - k2 * dtau10
@@ -312,7 +309,7 @@ contains
       implicit none
       integer :: i,interp_powerpoint
       real a_post
-
+      
       if (power_step) then
          if (head) print*,''
          if (head) print*,'Power_step'
@@ -356,8 +353,9 @@ contains
       real sqrt_pk_nu1(npbin,3),sqrt_pk_nu2(npbin,3)
       real(8) Lx0(npbin,3),Lx1(npbin,3),Lx2(npbin,3)
 
-      ifs = npbin
       k_fs = min((0.8*sqrt(a_step(istep)*sim%omega_m/0.3) * Mass_nu/3 * h0 )*tf_smooth,10.)
+
+      ifs = npbin
       do while (kh_lin(ifs) > k_fs)
          ifs = ifs-1
       enddo
@@ -384,41 +382,20 @@ contains
 
 
       call tic(97)
-      if (istep > 0) then
-         if(head) then
-            if (calculate_PK > -1) then
-               sqrt_pk_nu1 = get_sqrt_pk_nu1()
-               sqrt_pk_nu2 = 0.75*sim%omega_m*H_0**2*get_sqrt_pk_nu2() ! 0.75 = (3/2)/2
-               Pk_nus = (sqrt_pk_nu1+sqrt_pk_nu2)
-
-               if ((minval(Pk_nu(:ifs)) < -1e-5) .or. any((ieee_is_nan(Pk_nu(:ifs)))))then
-                  if(head) then
-                     print*,''
-                     print*,''
-                     print*,''
-                     print*,'Pk_nu err ',minval(Pk_nu),1/a_step(istep)-1
-                     print*,'Pk_check(-1 0) is nan ',any((ieee_is_nan(Pk_cb_check(:,sim%cur_powerpoint)))),any((ieee_is_nan(Pk_cb_check(:,sim%cur_powerpoint-1))))
-                     print*,'Pk_step(-1 0) is nan ',any((ieee_is_nan(Pk_step(:,istep-1)))),any((ieee_is_nan(Pk_step(:,istep))))
-                     print*,' a,tau',a_step(istep),a_step(istep-1),tau_step(istep),tau_step(istep-1)
-                     print*,'Pk_m -1',Pk_step(:,istep-1)
-                     print*,''
-                     print*,''
-                     print*,''
-                     print*,'Pk_m 0',Pk_step(:,istep)
-                     print*,''
-                     print*,''
-                     print*,''
-                     print*,'Pk_nu',Pk_nu(:ifs)
-                  endif
-                  error stop 'Pk_nu err '
-               endif
-            endif
+      if (nu_step /= 0 .and. istep > 0) then
+         if(head .and. calculate_PK > -1) then
+            sqrt_pk_nu1 = get_sqrt_pk_nu1()
+            sqrt_pk_nu2 = 0.75*sim%omega_m*H_0**2*get_sqrt_pk_nu2() ! 0.75 = (3/2)/2
+            Pk_nus = (sqrt_pk_nu1+sqrt_pk_nu2)
          endif
-      else
+      else if (istep == 0) then
          Pk_nus=sq_Pk_nu_ic
+      else
+         ! 不需要更新tf
+         Pk_step(:,istep) = tf_F**2*Pk_step(:,istep) !Pk_step_cdm --> Pk_step_matter
+         return
       endif
 
-      ! print*,'  Pk_nu',(f_nus(1)*f_nr(1)*1+f_nus(2)*f_nr(2)*1+f_nus(3)*f_nr(3)*1)**2
       Pk_nu = (f_nus(1)*f_nr(1)*Pk_nus(:,1)+f_nus(2)*f_nr(2)*Pk_nus(:,2)+f_nus(3)*f_nr(3)*Pk_nus(:,3))**2
       Pk_nus = Pk_nus**2
       tf_F = ((1-f_nu)*sqrt(abs(Pk_step(:,istep)))+f_nu*sqrt(abs(Pk_nu)))/sqrt(abs(Pk_step(:,istep)))
@@ -439,22 +416,11 @@ contains
          open(312,file=nupath//'Pk_nus/Pk_nus_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(312) Pk_nus; close(312)
          open(411,file=nupath//'Pk_m/Pk_m_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(411) Pk_step(:,istep)**2; close(411)
          open(511,file=nupath//'tf/Tf_nu_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(511) tf_F; close(511)
-
-         if (minval(tf_F) < 1-1e-6-f_nu .or. any((ieee_is_nan(tf_F)))) then
-            if(head) print*,'tf_F err',minval(tf_F),1-f_nu
-            if(head) print*,'Pk_nu'
-            if(head) print*,Pk_nu
-            if(head) print*,'Pk_cdm'
-            if(head) print*,Pk_step(:,istep)
-            if(head) print*,'Tf_nu'
-            if(head) print*,tf_F
-            error stop 'tf_F err'
-         endif
       endif
       Pk_step(:,istep) = tf_F**2*Pk_step(:,istep) !Pk_step_cdm --> Pk_step_matter
 
       call tic(98)
-      tf_F_log = log(tf_F(:))
+      tf_F_log = log(tf_F(:)[1])
       call nu_correction_coarse()
       pm%nwork = ngt   ;call nu_correction(tf2   ,Gk2   ,box/nn/nnt    )
       pm%nwork = nft(2);call nu_correction(tf3_2 ,Gk3_2 ,box/nn/nnt/nns)
@@ -506,8 +472,6 @@ contains
       integer i,j,k,ig,jg,kg
       real kr,kx(3)
 
-      tf1 = 1
-      ! call tic_nu
       if (Mass_nu > 0) then
          !$omp paralleldo default(shared) schedule(dynamic)&
          !$omp& private(kg,jg,ig,i,j,k,kx,kr)

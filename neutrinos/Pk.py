@@ -5,8 +5,6 @@ from scipy.interpolate import interp1d
 
 test = 0
 
-all_reps = False
-all_camb = True
 n=50
 ni=2
 
@@ -35,80 +33,6 @@ def get_z(n): #get array a
     z=1/a-1
     return z[::-1]
     
-def run_reps():
-    os.system('rm %s/IC/IC*'%(nupath))
-    file_path = './neutrinos/IC.ini'
-    with open(file_path, 'r') as f:
-        IC_old = f.read()
-
-    # 使用正则表达式匹配模式
-    pattern = r'z_initial \s*=(.*)'
-    replacement = "z_initial          =  10000"
-    IC_new = re.sub(pattern, replacement, IC_old)
-
-    pattern = r'outputfile         \s*=(.*)'
-    replacement = "outputfile         =  %s/IC/IC"%(nupath)
-    IC_new = re.sub(pattern, replacement, IC_new)
-
-    if Mass_nu>0:
-        IC_Neff = 'Neff               =  0.00641'
-        IC_N_nu = 'N_nu               =  3.0'
-        IC_M_nu = 'M_nu               =  %.2f'%Mass_nu
-    else:
-        IC_Neff = 'Neff               =  3.046'
-        IC_N_nu = 'N_nu               =  0.0'
-        IC_M_nu = 'M_nu               =  0.0'
-    pattern = r'Neff \s*=(.*)'
-    replacement = IC_Neff
-    IC_new = re.sub(pattern, replacement, IC_new)
-    pattern = r'N_nu \s*=(.*)'
-    replacement = IC_N_nu
-    IC_new = re.sub(pattern, replacement, IC_new)
-    pattern = r'M_nu \s*=(.*)'
-    replacement = IC_M_nu
-    IC_new = re.sub(pattern, replacement, IC_new)
-
-    pattern = r'As \s*=(.*)'
-    replacement = "As                 =  %.4e"%As
-    IC_new = re.sub(pattern, replacement, IC_new)
-    pattern = r'ns \s*=(.*)'
-    replacement = "ns                 =  %.4f"%ns
-    IC_new = re.sub(pattern, replacement, IC_new)
-
-
-    pattern = r'OC0 \s*=(.*)'
-    replacement = "OC0                =  %.10f"%(omega_cdm-Mass_nu/93.14/((H0/100)**2))
-    IC_new = re.sub(pattern, replacement, IC_new)
-    pattern = r'OB0 \s*=(.*)'
-    replacement = "OB0                =  %.10f"%omega_bar
-    IC_new = re.sub(pattern, replacement, IC_new)
-
-    if all_reps:
-        z_need = z_nonlin
-    else:
-        z_need = np.loadtxt('z_checkpoint.txt')
-
-    n_z = np.array(z_need).shape[0]
-
-    pattern = r'output_number \s*=(.*)'
-    replacement = "output_number      =  %d"%n_z
-    IC_new = re.sub(pattern, replacement, IC_new)
-
-    z_str = ''
-    for i in z_need:
-        z_str+=' %.4f'%i
-    pattern = r'z_output \s*=(.*)'
-    replacement = "z_output           = "+z_str
-    IC_new = re.sub(pattern, replacement, IC_new)
-    with open(file_path, 'w') as f:
-        f.write(IC_new)
-    
-    if not os.path.exists('./reps-master/reps'):
-        os.system('cd ./reps-master/ && make && ./reps ../neutrinos/IC.ini && cd ..')
-    else:
-        os.system('cd ./reps-master/ && ./reps ../neutrinos/IC.ini && cd ..')
-    print('REPS done!')
-
 def interp_pk(z,s,k_new):
     Pk0 = np.loadtxt('%s/IC/IC_P%s_rescaled_z%.4f.txt'%(nupath,s,z))[:,1]
     interp_00 = interp1d(k,Pk0, kind='linear', bounds_error=False, fill_value="extrapolate")
@@ -217,6 +141,11 @@ if (1):
     omega_cb = omega_bar+omega_cdm-Mass_nu/93.14/((H0/100)**2)
     omega_l = 1-omega_bar-omega_cdm-omega_r
     f_nu = Mass_nu/93.14/((H0/100)**2)/omega_m
+    try:
+        a_nu = match_para('a_nu')
+    except:
+        a_nu = 1./(595./5.47*(Mass_nu/3)/0.1+0.01) 
+    z_nu_i = 1/a_nu-1
     omHsq = 2/3*np.sqrt(1/omega_m)/H0
 
 
@@ -234,8 +163,6 @@ if (1):
     print('\n'+('+'*40+'\n')*2)
     print('Cosmology  Paras:\n\n   omega_r:   %.6f\n   omega_b:   %.6f\n   omega_c:   %.6f\n   omega_l:   %.6f\n   mass_nu:   %.3f              eV\n  mass_nus:   %.3f %.3f %.3f %s  eV\n      f_nu:   %.6f\n\n'%(omega_r,omega_bar,omega_cdm,omega_l,Mass_nu,m_nus[0],m_nus[1],m_nus[2],neutrino_hierarchy,f_nu))
     print('Simulation Paras:\n\n     nfg:   %d\n     npbin:   %d\n     kmin:   %.3f\n      kmax:   %.3f\n\n\n'%(nfg,npbin,kmin,kmax))
-
-
 
     kh_nonlin = np.concatenate((np.array([1.0, 1.4142135623730951, 1.7320508075688772, 2.0, 
                                         2.23606797749979, 2.449489742783178, 2.8284271247461903, 
@@ -277,60 +204,84 @@ z_nonlin=get_z(n)
 
 
 #get Expansion History
-if (all_camb):
-    print('all_camb')
-    par = camb.CAMBparams()
-    par.set_cosmology(H0=H0, ombh2=ombh2, omch2=omch2, omk=omk, neutrino_hierarchy=neutrino_hierarchy, num_massive_neutrinos= num_massive_neutrinos, mnu= mnu, nnu= nnu, standard_neutrino_neff= standard_neutrino_neff)
-    par.omch2=omch2-par.omnuh2
-    par.InitPower.set_params(As=As,ns=ns)
-    par.set_matter_power(redshifts=[z_max], kmax=k_ic_max, nonlinear=True)
-    par.NonLinear = camb.model.NonLinear_both
-    result = camb.get_results(par)
-    kh_ic, _,Pk_cb_ic= result.get_matter_power_spectrum(minkh=k_ic_min, maxkh=k_ic_max, npoints = npbin,var1='delta_nonu',var2='delta_nonu')
-    Pk_cb_ic = Pk_cb_ic[0]
-    if (neutrino_hierarchy == 'degenerate'):
-        print('neutrino_hierarchy = degenerate')
-        kh_ic, _,Pk_nu_ic= result.get_matter_power_spectrum(minkh=k_ic_min, maxkh=k_ic_max, npoints = npbin,var1='delta_nu'  ,var2='delta_nu')
-        Pk_nu_ic = [Pk_nu_ic[0],Pk_nu_ic[0],Pk_nu_ic[0]]#list(np.zeros(npbin)),list(np.zeros(npbin))]
-    else :
-        Pk_nu_ic=[0,0,0]
-        i=0
-        for m_nu_i in m_nus:
-            if (m_nu_i >0):
-                print(i,'m_nu = ',m_nu_i)
-                par = camb.CAMBparams()
-                par.set_cosmology(H0=H0, ombh2=ombh2, omch2=omch2, omk=omk, neutrino_hierarchy='degenerate', num_massive_neutrinos=1, mnu=m_nu_i, nnu=nnu, standard_neutrino_neff=standard_neutrino_neff)
-                par.omch2=omch2-par.omnuh2
-                par.InitPower.set_params(As=As,ns=ns)
-                par.set_matter_power(redshifts=[z_max], kmax=k_ic_max, nonlinear=True)
-                par.NonLinear = camb.model.NonLinear_both
-                result1 = camb.get_results(par)
-                kh_ic, _,Pk_nu_ic_i= result1.get_matter_power_spectrum(minkh=k_ic_min, maxkh=k_ic_max, npoints = npbin,var1='delta_nu'  ,var2='delta_nu')
-                Pk_nu_ic[i]=Pk_nu_ic_i[0]
-            else:
-                print(i,'m_nu = 0')
-                Pk_nu_ic[i]=list(np.zeros(npbin))
-            i+=1
-    def Ha(a):
-        return result.hubble_parameter(1/a-1)
-    def Hz(z):
-        return result.hubble_parameter(z)
-else:
-    #run reps
-    run_reps()
-
-    k = np.loadtxt('%s/IC/IC_Pcb_rescaled_z%.4f.txt'%(nupath,z_max))[:,0]
-    kh_ic = np.exp(np.linspace(np.log(k_ic_min), np.log(k_ic_max),  npbin))
-    Pk_cb_ic = interp_pk(z_max,'cb',kh_ic)
-    Pk_nu_ic = interp_pk(z_max,'n',kh_nonlin)
-    H00 = np.loadtxt('%s/IC/IC_hubble.txt'%nupath)
-    Ha = interp1d(1/(H00[:,0]+1),H00[:,1], kind='cubic', bounds_error=False, fill_value="extrapolate")
-    def Hz(z):
-        return Ha(1/(1+z))
+par = camb.CAMBparams()
+par.set_cosmology(H0=H0, ombh2=ombh2, omch2=omch2, omk=omk, neutrino_hierarchy=neutrino_hierarchy, num_massive_neutrinos= num_massive_neutrinos, mnu= mnu, nnu= nnu, standard_neutrino_neff= standard_neutrino_neff)
+par.omch2=omch2-par.omnuh2
+par.InitPower.set_params(As=As,ns=ns)
+par.set_matter_power(redshifts=[z_max], kmax=k_ic_max, nonlinear=True)
+par.NonLinear = camb.model.NonLinear_both
+result = camb.get_results(par)
+kh_ic, _,Pk_cb_ic= result.get_matter_power_spectrum(minkh=k_ic_min, maxkh=k_ic_max, npoints = npbin,var1='delta_nonu',var2='delta_nonu')
+Pk_cb_ic = Pk_cb_ic[0]
+if (neutrino_hierarchy == 'degenerate'):
+    print('neutrino_hierarchy = degenerate')
+    kh_ic, _,Pk_nu_ic= result.get_matter_power_spectrum(minkh=k_ic_min, maxkh=k_ic_max, npoints = npbin,var1='delta_nu'  ,var2='delta_nu')
+    Pk_nu_ic = [Pk_nu_ic[0],Pk_nu_ic[0],Pk_nu_ic[0]]#list(np.zeros(npbin)),list(np.zeros(npbin))]
+else :
+    Pk_nu_ic=[0,0,0]
+    i=0
+    for m_nu_i in m_nus:
+        if (m_nu_i >0):
+            print(i,'m_nu = ',m_nu_i)
+            par = camb.CAMBparams()
+            par.set_cosmology(H0=H0, ombh2=ombh2, omch2=omch2, omk=omk, neutrino_hierarchy='degenerate', num_massive_neutrinos=1, mnu=m_nu_i, nnu=nnu, standard_neutrino_neff=standard_neutrino_neff)
+            par.omch2=omch2-par.omnuh2
+            par.InitPower.set_params(As=As,ns=ns)
+            par.set_matter_power(redshifts=[z_max], kmax=k_ic_max, nonlinear=True)
+            par.NonLinear = camb.model.NonLinear_both
+            result1 = camb.get_results(par)
+            kh_ic, _,Pk_nu_ic_i= result1.get_matter_power_spectrum(minkh=k_ic_min, maxkh=k_ic_max, npoints = npbin,var1='delta_nu'  ,var2='delta_nu')
+            Pk_nu_ic[i]=Pk_nu_ic_i[0]
+        else:
+            print(i,'m_nu = 0')
+            Pk_nu_ic[i]=list(np.zeros(npbin))
+        i+=1
+def Ha(a):
+    return result.hubble_parameter(1/a-1)
+def Hz(z):
+    return result.hubble_parameter(z)
     
 def taua(a):
     z=1/a-1
     return integrate.quad(lambda z0: 1/Hz(z0), z,10000)[0]
+
+def get_f_rate_5pt(name, z_target, delta_lna=0.02):
+    """
+    五点中心差分版：计算指定组分的线性增长率 f(k)
+    delta_lna: ln(a) 空间的步长，建议 0.01 - 0.05
+    """
+    # 1. 在 ln(a) 空间构建 5 个对称采样点
+    lna_target = -np.log(1 + z_target)
+    lna_samples = lna_target + np.array([-2, -1, 0, 1, 2]) * delta_lna
+    z_samples = np.exp(-lna_samples) - 1
+    
+    # 2. 调用 CAMB 获取这 5 个红移点的传递函数
+    pars_local = par.copy()
+    pars_local.set_matter_power(redshifts=list(z_samples), kmax=k_ic_max)
+    pars_local.NonLinear = camb.model.NonLinear_none 
+    results_local = camb.get_results(pars_local)
+    transfers = results_local.get_matter_transfer_data()
+    
+    # 3. 提取 k 轴和 Mask
+    h0 = pars_local.H0 / 100.0
+    q_mpc = transfers.q 
+    kh = q_mpc / h0 
+    mask = (kh >= k_ic_min) & (kh <= k_ic_max)
+    kh_calc = kh[mask]
+    
+    # 4. 提取 5 个点的 delta (注意顺序：0->z_max(早), 4->z_min(晚))
+    d0 = np.log(np.abs(transfers.transfer_z(name, 0)[mask]))
+    d1 = np.log(np.abs(transfers.transfer_z(name, 1)[mask]))
+    d3 = np.log(np.abs(transfers.transfer_z(name, 3)[mask]))
+    d4 = np.log(np.abs(transfers.transfer_z(name, 4)[mask]))
+    
+    # 5. 五点法一阶导数公式
+    f_k = (d0 - 8*d1 + 8*d3 - d4) / (12 * delta_lna)
+    
+    # 清洗异常值
+    f_k = np.nan_to_num(f_k, nan=0.0, posinf=0.0, neginf=0.0)
+    return kh_calc, f_k
+
 T1 = time.time()
 
 print('calculating Expansion History')
@@ -355,51 +306,49 @@ os.system('rm '+nupath+'/*.txt')
 np.savetxt(nupath+'/s_a_tau_H.txt',np.array([t,a_ex,tau,H_ex]))
 print("EH:\n\n      time:   %.2f seconds\n      step:   %d\n      save:   '%s'\n\n\n"%(T2-T1,i_end,nupath+'/s_a_tau_H.txt'))
 
+kh_calc, f_nu_raw_5pt = get_f_rate_5pt('delta_nu', z_nu_i, delta_lna=0.02)
+print(f_nu_raw_5pt)
+f_growth_nu = np.interp(kh_nonlin, kh_calc, f_nu_raw_5pt)
+
+f_growth_nu[kh_nonlin > 0.05] = 1.0
+
 print('get Pk')
 n=int(z_nonlin.shape[0])
 Pk_nl = [0]*n
 Pk_nu = [0]*n
-if (all_reps):
-    #get pk from reps
-    for i in range(n):
-        # print(z_nonlin[i])
-        Pk_nl[i] = interp_pk(z_nonlin[i],'cb',kh_nonlin)
-        Pk_nu[i] = interp_pk(z_nonlin[i],'n',kh_nonlin)
-else:
-    #get pk from camb
-    Pk_cdm_cambs,Pk_nu_cambs,kh_nl,z_nonlin = get_Pk_nonlin_CDM(n)
-    Pk_nu_ic_k = interp1d(kh_ic,Pk_nu_ic, kind='linear', bounds_error=False, fill_value="extrapolate")
-    Pk_nu_ic = Pk_nu_ic_k(kh_nonlin)
-    print(kh_nl.max(),kh_nl.min())
-    print(kh_nonlin.max(),kh_nonlin.min())
-    # exit()
+#get pk from camb
+Pk_cdm_cambs,Pk_nu_cambs,kh_nl,z_nonlin = get_Pk_nonlin_CDM(n)
+Pk_nu_ic_k = interp1d(kh_ic,Pk_nu_ic, kind='linear', bounds_error=False, fill_value="extrapolate")
+Pk_nu_ic = Pk_nu_ic_k(kh_nonlin)
+print(kh_nl.max(),kh_nl.min())
+print(kh_nonlin.max(),kh_nonlin.min())
+# exit()
 
-    for i in range(n):
-        # 找到Pk是否有小于0的值
-        if np.any(Pk_cdm_cambs[i]<0):
-            print('Pk_cdm_cambs[i]<0')
-            print(Pk_cdm_cambs[i])
-            print('z_nonlin[i] = ',z_nonlin[i])
-            exit()
-        
-        Pk_cdm_z = interp1d(kh_nl,Pk_cdm_cambs[i], kind='linear', bounds_error=False, fill_value="extrapolate")
-        Pk_nl[i] = Pk_cdm_z(kh_nonlin)
-        Pk_nu_z = interp1d(kh_nl,Pk_nu_cambs[i], kind='linear', bounds_error=False, fill_value="extrapolate")
-        Pk_nu[i] = Pk_nu_z(kh_nonlin)
+for i in range(n):
+    # 找到Pk是否有小于0的值
+    if np.any(Pk_cdm_cambs[i]<0):
+        print('Pk_cdm_cambs[i]<0')
+        print(Pk_cdm_cambs[i])
+        print('z_nonlin[i] = ',z_nonlin[i])
+        exit()
+    
+    Pk_cdm_z = interp1d(kh_nl,Pk_cdm_cambs[i], kind='linear', bounds_error=False, fill_value="extrapolate")
+    Pk_nl[i] = Pk_cdm_z(kh_nonlin)
+    Pk_nu_z = interp1d(kh_nl,Pk_nu_cambs[i], kind='linear', bounds_error=False, fill_value="extrapolate")
+    Pk_nu[i] = Pk_nu_z(kh_nonlin)
 
 #write Pk to nupath
 z_powerpoint=open(nupath+'/z_powerpoint.txt', 'w')
 z_values=open(nupath+'/z_values.txt', 'w')
 k_values=open(nupath+'/k_values.txt', 'w')
+f_values=open(nupath+'/f_growth_nu.txt', 'w')
 
 print('write Pk to nupath')
-# print('save path : ',nupath+'/IC/Pcb_ic.txt')
-# print(type(kh_ic), type(Pk_cb_ic))
-# print(kh_ic.dtype, Pk_cb_ic.dtype)
 np.savetxt(nupath+'/IC/Pcb_ic.txt',np.array([kh_ic,Pk_cb_ic]).T)
 np.savetxt(nupath+'/IC/Pnu_ic.txt',np.array(Pk_nu_ic))
 for i in range(len(kh_nonlin)):
     k_values.write('%3.12f\n'%kh_nonlin[i])
+    f_values.write('%3.12f\n'%f_growth_nu[i])
 
 if test:
     for i in range(n):

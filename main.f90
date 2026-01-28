@@ -124,6 +124,42 @@ program CUBE
    call finalize
 #endif
 
+   ! sim%cur_checkpoint=1
+   ! call initialize
+   ! call particle_initialization
+   ! if (sim%cur_powerpoint == 1 .and. Mass_nu > 0 ) then
+   !    power_step = .true.
+   !    call interp_Pk_CDM
+   !    sim%cur_powerpoint = 2
+   ! endif
+   ! sim%cur_checkpoint = sim%cur_checkpoint+1
+   ! sim%cur_halofind = sim%cur_halofind+1
+   ! ! print*,'checkpoint ',sim%cur_checkpoint
+   ! if (head) open(77,file=output_dir()//'vinfo'//output_suffix(),access='stream',status='replace')
+
+   ! if (head) print*, '---------- starting main loop ----------'
+   ! do istep=sim%timestep,istep_max
+   !    ! do istep=sim%timestep,sim%timestep+3
+   !    call system_clock(t_start,t_rate)
+   !    call tic(100)
+   !    call timestep
+   !    call kick
+   !    if (checkpoint_step .or. halofind_step) then
+   !       dt_old=0
+   !       if (checkpoint_step) then
+   !          call checkpoint
+   !          sim%cur_checkpoint = sim%cur_checkpoint+1
+   !       endif
+   !       call print_header(sim)
+   !       if (final_step) exit
+   !    endif
+   !    call system_clock(t_end,t_rate)
+   !    call toc(100)
+   !    if(head) print*, 'total elapsed time =',tcat(100,istep),real(t_end-t_start)/t_rate,'secs';
+   ! enddo
+   ! if (head) close(77)
+   ! call finalize
+
 contains
 
    function Dgrow(scale_factor)

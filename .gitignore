@@ -1,0 +1,10 @@
+*.dat
+*.o
+*.x
+*.bin
+*.log
+*.mod
+host*
+cafconfig*
+tf/
+tf*
