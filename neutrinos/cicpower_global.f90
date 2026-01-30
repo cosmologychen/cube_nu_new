@@ -206,6 +206,7 @@ contains
 
 
       allocate(rho1_global(nfg,nfg,nfg)[nn,nn,*],rho_grid(0:nfg+1,0:nfg+1,0:nfg+1)[nn,nn,*])
+      ! print*, ' global_power',image
       sync all
 
 
@@ -269,8 +270,6 @@ contains
             enddo
          enddo
       enddo
-      sync all
-      ! if (head) print*, 'sync buffer'
       sync all
       rho_grid(1,:,:)=rho_grid(1,:,:)+rho_grid(nfg+1,:,:)[inx,icy,icz]
       rho_grid(nfg,:,:)=rho_grid(nfg,:,:)+rho_grid(0,:,:)[ipx,icy,icz]; sync all

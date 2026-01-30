@@ -1,6 +1,6 @@
 #!/bin/bash
 #PBS -N GP20064_0.06_2
-#PBS -l nodes=1:ppn=2
+#PBS -l nodes=1:ppn=16
 #PBS -l mem=30gb
 #PBS -q normal
 #PBS -j oe
@@ -11,10 +11,10 @@
 cd $PBS_O_WORKDIR
 date > ./run.log
 export OMP_STACKSIZE=2000M
-export OMP_NUM_THREADS=2
-export FOR_COARRAY_NUM_IMAGES=1
-export PROCS=1
-export ntasks_per_node=1
+export OMP_NUM_THREADS=16
+export FOR_COARRAY_NUM_IMAGES=8
+export PROCS=8
+export ntasks_per_node=8
 ulimit
 ulimit -s unlimited
 ulimit -u unlimited 

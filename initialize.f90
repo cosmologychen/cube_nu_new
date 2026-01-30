@@ -7,7 +7,7 @@ subroutine initialize
 
    include 'fftw3.f'
 
-   logical,parameter :: read_Gks=.false.
+   logical,parameter :: read_Gks=.true.
    integer i,j,k,l
    istep=0; tictoc=0; tcat=0;
    sync all
@@ -93,8 +93,8 @@ subroutine initialize
    H_i = s2H(ia) + ((s2H(ia+1)-s2H(ia))/(s2a(ia+1)-s2a(ia)))*(sim%a-s2a(ia))
    H_0 = h0*100
    s_fi = 0
-   s_fi = sf_a(1./(1+z_checkpoint(1)))
-   
+   s_fi = sf_a(a_nu)
+
 
    !nu
    s_f=0
@@ -103,7 +103,7 @@ subroutine initialize
    nu_step = merge(0,1,a_nu>0.0)
    a_step = 0
    tau_step = 0
-   Pk_step = 0
+   sPk_step = 0
    Pk_cb_check = 0
    Pk_nu_check = 0
    if (Mass_nu > 0) then
@@ -136,7 +136,7 @@ subroutine initialize
          read(10,*) Pk_nu_check(:,i)
          close(10)
       enddo
-      Pk_step(:,0)=Pk_cb_check(:,1)
+      sPk_step(:,0)=Pk_cb_check(:,1)
 
       open(10,file=nupath//'IC/Pnu_ic.txt',form='formatted')
       read(10,*) Pk_nu_ic

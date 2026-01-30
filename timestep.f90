@@ -43,13 +43,15 @@ subroutine timestep
       z_next=z_checkpoint(sim%cur_checkpoint)
 #   endif
       if (Mass_nu > 0.0) z_next = max(z_next,z_powerpoint(sim%cur_powerpoint))
+      if (nu_step == 0 .and. a_nu < 1.0/(1+z_next)) z_next = real(1/a_nu-1,4)
       a_next=1.0/(1+z_next)
-      if (nu_step == 0) a_next=min(a_next,a_nu)
       if (da>=a_next-sim%a) then
+         ! print*, 'z         :',z_next,1/a_nu-1
          if (z_next==z_checkpoint(sim%cur_checkpoint)) then
             checkpoint_step=.true.
             if (sim%cur_checkpoint==n_checkpoint) final_step=.true.
          endif
+         if (nu_step == 0 .and. z_next == real(1/a_nu-1,4)) nu_step = istep
          if (z_next==z_powerpoint(sim%cur_powerpoint)) power_step=.true.
 #   ifdef HALOFIND
          if (z_next==z_halofind(sim%cur_halofind)) halofind_step=.true.
@@ -57,9 +59,7 @@ subroutine timestep
          do while (abs((sim%a+da)/a_next-1)>=1e-6 .or. (sim%a+da) > 1)
             dt=dt*(a_next-sim%a)/da
             da = expansion(dt)
-            ! print*, 'a+da, dt, z+dz, err_a', sim%a+da, dt, 1.0/(sim%a+da)-1.0, (sim%a+da)/a_next-1
          enddo
-         if (nu_step == 0 .and. a_next == a_nu ) nu_step = istep
       endif
 
       ra=da/(sim%a+da)
@@ -72,7 +72,7 @@ subroutine timestep
       !nu
       dtau = dtau_a(da)
 
-      print*, 'tau         :',sim%tau,sim%tau+dtau
+      print*, 'tau       :',sim%tau,sim%tau+dtau
       print*, 'z         :',1.0/sim%a-1.0,1.0/(sim%a+da)-1.0
       print*, 'a         :',sim%a,a_mid,sim%a+da
       print*, 'expansion :',ra
@@ -83,8 +83,8 @@ subroutine timestep
       print*, 'dt_pm3    :',sim%dt_pm3
       print*, 'dt_pp     :',sim%dt_pp
       print*, 'dt_vmax   :',sim%dt_vmax
-      print*, 'cur_powerpoint :',sim%cur_powerpoint,z_powerpoint(sim%cur_powerpoint)
-      print*, 'nu_step   :',nu_step,a_nu
+      print*, 'cur_ppt   :',sim%cur_powerpoint,z_powerpoint(sim%cur_powerpoint)
+      print*, 'nu_step   :',nu_step,real(1/a_nu-1,4)
       print*, ''
       sim%tau=sim%tau+dtau
       sim%t=sim%t+dt
@@ -104,11 +104,11 @@ subroutine timestep
    power_step=power_step[1]
    tau_step=tau_step(:)[1]
    a_step=a_step(:)[1]
+   nu_step=nu_step[1]
 #ifdef HALOFIND
    halofind_step=halofind_step[1]
 #endif
    final_step=final_step[1]
    call toc(1)
-   sync all
 endsubroutine timestep
 

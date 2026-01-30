@@ -6,8 +6,8 @@ subroutine kick
    use power_nu
    implicit none
 
-  logical,parameter :: PM3=.true.
-  logical,parameter :: PP=.true.
+   logical,parameter :: PM3=.true.
+   logical,parameter :: PP=.true.
    logical,parameter :: PP_corr=.true.
    logical,parameter :: speedtest=.false.
    integer inode,itile,np_phy,nl(3),nh(3),i1,i2,it,i3,isort(ns3),ires(ns3),rcp,npgrid,nptile
@@ -25,7 +25,7 @@ subroutine kick
    if (Mass_nu > 0) then
       call tic(99)
       call get_tf_cb2matter
-      sync all; call toc(99); if (head) print*,'  real time =  ',tcat(99,istep),'secs';
+      call toc(99); if (head) print*,'  real time =  ',tcat(96:99,istep),'secs';
       if (head) print*,''
       if (head) print*,''
    endif
@@ -121,12 +121,12 @@ subroutine kick
             ires(itile)=3
          elseif (npc_max(itile)<320) then
             ires(itile)=4
-         ! elseif (npc_max(itile)<1350) then
-         !    ires(itile)=5
+            ! elseif (npc_max(itile)<1350) then
+            !    ires(itile)=5
             !elseif (npc_max(itile)<2000) then
             !  ires(itile)=5
-         ! else
-         !    ires(itile)=6
+            ! else
+            !    ires(itile)=6
          else
             ires(itile)=5
          endif
@@ -236,8 +236,8 @@ subroutine kick
             call pm_thread(rho3_6(:,:,:,iteam),rho_th,force_th,pm,itile,iteam,f2max_team,vmax_team)
           case(5)
             call pm_thread(rho3_8(:,:,:,iteam),rho_th,force_th,pm,itile,iteam,f2max_team,vmax_team)
-         !  case(6)
-         !    call pm_thread(rho3_12(:,:,:,iteam),rho_th,force_th,pm,itile,iteam,f2max_team,vmax_team)
+            !  case(6)
+            !    call pm_thread(rho3_12(:,:,:,iteam),rho_th,force_th,pm,itile,iteam,f2max_team,vmax_team)
          endselect
          deallocate(rho_th,force_th)
          f2max=max(f2max,f2max_team); vmax=max(vmax,vmax_team)
@@ -280,7 +280,7 @@ subroutine kick
 
 
       ! stop
-      ! if (maxval(vmax) > 100) error stop 'vmax > 100' 
+      ! if (maxval(vmax) > 100) error stop 'vmax > 100'
    endif !PM3
 
    sync all
@@ -402,10 +402,10 @@ contains
                   vf(:,ip1)=vp(:,ip)
 
                   xvec = rcp*(xvec-pm%utile_shift*ntt)
-#ifndef ZIPX           
+#ifndef ZIPX
                   if ( xvec(1) == nbb ) xvec(1)= 1-rcp
                   if ( xvec(2) == nbb ) xvec(2)= 1-rcp
-                  if ( xvec(3) == nbb ) xvec(3)= 1-rcp 
+                  if ( xvec(3) == nbb ) xvec(3)= 1-rcp
 #endif
                   idx=floor(xvec)+1
                   if (minval(idx)<1-rcp .or. maxval(idx)>npgrid+rcp) then
@@ -571,11 +571,11 @@ contains
                               xpos=xpos*ratio_cs/pm%gridsize-pm%utile_shift*nfp(iapm)
 #else
                               xpos = (xp(:,ip)-([ix,iy,iz]-1)*nt*ratio_cs)   &
-                                    /pm%gridsize-pm%utile_shift*nfp(iapm)  
-                              
+                                 /pm%gridsize-pm%utile_shift*nfp(iapm)
+
                               if ( xpos(1) == nbb ) xpos(1)= 1-pm%nex
                               if ( xpos(2) == nbb ) xpos(2)= 1-pm%nex
-                              if ( xpos(3) == nbb ) xpos(3)= 1-pm%nex 
+                              if ( xpos(3) == nbb ) xpos(3)= 1-pm%nex
 
                               ! xpos = xp(:,ip)-([ix,iy,iz]-1)*nt*ratio_cs
                               ! xpos = xpos/pm%gridsize-pm%utile_shift*nfp(iapm)
@@ -603,19 +603,6 @@ contains
                                  print*,ip, xp(:,ip)
 #ifdef ZIPX
                                  print*,ip,  'tile shift',([i,j,k]-1)+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
-! #else
-!                                  print*, ([ix,iy,iz]-1)*nt*ratio_cs
-!                                  print*,ip,'a',  (xp(:,ip)-([ix,iy,iz]-1)*nt*ratio_cs)
-!                                  print*,ip,'b',  (xp(:,ip)-([ix,iy,iz]-1)*nt*ratio_cs) &
-!                                                  /pm%gridsize-pm%utile_shift*nfp(iapm) &
-!                                                  +spread(real(pm%nex-1),dim=1,ncopies=3)
-!                                  print*,ip, modulo(                                           &
-!                                                       (xp(:,ip)-([ix,iy,iz]-1)*nt*ratio_cs)   &
-!                                                       /pm%gridsize-pm%utile_shift*nfp(iapm)   &
-!                                                       +spread(real(pm%nex-1),dim=1,ncopies=3),&
-!                                                       real(pm%nphy+2*pm%nex-2)                &
-!                                                    )  
-
 #endif
                                  print*,ip,'xpos',xpos
                                  print*,ip,'idx0',idx0
@@ -663,8 +650,8 @@ contains
             rho3k_6(:,:,:,iteam) =rho3k_6(:,:,:,iteam)*tf3_6
           case(5)
             rho3k_8(:,:,:,iteam) =rho3k_8(:,:,:,iteam)*tf3_8
-         !  case(6)
-         !    rho3k_12(:,:,:,iteam)=rho3k_12(:,:,:,iteam)*tf3_12
+            !  case(6)
+            !    rho3k_12(:,:,:,iteam)=rho3k_12(:,:,:,iteam)*tf3_12
          endselect
          call sfftw_execute(iplan3(iteam,iapm))
       endselect
@@ -716,11 +703,11 @@ contains
                            xpos=xpos*ratio_cs/pm%gridsize-pm%utile_shift*nfp(iapm)
 #else
                            xpos = (xp(:,ip)-([ix,iy,iz]-1) * nt * ratio_cs) &
-                                 /pm%gridsize-pm%utile_shift*nfp(iapm)
-                              
+                              /pm%gridsize-pm%utile_shift*nfp(iapm)
+
                            if ( xpos(1) == nbb ) xpos(1)= 0
                            if ( xpos(2) == nbb ) xpos(2)= 0
-                           if ( xpos(3) == nbb ) xpos(3)= 0                         
+                           if ( xpos(3) == nbb ) xpos(3)= 0
 #endif
                            idx0(:,2)=floor(xpos)+1
                            idx0(:,1)=idx0(:,2)-1

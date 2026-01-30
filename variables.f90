@@ -11,7 +11,7 @@ module variables
    integer ia
    real dtau,H_i,H_0
    character(20) str_z,str_i
-   real(4) Pk_cb_check(npbin,nmax_redshift),Pk_nu_check(npbin,nmax_redshift),Pk_step(npbin,0:istep_max),Pk_nus(npbin,3),Pk_nu(npbin),Pk_nu_ic(npbin,3),sq_Pk_nu_ic(npbin,3)
+   real(4) Pk_cb_check(npbin,nmax_redshift),Pk_nu_check(npbin,nmax_redshift),sPk_step(npbin,0:istep_max),Pk_nus(npbin,3),Pk_nu(npbin),Pk_nu_ic(npbin,3),sq_Pk_nu_ic(npbin,3)
 
    real(8) k_mnu_2d(npbin,3), f_growth_nu(npbin,3)
    real s_f,s_fi,k_fs,f_nr(3)
