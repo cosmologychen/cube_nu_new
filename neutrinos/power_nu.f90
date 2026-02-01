@@ -53,10 +53,10 @@ contains
       dtau_a = s2tau(i1)+taudot*(t_x-stime(i1))-sim%tau
    endfunction
 
-   real function sf_a(a0)
+   real(8) function sf_a(a0)
       use variables, only: stime,s2a,ia,s_fi
       implicit none
-      real a0,tdoa
+      real(8) a0,tdoa
       integer i1,i2
 
       i1 = ia - 1
@@ -361,7 +361,8 @@ contains
          ifs = ifs-1
       enddo
       f_nr = get_f_nr(a_step(istep))
-      s_f  = sf_a(a_step(istep))
+      !s_f  = sf_a(a_step(istep))
+      s_f = sf_a(real(a_step(istep), 8))
       sf_step(istep) = s_f
 
       if(head) then

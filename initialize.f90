@@ -92,9 +92,10 @@ subroutine initialize
    enddo
    H_i = s2H(ia) + ((s2H(ia+1)-s2H(ia))/(s2a(ia+1)-s2a(ia)))*(sim%a-s2a(ia))
    H_0 = h0*100
-   s_fi = 0
-   s_fi = sf_a(merge(a_nu,1./(1+z_checkpoint(1)),a_nu>0.0))
-
+   s_fi = 0.0d0
+   s_fi = sf_a(merge(a_nu,1.0d0/(1.0d0+z_checkpoint(1)),a_nu>0.0d0))
+   !s_fi = sf_a(merge(a_nu,1./(1+z_checkpoint(1)),a_nu>0.0))
+   !s_fi = sf_a(1./(1+z_checkpoint(1)))
 
    !nu
    s_f=0

@@ -45,7 +45,7 @@ endfunction
 pure function z2str(z)
    character(:),allocatable :: z2str
    character(20) :: str
-   real,intent(in) :: z
+   real(8),intent(in) :: z
    write(str,'(f7.3)') z
    z2str=trim(adjustl(str))
 endfunction

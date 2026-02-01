@@ -7,14 +7,14 @@ module variables
    ! integer(8) nntpk,nnspk
    ! integer(4),allocatable :: ntpk(:),nspk(:)
    ! real(4),allocatable :: rand_num(:)pic
-   real stime(istep_max),s2a(istep_max),s2tau(istep_max),s2H(istep_max)
+   real(8) stime(istep_max),s2a(istep_max),s2tau(istep_max),s2H(istep_max)
    integer ia
    real dtau,H_i,H_0
    character(20) str_z,str_i
    real(4) Pk_cb_check(npbin,nmax_redshift),Pk_nu_check(npbin,nmax_redshift),sPk_step(npbin,0:istep_max),Pk_nus(npbin,3),Pk_nu(npbin),Pk_nu_ic(npbin,3),sq_Pk_nu_ic(npbin,3)
 
    real(8) k_mnu_2d(npbin,3), f_growth_nu(npbin,3)
-   real s_f,s_fi,k_fs,f_nr(3)
+   real(8) s_f,s_fi,k_fs,f_nr(3)
    real a_step(0:istep_max)[*],tau_step(0:istep_max)[*],sf_step(0:istep_max)[*]
    real kh_lin(npbin),kh_lin_log(npbin)
    real tf_F(npbin)[*],tf_F_log(npbin),tf_pp! transfer function array for neutrinos

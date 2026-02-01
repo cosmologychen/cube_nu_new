@@ -143,7 +143,7 @@ module parameters
    ! checkpoint variables
    integer(8),parameter :: nmax_redshift=1000
    integer(8) n_checkpoint[*],n_halofind[*]
-   real z_checkpoint(nmax_redshift)[*],z_halofind(nmax_redshift)[*]
+   real(8) z_checkpoint(nmax_redshift)[*],z_halofind(nmax_redshift)[*]
    logical checkpoint_step[*],halofind_step[*],final_step[*]
 
    ! timing variables
