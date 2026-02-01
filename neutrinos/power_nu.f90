@@ -1,4 +1,3 @@
-!git commit test by junjie2612985
 module power_nu
    use cicpower_global
    use parameters
@@ -79,48 +78,49 @@ contains
       real(8) :: x(3),y(3), Fy(3) , dFy(3)
       real(8) ::  k1(3), k2(3), k3(3), k4(3), h
       integer ix,n
-
-      ! print*,'para',Mass_nu,a,sigma_nu,N_eff,k_b,T_gama
-
-      if (a_nu == 0) then
-         y = m_nu*a/(sigma_nu*N_eff*k_b*T_gama)
-         ! print*,'y',y
-
-         ! 定义步长和循环变量
-         h = 1./2
-         n = 300./h
-
-         ! 初始化 Fy
-         Fy = 0.0
-
-         ! RK4 循环
-         do ix=0,n
-            x =  h * ix
-            k1 = h * (x**2*sqrt(x**2+y**2))/(1+exp(x))
-            k3 = h * ((x+h/2)**2*sqrt((x+h/2)**2+y**2))/(1+exp((x+h/2)))
-            k4 = h * ((x+h)**2*sqrt((x+h)**2+y**2))/(1+exp((x+h)))
-            Fy = Fy + (k1 + 4*k3 + k4)/6
-         enddo
-
-
-         ! 初始化 dFy
-         dFy = 0.0
-
-         ! RK4 循环
-         do ix=0,n
-            x =  h * ix
-            k1 = h * (x**2)/((1+exp(x))*sqrt(x**2+y**2))
-            k3 = h * ((x+h/2)**2)/((1+exp((x+h/2)))*sqrt((x+h/2)**2+y**2))
-            k4 = h * ((x+h)**2)/((1+exp((x+h)))*sqrt((x+h)**2+y**2))
-            dFy = dFy + (k1 + 4*k3 + k4)/6
-         enddo
-
-         f_nr_a = y**2*dFy/Fy
-      elseif (a > a_nu) then
-         f_nr_a=1
-      else
-         f_nr_a=0
-      endif
+      
+      f_nr_a=1
+!      ! print*,'para',Mass_nu,a,sigma_nu,N_eff,k_b,T_gama
+!
+!      if (a_nu == 0) then
+!         y = m_nu*a/(sigma_nu*N_eff*k_b*T_gama)
+!         ! print*,'y',y
+!
+!         ! 定义步长和循环变量
+!         h = 1./2
+!         n = 300./h
+!
+!         ! 初始化 Fy
+!         Fy = 0.0
+!
+!         ! RK4 循环
+!         do ix=0,n
+!            x =  h * ix
+!            k1 = h * (x**2*sqrt(x**2+y**2))/(1+exp(x))
+!            k3 = h * ((x+h/2)**2*sqrt((x+h/2)**2+y**2))/(1+exp((x+h/2)))
+!            k4 = h * ((x+h)**2*sqrt((x+h)**2+y**2))/(1+exp((x+h)))
+!            Fy = Fy + (k1 + 4*k3 + k4)/6
+!         enddo
+!
+!
+!         ! 初始化 dFy
+!         dFy = 0.0
+!
+!         ! RK4 循环
+!         do ix=0,n
+!            x =  h * ix
+!            k1 = h * (x**2)/((1+exp(x))*sqrt(x**2+y**2))
+!            k3 = h * ((x+h/2)**2)/((1+exp((x+h/2)))*sqrt((x+h/2)**2+y**2))
+!            k4 = h * ((x+h)**2)/((1+exp((x+h)))*sqrt((x+h)**2+y**2))
+!            dFy = dFy + (k1 + 4*k3 + k4)/6
+!         enddo
+!
+!         f_nr_a = y**2*dFy/Fy
+!      elseif (a > a_nu) then
+!         f_nr_a=1
+!      else
+!         f_nr_a=0
+!      endif
    endfunction
 
    function interp_quad(a, cur_powerpoint, Pk, z_point) result(spk)
@@ -354,8 +354,8 @@ contains
       real sqrt_pk_nu1(npbin,3),sqrt_pk_nu2(npbin,3)
       real(8) Lx0(npbin,3),Lx1(npbin,3),Lx2(npbin,3)
 
-      k_fs = min((0.8*sqrt(a_step(istep)*sim%omega_m/0.3) * min(m_nu) * h0 )*tf_smooth,10.)
-
+      !k_fs = min((0.8*sqrt(a_step(istep)*sim%omega_m/0.3) * min(m_nu) * h0 )*tf_smooth,10.)
+      k_fs = min((0.8*sqrt(a_step(istep)*sim%omega_m/0.3) * Mass_nu * h0 )*tf_smooth,10.)
       ifs = npbin
       do while (kh_lin(ifs) > k_fs)
          ifs = ifs-1
