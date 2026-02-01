@@ -1,3 +1,4 @@
+!git commit test by junjie2612985
 module power_nu
    use cicpower_global
    use parameters
