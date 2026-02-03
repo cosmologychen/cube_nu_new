@@ -59,7 +59,7 @@ contains
       real a0,tdoa
       integer i1,i2
 
-      i1 = ia - 1
+      i1 = 1
       do while(s2a(i1+1)>=a0 .and. i1 < istep_max)
          i1 = i1+1
       enddo
@@ -353,7 +353,7 @@ contains
       real sqrt_pk_nu1(npbin,3),sqrt_pk_nu2(npbin,3)
       real(8) Lx0(npbin,3),Lx1(npbin,3),Lx2(npbin,3)
 
-      k_fs = min((0.8*sqrt(a_step(istep)*sim%omega_m/0.3) * max(m_nu) * h0 )*tf_smooth,10.)
+      k_fs = min((0.8*sqrt(a_step(istep)*sim%omega_m/0.3) * maxval(m_nu) * h0 )*tf_smooth,10.)
       ifs = npbin
       do while (kh_lin(ifs) > k_fs)
          ifs = ifs-1
@@ -366,7 +366,7 @@ contains
          print*,''
          print*,'Get Tf_nu'
          print*,'  save Pk in z = ',1/a_step(istep)-1,istep
-         print*,'  s_f    = ',s_f
+         print*,'  s_f    = ',s_f,a_step(istep),s_fi
          print*,'  1-f_nu = ',(1-f_nu)
          print*,'  f_nus  = ',f_nus
          print*,'  f_nr   = ',f_nr

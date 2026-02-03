@@ -9,6 +9,10 @@ subroutine initialize
 
    logical,parameter :: read_Gks=.true.
    integer i,j,k,l
+
+   real f,omega_m_zi,omega_l_zi
+
+
    istep=0; tictoc=0; tcat=0;
    sync all
    if (this_image()==1) then
@@ -81,7 +85,7 @@ subroutine initialize
    read(10,*) stime
    read(10,*) s2a
    read(10,*) s2tau
-   read(10,*) s2H !改
+   read(10,*) s2H
    close(10)
 
    sim%a = 1./(1+z_checkpoint(1))
@@ -93,10 +97,11 @@ subroutine initialize
    H_i = s2H(ia) + ((s2H(ia+1)-s2H(ia))/(s2a(ia+1)-s2a(ia)))*(sim%a-s2a(ia))
    H_0 = h0*100
    s_fi = 0
-   s_fi = sf_a(merge(real(a_nu,4),1./(1+z_checkpoint(1)),a_nu>0.0)) !改
+   s_fi = sf_a(merge(real(a_nu,4),1./(1+z_checkpoint(1)),a_nu>0.0))
+   if (head) print*,'a_sf',merge(real(a_nu,4),1./(1+z_checkpoint(1)),a_nu>0.0),s_fi, sf_a(real(a_nu,4)), sf_a(1./58)
 
    !nu
-   s_f=0 !改
+   s_f=0
    z_powerpoint=-9999
    power_step=.false.
    nu_step = merge(0,1,a_nu>0.0)
@@ -138,7 +143,7 @@ subroutine initialize
       sPk_step(:,0)=Pk_cb_check(:,1)
 
       open(10,file=nupath//'IC/Pnu_ic.txt',form='formatted')
-      read(10,*) Pk_nu_ic !改
+      read(10,*) Pk_nu_ic
       close(10)
       sq_Pk_nu_ic = sqrt(Pk_nu_ic)
 
@@ -146,12 +151,22 @@ subroutine initialize
       open(13,file=nupath//'f_growth_nu.txt',status='old')
       read(13, '(f15.12)') kh_lin(1:npbin)
       close(13)
-      
+
       f_growth_nu = spread(kh_lin, dim=2, ncopies=3)
+
+
+      omega_m_zi=(H_0/H_i)**2*omega_m*(1/(merge(real(a_nu,4),1./(1+z_checkpoint(1)),a_nu>0.0)))**3
+      omega_l_zi=(H_0)**2/H_i**2*omega_l
+      f=omega_m_zi**(4.0/7.0)+omega_l_zi/70.0*(1+omega_m_zi/2.0)
+      if (head) print*,'f',f,omega_m_zi,omega_l_zi,H_0,H_i
+      f_growth_nu = f
+
       if (head) print*,'k',f_growth_nu(1,1),f_growth_nu(100,1),f_growth_nu(npbin,1)
       if (head) print*,'k',f_growth_nu(1,2),f_growth_nu(100,2),f_growth_nu(npbin,2)
       if (head) print*,'k',f_growth_nu(1,3),f_growth_nu(100,3),f_growth_nu(npbin,3)
 
+
+      ! stop
 
       kh_lin = -1
       open(13,file=nupath//'k_values.txt',status='old')

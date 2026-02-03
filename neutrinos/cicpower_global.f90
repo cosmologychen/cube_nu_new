@@ -204,6 +204,8 @@ contains
       integer(4) i_mid
       real k_need_log,a,k_global_max,k_std_max
 
+      ! return !nu_step test
+
 
       allocate(rho1_global(nfg,nfg,nfg)[nn,nn,*],rho_grid(0:nfg+1,0:nfg+1,0:nfg+1)[nn,nn,*])
       ! print*, ' global_power',image

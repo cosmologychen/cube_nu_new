@@ -28,6 +28,7 @@ subroutine kick
       call toc(99); if (head) print*,'  real time =  ',tcat(96:99,istep),'secs';
       if (head) print*,''
       if (head) print*,''
+      ! return !nu_step test
    endif
    ! call interp_Pk_CDM
 
