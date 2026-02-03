@@ -133,7 +133,6 @@ contains
       real a1(npbin), a2(npbin), k2(npbin), b2(npbin), c2(npbin)
       real log_a, la(3), lpk(npbin,3)
 
-
       la(1) = log(1 / (z_point(cur_powerpoint) + 1))
       la(2) = log(1 / (z_point(cur_powerpoint - 1) + 1))
       la(3) = log(1 / (z_point(cur_powerpoint - 2) + 1))
@@ -254,7 +253,7 @@ contains
       real omega_m_zi,omega_l_zi
 
       X = s_f*k_mnu_2d*T_nu0*C
-      spk = ((1+0.0168*X**2+0.0407*X**4)/(1+2.1734*X**2+1.6787*X**4.1811+0.1467*X**8))*sq_Pk_nu_ic*(1+s_f*a_step(0)**2*H_i*f_growth_nu)
+      spk = ((1+0.0168*X**2+0.0407*X**4)/(1+2.1734*X**2+1.6787*X**4.1811+0.1467*X**8))*sq_Pk_nu_ic*(1+s_f*a_step(nu_step)**2*H_i*f_growth_nu)
    endfunction
 
    function get_L(i_step) result(L)
@@ -291,6 +290,7 @@ contains
       a1 = (L0 - L2) / dtau21; a2 = (L2 - L1) / dtau10; k2 = (a1 - a2) / dtau20; b2 = a2 - k2 * dtau10
       spk16 = dtau10**3/3*k2 + dtau10**2/2*b2 + L1*dtau10
 
+      !2是is 1是is-1 0是is-2
       do is = nu_step,istep
          L0 = L1; L1 = L2; L2 = get_L(is)
          dtau21 = tau_step(is)-tau_step(is-1); dtau10 = tau_step(is-1)-tau_step(is-2); dtau20 = tau_step(is)-tau_step(is-2)
@@ -308,7 +308,7 @@ contains
       use parameters
       implicit none
       integer :: i,interp_powerpoint
-      real a_post
+      real a_pre
 
       if (power_step) then
          if (head) print*,''
@@ -320,9 +320,9 @@ contains
             sync all; call system_clock(tp2,tpr); if (head) print*,'     global_power elapsed time =',real(tp2-tp1)/tpr
             i = istep-1
             interp_powerpoint = merge(sim%cur_powerpoint,3,sim%cur_powerpoint > 2)
-            a_post = 1/(z_powerpoint(sim%cur_powerpoint-1)+1)! merge(1/(z_powerpoint(interp_powerpoint-1)+1),1/(z_powerpoint(1)+1),sim%cur_powerpoint == 2)
-            ! if (head) print*,' ',a_post,interp_powerpoint
-            do while (a_step(i) >= a_post .and. i >= 0)
+            a_pre = 1/(z_powerpoint(sim%cur_powerpoint-1)+1)! merge(1/(z_powerpoint(interp_powerpoint-1)+1),1/(z_powerpoint(1)+1),sim%cur_powerpoint == 2)
+            ! if (head) print*,' ',a_pre,interp_powerpoint
+            do while (a_step(i) >= a_pre .and. i >= 0)
                ! if (head) print*,'      interp',1/a_step(i)-1,i
                sPk_step(:,i) =  interp_quad(a_step(i),interp_powerpoint,Pk_cb_check,z_powerpoint)
                i = i-1
@@ -353,8 +353,7 @@ contains
       real sqrt_pk_nu1(npbin,3),sqrt_pk_nu2(npbin,3)
       real(8) Lx0(npbin,3),Lx1(npbin,3),Lx2(npbin,3)
 
-      k_fs = min((0.8*sqrt(a_step(istep)*sim%omega_m/0.3) * min(m_nu) * h0 )*tf_smooth,10.)
-
+      k_fs = min((0.8*sqrt(a_step(istep)*sim%omega_m/0.3) * max(m_nu) * h0 )*tf_smooth,10.)
       ifs = npbin
       do while (kh_lin(ifs) > k_fs)
          ifs = ifs-1
@@ -399,7 +398,7 @@ contains
 
       Pk_nu = (f_nus(1)*f_nr(1)*Pk_nus(:,1)+f_nus(2)*f_nr(2)*Pk_nus(:,2)+f_nus(3)*f_nr(3)*Pk_nus(:,3))**2
       Pk_nus = Pk_nus**2
-      tf_F = ((1-f_nu)*sqrt(abs(sPk_step(:,istep)))+f_nu*sqrt(abs(Pk_nu)))/sqrt(abs(sPk_step(:,istep)))
+      tf_F = ((1-f_nu)*sPk_step(:,istep)+f_nu*sqrt(abs(Pk_nu)))/sPk_step(:,istep) ! sPk is sqrt(Pk)
       if (calculate_PK > -1) call tf_F_correction
       call toc(97)
 

@@ -81,7 +81,7 @@ subroutine initialize
    read(10,*) stime
    read(10,*) s2a
    read(10,*) s2tau
-   read(10,*) s2H
+   read(10,*) s2H !改
    close(10)
 
    sim%a = 1./(1+z_checkpoint(1))
@@ -93,11 +93,10 @@ subroutine initialize
    H_i = s2H(ia) + ((s2H(ia+1)-s2H(ia))/(s2a(ia+1)-s2a(ia)))*(sim%a-s2a(ia))
    H_0 = h0*100
    s_fi = 0
-   s_fi = sf_a(merge(a_nu,1./(1+z_checkpoint(1)),a_nu>0.0))
-
+   s_fi = sf_a(merge(real(a_nu,4),1./(1+z_checkpoint(1)),a_nu>0.0)) !改
 
    !nu
-   s_f=0
+   s_f=0 !改
    z_powerpoint=-9999
    power_step=.false.
    nu_step = merge(0,1,a_nu>0.0)
@@ -139,7 +138,7 @@ subroutine initialize
       sPk_step(:,0)=Pk_cb_check(:,1)
 
       open(10,file=nupath//'IC/Pnu_ic.txt',form='formatted')
-      read(10,*) Pk_nu_ic
+      read(10,*) Pk_nu_ic !改
       close(10)
       sq_Pk_nu_ic = sqrt(Pk_nu_ic)
 
@@ -147,6 +146,7 @@ subroutine initialize
       open(13,file=nupath//'f_growth_nu.txt',status='old')
       read(13, '(f15.12)') kh_lin(1:npbin)
       close(13)
+      
       f_growth_nu = spread(kh_lin, dim=2, ncopies=3)
       if (head) print*,'k',f_growth_nu(1,1),f_growth_nu(100,1),f_growth_nu(npbin,1)
       if (head) print*,'k',f_growth_nu(1,2),f_growth_nu(100,2),f_growth_nu(npbin,2)
