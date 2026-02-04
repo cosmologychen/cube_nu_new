@@ -7,9 +7,9 @@ program convert_format
   integer cur_checkpoint
   real mass_p,pos1(3),dx1(3),dx2(3)
 #ifdef ZIPX
-  integer(izipx),allocatable :: xp(:,:)[:,:,:]
+  integer(izipx),allocatable :: xp(:,:)
 #else
-  real(4),allocatable :: xp(:,:)[:,:,:]
+  real(4),allocatable :: xp(:,:)
 #endif
   integer(izipv),allocatable :: vp(:,:)
   integer(izipi),allocatable :: pid(:)

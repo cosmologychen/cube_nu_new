@@ -320,9 +320,6 @@ np.savetxt(nupath+'/s_a_tau_H.txt',np.array([t,a_ex,tau,H_ex]))
 print("EH:\n\n      time:   %.2f seconds\n      step:   %d\n      save:   '%s'\n\n\n"%(T2-T1,i_end,nupath+'/s_a_tau_H.txt'))
 
 kh_calc, f_nu_raw_5pt = get_f_rate_5pt('delta_nu', z_nu_i, delta_lna=0.02)
-f_growth_nu = np.interp(kh_nonlin, kh_calc, f_nu_raw_5pt)
-
-f_growth_nu[kh_nonlin > 0.05] = 1.0
 
 print('get Pk')
 n=int(z_nonlin.shape[0])
@@ -353,14 +350,12 @@ for i in range(n):
 z_powerpoint=open(nupath+'/z_powerpoint.txt', 'w')
 z_values=open(nupath+'/z_values.txt', 'w')
 k_values=open(nupath+'/k_values.txt', 'w')
-f_values=open(nupath+'/f_growth_nu.txt', 'w')
 
 print('write Pk to nupath')
 np.savetxt(nupath+'/IC/Pcb_ic.txt',np.array([kh_ic,Pk_cb_ic]).T)
 np.savetxt(nupath+'/IC/Pnu_ic.txt',np.array(Pk_nu_ic))
 for i in range(len(kh_nonlin)):
     k_values.write('%3.12f\n'%kh_nonlin[i])
-    f_values.write('%3.12f\n'%f_growth_nu[i])
 
 if test:
     for i in range(n):

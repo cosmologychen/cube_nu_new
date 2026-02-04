@@ -6,8 +6,8 @@ subroutine kick
    use power_nu
    implicit none
 
-   logical,parameter :: PM3=.true.
-   logical,parameter :: PP=.true.
+  logical,parameter :: PM3=.true.
+  logical,parameter :: PP=.true.
    logical,parameter :: PP_corr=.true.
    logical,parameter :: speedtest=.false.
    integer inode,itile,np_phy,nl(3),nh(3),i1,i2,it,i3,isort(ns3),ires(ns3),rcp,npgrid,nptile
@@ -28,7 +28,6 @@ subroutine kick
       call toc(99); if (head) print*,'  real time =  ',tcat(96:99,istep),'secs';
       if (head) print*,''
       if (head) print*,''
-      ! return !nu_step test
    endif
    ! call interp_Pk_CDM
 

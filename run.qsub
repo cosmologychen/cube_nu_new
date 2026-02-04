@@ -19,13 +19,26 @@ ulimit
 ulimit -s unlimited
 ulimit -u unlimited 
 ulimit -v unlimited 
-export FC='ifort'
+
+module purge 
+module load compiler/intel-2018u3 && echo "intel-2018u3 LOADED"
+module load mpi/mpich-3.2.1 && echo "mpich-3.2.1 LOADED"
+module load mkl/intel-mkl && echo "intel-mkl LOADED"
+module load fftw/3.3.8 && echo "fftw-3.3.8 LOADED"
+module load hdf5/1.12.1-with-cxx-fort && echo "hdf5-1.12.1 LOADED"
+module load boost/1_73_0 && echo "boost-1_73_0 LOADED"
+module load python/python-3.8.5 && echo "python/python-3.8.5 LOADED"
+
+export FC='/opt/intel2018update3/bin/ifort'
 export XFLAG_NO_OMP='-O3 -fpp -q -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt'
 export XFLAG='-O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt'
 export OFLAG_NO_OMP=$XFLAG_NO_OMP' -c'
 export OFLAG=$XFLAG' -c'
 export FFTFLAG='-I/opt/intel2018update3/mkl/include/fftw -mkl'
-
+export LD_LIBRARY_PATH="/opt/intel2018update3/mkl/lib/intel64:/opt/fftw/3.3.8/lib:/opt/hdf5/1.12.1/lib:/opt/mpich-3.2.1/lib:$LD_LIBRARY_PATH"
+export PYTHONPATH=/home/junjie/software:$PYTHONPATH
+# echo $PATH
+# exit 0
 
 echo ""
 echo ""
@@ -52,14 +65,15 @@ run_program() {
     echo ""
 }
 IC=./utilities/ic.x
-cic=./utilities/cic.x
+cic=./utilities/cicpower.x
 MAIN=./main.x
 CIC=./utilities/cicpower.x
-OCIC=./utilities/ocicpower.x
+OCIC=./utilities/cicpower.x
 FOF=./utilities/fof.x
 DSP=./utilities/dsp.x
 C2U=./utilities/cdm2nu.x
 I2R=./utilities/int2real.x
+Gad=./utilities/gadget.x
 
 ### RUN ###
 echo running with ${PBS_NP} processes on ${PBS_NUM_NODES} nodes
@@ -75,6 +89,7 @@ run_program $MAIN
 # run_program $C2U
 # run_program $FOF
 # run_program $I2R
+# run_program $Gad
 
 
 echo "Finish ALL"

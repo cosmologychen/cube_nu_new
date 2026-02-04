@@ -11,14 +11,14 @@ ncore=64
 nnest=4
 mem=300
 
-code_path=/home/cossim/cube_nu/mnus/code
-output=/home/cossim/cube_nu/output
+code_path=/home/cossim/cube_nu/test/output/code   
+output=/home/cossim/cube_nu/test/output
 z_path="None"
 h_path="None"
-s_path="/home/ChenBH/output_backup/600_256_2_0.1_1" #"None"
+s_path="/home/cossim/cube_nu/test/200_1024_v2/env_seed_taka_200_256_2_0.0_2" #"None"
 n_path="None"
 r_path="None"
-flag='GP'
+flag=''
 log_name='None'
 
 RunIC=true
@@ -27,6 +27,7 @@ RunCIC=false
 Findhalo=false
 RunDSP=false
 Runc2u=false
+Gadget=true
 
 ZIPX=1
 
@@ -55,6 +56,30 @@ Cpk=2
 z1=1
 z2=n_checkpoint
 
+umask 002
+
+module purge 
+module load compiler/intel-2018u3 && echo "intel-2018u3 LOADED"
+module load mpi/mpich-3.2.1 && echo "mpich-3.2.1 LOADED"
+module load mkl/intel-mkl && echo "intel-mkl LOADED"
+module load fftw/3.3.8 && echo "fftw-3.3.8 LOADED"
+module load hdf5/1.12.1-with-cxx-fort && echo "hdf5-1.12.1 LOADED"
+module load boost/1_73_0 && echo "boost-1_73_0 LOADED"
+module load python/python-3.8.5 && echo "python/python-3.8.5 LOADED"
+
+export FC='/opt/intel2018update3/bin/ifort'
+export XFLAG_NO_OMP='-O3 -fpp -q -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt'
+export XFLAG='-O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt'
+export OFLAG_NO_OMP=$XFLAG_NO_OMP' -c'
+export OFLAG=$XFLAG' -c'
+export FFTFLAG='-I/opt/intel2018update3/mkl/include/fftw -mkl'
+export LD_LIBRARY_PATH="/opt/intel2018update3/mkl/lib/intel64:/opt/fftw/3.3.8/lib:/opt/hdf5/1.12.1/lib:/opt/mpich-3.2.1/lib:$LD_LIBRARY_PATH"
+export OMP_STACKSIZE=2G
+export OMP_NUM_THREADS=64
+export FOR_COARRAY_NUM_IMAGES=8
+export PYTHONPATH=/home/junjie/software:$PYTHONPATH
+echo $LD_LIBRARY_PATH
+
 # 帮助函数
 usage() {
     echo "----------------------------------------------------------------------"
@@ -69,13 +94,13 @@ usage() {
     echo "  -flag      <name>        Set flag             [ flag_box_ng  ]  (default: '')"
     echo "  -c         <path>        Set code path        [ c_path/flag  ]  (default: $code_path)"
     echo "  -o         <path>        Set output path      [ output/flag  ]  (default: $output)"
-    echo "  -z         <path>        Set z_checkpoint.txt [ None=[200,0] ]  (default: None)"
-    echo "  -h         <path>        Set z_halofind.txt   [ None=[200,0] ]  (default: None)"
-    echo "  -s         <path>        Set Seed             [ None=random  ]  (default: None)"
-    echo "  -n         <path>        Set Noise Map        [ None=random  ]  (default: None)"
-    echo "  -r         <path>        Set Delta L          [ None=random  ]  (default: None)"
+    echo "  -z         <path>        Set z_checkpoint.txt [ None=[200,0] ]  (default: $z_path)"
+    echo "  -h         <path>        Set z_halofind.txt   [ None=[200,0] ]  (default: $h_path)"
+    echo "  -s         <path>        Set Seed             [ None=random  ]  (default: $s_path)"
+    echo "  -n         <path>        Set Noise Map        [ None=random  ]  (default: $n_path)"
+    echo "  -r         <path>        Set Delta L          [ None=random  ]  (default: $r_path)"
     echo "  -log       <name>        Set log        [ code_path/log_name ]                 "
-    echo "                                          [ None=std;0=run.log ]  (default: None)"
+    echo "                                          [ None=run.log;0=std ]  (default: $log_name)"
     echo "                                                                              "
     echo "  -IC        <true/false>  Run IC              [only,true,false]  (default: $RunIC)"
     echo "  -Main      <true/false>  Run main            [only,true,false]  (default: $RunMain)"
@@ -83,6 +108,7 @@ usage() {
     echo "  -Power     <true/false>  Run cicpower        [only,true,false]  (default: $RunCIC)"
     echo "  -DSP       <true/false>  Run dsp             [only,true,false]  (default: $RunDSP)"
     echo "  -C2u       <true/false>  Run cdm2nu          [only,true,false]  (default: $Runc2u)"
+    echo "  -Gad       <true/false>  Run gadget          [only,true,false]  (default: $Gadget)"
     echo "                                                                               "
     echo "  -ZIPX      <num>         0: real xp, 1: zip xp                  (default: $ncore)"
     echo "  -ncore     <num>         Number of cores                        (default: $ncore)"
@@ -100,7 +126,7 @@ usage() {
     echo "  -ns        <num>         n_s                                    (default: $ns)"
     echo "  -mnus      <num>         m_nu1 m_nu2 m_nu3 in eV                (default: $m_nus)"
     echo "  -Mnu       <num>         num sum_of_nu                          (default: $M_nu)"
-    echo "  -Hnu       <num>         secound num  and hierarchy"
+    echo "  -Hnu       <num>         hierarchy"
     echo "                           [0 = degenerate; 1 = first mass only]  (default: $H_nu)"
     echo "  -Cpk       <int>         功率谱来源: "
     echo "                           -1 = 完全使用CAMB"
@@ -364,7 +390,7 @@ copy_code() {
         backup_file="${timestamp}.log"
         
         if [ -f "$target_dir/run.log" ]; then
-            echo -e "${YELLOW}发现历史日志: 备份为 ${backup_file}${NC}"
+            echo -e "${YELLOW}发现历史日志: 备份为 /home/cossim/cube_nu/log_backup/${opath}/${backup_file}${NC}"
             mkdir -pv /home/cossim/cube_nu/log_backup/$opath
             cp -v "$target_dir/run.log" "/home/cossim/cube_nu/log_backup/$opath/$backup_file"
         fi
@@ -414,7 +440,7 @@ local_run() {
 }
 
 qsub_ini() {
-    sed -i "s/#PBS -N .*/#PBS -N $name/" run.qsub
+    sed -i "s/#PBS -N .*/#PBS -N $t_flag/" run.qsub
     sed -i "s/#PBS -q .*/#PBS -q $q/" run.qsub
     sed -i "s/#PBS -o .*/#PBS -o .\/$log_name/" run.qsub
     sed -i "s/date > .*/date > .\/$log_name/" run.qsub
@@ -432,6 +458,7 @@ qsub_ini() {
     sFOF="run_program \$FOF"
     sDSP="run_program \$DSP"
     sC2U="run_program \$C2U"
+    Gadget="run_program \$Gad"
 
     make clean && cd utilities && make clean && cd ..
     if [ "$RunIC" == true ]; then
@@ -482,6 +509,13 @@ qsub_ini() {
     else
         sed -i "s/^$sC2U/# $sC2U/" run.qsub
     fi
+
+    if [ "$Gadget" == true ]; then
+        cd utilities && make cdm2nu.x && cd .. || exit 1
+        sed -i "s/# $Gadget/$Gadget/" run.qsub
+    else
+        sed -i "s/^$Gadget/# $Gadget/" run.qsub
+    fi
 }
 
 # 执行函数 pbs
@@ -529,23 +563,28 @@ pbs_run() {
     rm -v *.log
     qsub run.qsub >$log_name
     sleep 2
-    qstat -tan -u ChenBH
-    while true; do
-        read -t 3 -p "是否监控输出: Yy/Nn [N]" yn
-        if [ $? -ne 0 ]; then
-            echo ""
-            echo -e "${RED}输入超时,自动退出${NC}"
-            echo "tail -f $log_name"
-            break
-        fi
-        case $yn in
-            [Yy]* ) 
-                echo "-------------------- 程序输出 --------------------";             
+    qstat -tan -u $USER
+
+    if [ "$all_yes" == false ]; then
+        while true; do
+            read -t 3 -p "是否监控输出: Yy/Nn [N]" yn
+            if [ $? -ne 0 ]; then
+                echo ""
+                echo -e "${RED}输入超时,自动退出${NC}"
                 echo "tail -f $log_name"
-                tail -f $log_name
-                break;;
-        esac
-    done
+                break
+            fi
+            case $yn in
+                [Yy]* ) 
+                    echo "-------------------- 程序输出 --------------------";             
+                    echo "tail -f $log_name"
+                    tail -f $log_name
+                    break;;
+            esac
+        done
+    else
+        tail -f $log_name
+    fi
 }
 
 # 解析命令行参数
@@ -827,7 +866,8 @@ run_para_ini(){
         RunCIC=false
         RunDSP=false
         Runc2u=false
-        flag='I'$flag
+        Gadget=false
+        t_flag='I'$flag
         checkpoint=1
     fi
 
@@ -838,6 +878,7 @@ run_para_ini(){
         RunCIC=false
         RunDSP=false
         Runc2u=false
+        Gadget=false
     fi
 
     if [ "$RunCIC" == only ]; then
@@ -847,8 +888,9 @@ run_para_ini(){
         RunCIC=true
         RunDSP=false
         Runc2u=false
+        Gadget=false
         checkpoint=1
-        flag='P'$flag
+        t_flag='P'$flag
     fi
 
     if [ "$Findhalo" == only ]; then
@@ -858,7 +900,9 @@ run_para_ini(){
         RunCIC=false
         RunDSP=false
         Runc2u=false
+        Gadget=false
         checkpoint=1
+        t_flag='H'$flag
     fi
 
     if [ "$RunDSP" == only ]; then
@@ -868,8 +912,9 @@ run_para_ini(){
         RunCIC=false
         RunDSP=true
         Runc2u=false
+        Gadget=false
         checkpoint=1
-        flag='D'$flag
+        t_flag='D'$flag
     fi
 
 
@@ -880,8 +925,21 @@ run_para_ini(){
         RunCIC=false
         RunDSP=false
         Runc2u=true
+        Gadget=false
         checkpoint=1
-        flag='U'$flag
+        t_flag='U'$flag
+    fi
+
+    if [ "$Gadget" == only ]; then
+        RunIC=false
+        RunMain=false
+        Findhalo=false
+        RunCIC=false
+        RunDSP=false
+        Runc2u=false
+        Gadget=true
+        checkpoint=1
+        t_flag='G'$flag
     fi
 
     if [ "$PM3" ==  false ]; then
@@ -901,6 +959,7 @@ run_para_ini(){
     output="${output/#~\//$HOME/}"
     opath=$flag$box'_'$ng'_'$nn'_'$M_nu'_'$Cpk
     name=$flag$box$((ng*nn))'_'$M_nu'_'$Cpk
+    t_flag=$t_flag$box$((ng*nn))'_'$M_nu'_'$Cpk
     nnn=$((nn*nn*nn))
     if [ $nn -gt 1 ]; then
         nnode=$((nn*nn*nn/ntasks_per_node))
@@ -1068,7 +1127,7 @@ main(){
         if [ "$RunIC" == true ]; then
             cd utilities
             make clean
-            make ic.x
+            make ic.x cicpower.x
             cd ..
             [ "$log_name" != "None" ] && echo "RunIC" >> "$log_name"
             local_run "./utilities/ic.x"

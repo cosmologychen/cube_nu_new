@@ -48,8 +48,6 @@ subroutine checkpoint
       write(16) sf_step
       write(16) kh_lin
       write(16) sq_Pk_nu_ic
-      write(16) f_growth_nu
-      write(16) nu_step
       close(16)
       if (head) then
          print*,'save s_f:',sf_step(sim%timestep-1),sim%timestep

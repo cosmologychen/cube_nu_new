@@ -2,7 +2,7 @@ module parameters
    implicit none
 
    ! output directory
-   character(*),parameter :: opath='/home/cossim/cube_nu/test/output/v6_pos_200_256_2_0.06_2/'
+  character(*),parameter :: opath='/home/cossim/cube_nu/test/output/v8_test_200_256_2_0.06_2/'
 
    ! zip parameters
    integer,parameter :: ndim=3
@@ -15,13 +15,13 @@ module parameters
    integer, parameter :: izipi = 8 ! if pids are on, size to store as
 
    ! cell resolution parameters
-   integer,parameter :: nn=2
-   integer,parameter :: ncore=32
-   integer,parameter :: nteam=8
-   integer,parameter :: nnest=4
+  integer,parameter :: nn=2
+  integer,parameter :: ncore=32
+  integer,parameter :: nteam=8
+  integer,parameter :: nnest=4
 
-   real,parameter :: box=200
-   integer(8),parameter :: ng=256
+  real,parameter :: box=200
+  integer(8),parameter :: ng=256
    integer,parameter :: ratio_cs=4
    integer,dimension(7),parameter :: ratio_sf=[1,2,4,6,8,12,16]
    integer,dimension(7),parameter :: ratio_cf=ratio_cs*ratio_sf ! 8,16,24,32
@@ -158,7 +158,6 @@ module parameters
    character(*),parameter :: nupath=trim(adjustl(opath))//'neutrinos/' !path for Pk_nu from camb
    real z_powerpoint(nmax_redshift)[*] ! calculate Pk
    integer(8) n_powerpoint[*]
-   integer nu_step[*]
    logical power_step[*]
 
    real(8),parameter :: omhsq0=2./3.*sqrt(1/omega_m)/h0/100

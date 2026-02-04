@@ -101,11 +101,15 @@ program initial_conditions
       call system('cp ./*.f90 '//opath//'code/')
       call system('cp ./z_*.txt '//opath//'code/')
       print*, 'export PYTHONUNBUFFERED=1'
+      call system('which python')
+      call system('python --version')
+      call system('echo $PYTHONPATH')
       call system('export PYTHONUNBUFFERED=1')
       print*, 'python ./neutrinos/Pk.py'
       call system('python ./neutrinos/Pk.py')
    endif
-   
+   stop
+
 
    allocate(phi(-nb:ngic+nb+1,-nb:ngic+nb+1,-nb:ngic+nb+1)[nn,nn,*])
    !allocate(vfield(3,1-2*ncb:nt+2*ncb,1-2*ncb:nt+2*ncb,1-2*ncb:nt+2*ncb))
@@ -225,7 +229,7 @@ program initial_conditions
 #endif
    sync all
    ! stop
-   
+
    ! noisemap -------------------------------------
    if (head) print*,''
    if (head) print*,'Generating random noise'
@@ -401,7 +405,7 @@ program initial_conditions
 
    open(11,file=output_dir()//'delta_L'//output_suffix(),status='replace',access='stream')
    do i=1,ngic
-     write(11) rho1(:,:,i)/Dgrow(sim%a) ! write layer by layer to avoid bug
+      write(11) rho1(:,:,i)/Dgrow(sim%a) ! write layer by layer to avoid bug
    enddo
    close(11); sync all
 

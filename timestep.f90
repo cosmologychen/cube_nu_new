@@ -17,7 +17,7 @@ subroutine timestep
    if (head) then
       print*, ''
       print*, '-------------------------------------------------------'
-      print*, 'timestep    :',sim%timestep
+      print*, 'timestep    :',sim%timestep,istep
       dt_e=dt_max
       ntry=0
       do
@@ -43,15 +43,13 @@ subroutine timestep
       z_next=z_checkpoint(sim%cur_checkpoint)
 #   endif
       if (Mass_nu > 0.0) z_next = max(z_next,z_powerpoint(sim%cur_powerpoint))
-      if (nu_step == 0 .and. a_nu < 1.0/(1+z_next)) z_next = real(1/a_nu-1,4)
       a_next=1.0/(1+z_next)
-      if (da>=a_next-sim%a) then
+      if (da>=a_next-sim%a) then !改
          ! print*, 'z         :',z_next,1/a_nu-1
          if (z_next==z_checkpoint(sim%cur_checkpoint)) then
             checkpoint_step=.true.
             if (sim%cur_checkpoint==n_checkpoint) final_step=.true.
          endif
-         if (nu_step == 0 .and. z_next == real(1/a_nu-1,4)) nu_step = istep
          if (z_next==z_powerpoint(sim%cur_powerpoint)) power_step=.true.
 #   ifdef HALOFIND
          if (z_next==z_halofind(sim%cur_halofind)) halofind_step=.true.
@@ -84,7 +82,6 @@ subroutine timestep
       print*, 'dt_pp     :',sim%dt_pp
       print*, 'dt_vmax   :',sim%dt_vmax
       print*, 'cur_ppt   :',sim%cur_powerpoint,z_powerpoint(sim%cur_powerpoint)
-      print*, 'nu_step   :',nu_step,real(1/a_nu-1,4)
       print*, ''
       sim%tau=sim%tau+dtau
       sim%t=sim%t+dt
@@ -104,7 +101,6 @@ subroutine timestep
    power_step=power_step[1]
    tau_step=tau_step(:)[1]
    a_step=a_step(:)[1]
-   nu_step=nu_step[1]
 #ifdef HALOFIND
    halofind_step=halofind_step[1]
 #endif

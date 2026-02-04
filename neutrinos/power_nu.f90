@@ -253,7 +253,7 @@ contains
       real omega_m_zi,omega_l_zi
 
       X = s_f*k_mnu_2d*T_nu0*C
-      spk = ((1+0.0168*X**2+0.0407*X**4)/(1+2.1734*X**2+1.6787*X**4.1811+0.1467*X**8))*sq_Pk_nu_ic*(1+s_f*a_step(nu_step)**2*H_i*f_growth_nu)
+      spk = ((1+0.0168*X**2+0.0407*X**4)/(1+2.1734*X**2+1.6787*X**4.1811+0.1467*X**8))*sq_Pk_nu_ic*(1+s_f*a_step(0)**2*H_i*f_growth_nu)
    endfunction
 
    function get_L(i_step) result(L)
@@ -270,7 +270,6 @@ contains
 
    function get_sqrt_pk_nu2() result(spk)
       use variables, only: tau_step
-      use parameters
       implicit none
       real spk(npbin,3)
       real(16) dtau21,dtau10,dtau20
@@ -284,14 +283,14 @@ contains
          return
       endif
 
-      L1 = get_L(nu_step-2); L2 = get_L(nu_step-1); L0 = get_L(nu_step)
+      L1 = get_L(0); L2 = get_L(1); L0 = get_L(2)
 
-      dtau21 = tau_step(nu_step) - tau_step(nu_step-1); dtau10 = tau_step(nu_step-1) - tau_step(nu_step-2); dtau20 = tau_step(nu_step) - tau_step(nu_step-2)
+      dtau21 = tau_step(2) - tau_step(1); dtau10 = tau_step(1) - tau_step(0); dtau20 = tau_step(2) - tau_step(0)
       a1 = (L0 - L2) / dtau21; a2 = (L2 - L1) / dtau10; k2 = (a1 - a2) / dtau20; b2 = a2 - k2 * dtau10
       spk16 = dtau10**3/3*k2 + dtau10**2/2*b2 + L1*dtau10
 
       !2是is 1是is-1 0是is-2
-      do is = nu_step,istep
+      do is = 2,istep
          L0 = L1; L1 = L2; L2 = get_L(is)
          dtau21 = tau_step(is)-tau_step(is-1); dtau10 = tau_step(is-1)-tau_step(is-2); dtau20 = tau_step(is)-tau_step(is-2)
          a1 = (L2 - L1) / dtau21; a2 = (L1 - L0) / dtau10; k2 = (a1 - a2) / dtau20; b2 = a2 - k2 * dtau10
@@ -366,7 +365,7 @@ contains
          print*,''
          print*,'Get Tf_nu'
          print*,'  save Pk in z = ',1/a_step(istep)-1,istep
-         print*,'  s_f    = ',s_f,a_step(istep),s_fi
+         print*,'  s_f    = ',s_f
          print*,'  1-f_nu = ',(1-f_nu)
          print*,'  f_nus  = ',f_nus
          print*,'  f_nr   = ',f_nr
@@ -382,7 +381,7 @@ contains
 
 
       call tic(97)
-      if (nu_step /= 0 .and. istep > 0) then
+      if (istep > 0) then
          if(head .and. calculate_PK > -1) then
             sqrt_pk_nu1 = get_sqrt_pk_nu1()
             sqrt_pk_nu2 = 0.75*sim%omega_m*H_0**2*get_sqrt_pk_nu2() ! 0.75 = (3/2)/2

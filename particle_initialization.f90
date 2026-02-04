@@ -5,7 +5,7 @@ subroutine particle_initialization
 #else
    use variables, only: xp,xp_new,vp,vp_new
 #endif
-   use variables, only: sigma_vi,np_image_max,np_tile_max,sPk_step,Pk_cb_check,Pk_nu_check,sq_Pk_nu_ic,f_growth_nu,a_step,tau_step,sf_step,kh_lin,s_f
+   use variables, only: sigma_vi,np_image_max,np_tile_max,sPk_step,Pk_cb_check,Pk_nu_check,sq_Pk_nu_ic,a_step,tau_step,sf_step,kh_lin,s_f
 ! #ifdef ZIPX
    use variables, only: rhoc
 ! #endif
@@ -102,8 +102,6 @@ subroutine particle_initialization
       read(16) sf_step
       read(16) kh_lin
       read(16) sq_Pk_nu_ic
-      read(16) f_growth_nu
-      read(16) nu_step
       close(16)
 
       if (calculate_PK == -1) then

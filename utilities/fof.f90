@@ -206,9 +206,12 @@ program CUBE_FoF
                   !   write(log_unit, *)  'particle index error'
                   !   error stop 'particle index error'
                   ! endif
-
+#ifdef ZIPX
                   xv(:,jp+1:jp+np)=(int(xp_new(:,nlast+1:nlast+np)+ishift,izipx)+rshift)*x_resolution &
                      +spread(nt*((/itx,ity,itz/)-1)+((/i,j,k/)-1)+[fof_buffer,fof_buffer,fof_buffer]+ijk_neighbor(3,:),dim=2,ncopies=np)
+#else
+                 xv(:,jp+1:jp+np)=xp_new(:,nlast+1:nlast+np)+spread([fof_buffer,fof_buffer,fof_buffer]+ijk_neighbor(3,:),dim=2,ncopies=np)
+#endif
                   jp = jp+np
                enddo
                enddo
