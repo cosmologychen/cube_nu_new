@@ -309,6 +309,7 @@ contains
       integer :: i,interp_powerpoint
       real a_post
 
+      call tic(96)
       if (power_step) then
          if (head) print*,''
          if (head) print*,'Power_step'
@@ -339,6 +340,7 @@ contains
          sPk_nus(:,3) = interp_quad(a_step(istep),interp_powerpoint,Pk_nu_check,z_powerpoint)
       endif
       if (head) print*,'      interp',1/a_step(istep)-1,sim%cur_powerpoint,istep
+      call toc(96)
    endsubroutine
 
    subroutine get_tf_cb2matter
@@ -372,73 +374,67 @@ contains
          print*,'  k_fs   = ',k_fs,kh_lin(ifs)
       endif
 
-
-      call tic(96)
       call interp_Pk_CDM
-      sync all; call toc(96)
 
+      if (istep > 0 .and. sim%a > a_nu) then
+         call tic(97)
+         if(head .and. calculate_PK > -1) then
+            sqrt_pk_nu1 = get_sqrt_pk_nu1()
+            sqrt_pk_nu2 = 0.75*sim%omega_m*H_0**2*get_sqrt_pk_nu2() ! 0.75 = (3/2)/2
+            sPk_nus = (sqrt_pk_nu1+sqrt_pk_nu2)
+         endif
 
-      call tic(97)
-      if (istep > 0) then
+         sPk_nu = (f_nus(1)*f_nr(1)*sPk_nus(:,1)+f_nus(2)*f_nr(2)*sPk_nus(:,2)+f_nus(3)*f_nr(3)*sPk_nus(:,3))**2
+         tf_F = ((1-f_nu)*sPk_step(:,istep)+f_nu*abs(sPk_nu))/sPk_step(:,istep)
+         if (calculate_PK > -1) call tf_F_correction
+         call toc(97)
+
          if(head) then
-            if (calculate_PK > -1) then
-               sqrt_pk_nu1 = get_sqrt_pk_nu1()
-               sqrt_pk_nu2 = 0.75*sim%omega_m*H_0**2*get_sqrt_pk_nu2() ! 0.75 = (3/2)/2
+            write(str_z,'(f8.4)') 1/a_step(istep)-1
+            print*,'  Pk_step',sPk_step(1,istep)**2,sPk_step(npbin/3,istep)**2,sPk_step(npbin/3*2,istep)**2,sPk_step(npbin,istep)**2
+            print*,'  Pk_nu',sPk_nu(1)**2,sPk_nu(npbin/3)**2,sPk_nu(npbin/3*2)**2,sPk_nu(npbin)**2
+            if (m_nu(1)>0) print*,'  Pk_nu1',sPk_nus(1,1)**2,sPk_nus(npbin/3,1)**2,sPk_nus(npbin/3*2,1)**2,sPk_nus(npbin,1)**2
+            if (m_nu(2)>0) print*,'  Pk_nu2',sPk_nus(1,2)**2,sPk_nus(npbin/3,2)**2,sPk_nus(npbin/3*2,2)**2,sPk_nus(npbin,2)**2
+            if (m_nu(3)>0) print*,'  Pk_nu3',sPk_nus(1,3)**2,sPk_nus(npbin/3,3)**2,sPk_nus(npbin/3*2,3)**2,sPk_nus(npbin,3)**2
+            print*,'  tf_F',tf_F(1),tf_F(npbin/3),tf_F(npbin/3*2),tf_F(npbin)
+            print*,'  path',nupath//'*/*_'//trim(adjustl(str_z))//'.txt'
+            open(211,file=nupath//'a_step.txt',status='replace',access='stream'); write(211) a_step(:istep); close(211)
+            open(311,file=nupath//'Pk_nu/Pk_nu_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(311) sPk_nu**2; close(311)
+            open(312,file=nupath//'Pk_nus/Pk_nus_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(312) sPk_nus**2; close(312)
+            open(411,file=nupath//'Pk_m/Pk_m_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(411) sPk_step(:,istep)**2; close(411)
+            open(511,file=nupath//'tf/Tf_nu_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(511) tf_F; close(511)
+            open(313,file=nupath//'sqrt_pk_nu1/sqrt_pk_nu1_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream');write(313) sqrt_pk_nu1(:,1);close(313)
+            open(314,file=nupath//'sqrt_pk_nu2/sqrt_pk_nu2_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream');write(314) sqrt_pk_nu2(:,1);close(314)
 
-
-
-               sPk_nus = (sqrt_pk_nu1+sqrt_pk_nu2)
+            if (minval(tf_F) < 1-f_nu-1e-6 .or. any((ieee_is_nan(tf_F)))) then
+               if(head) then
+                  print*,'tf_F err',minval(tf_F),1-f_nu
+                  print*,'Pk_nu'
+                  print*,sPk_nu**2
+                  print*,'Pk_cdm'
+                  print*,sPk_step(:,istep)**2
+                  print*,'Tf_nu'
+                  print*,tf_F
+               endif
+               error stop 'tf_F err'
             endif
          endif
+         sPk_step(:,istep) = tf_F*sPk_step(:,istep) !sPk_step_cdm --> sPk_step_matter
+
+         call tic(98)
+         tf_F_log = log(tf_F(:)[1])
+         call nu_correction_coarse()
+         pm%nwork = ngt   ;call nu_correction(tf2   ,Gk2   ,box/nn/nnt    )
+         pm%nwork = nft(2);call nu_correction(tf3_2 ,Gk3_2 ,box/nn/nnt/nns)
+         pm%nwork = nft(3);call nu_correction(tf3_4 ,Gk3_4 ,box/nn/nnt/nns)
+         pm%nwork = nft(4);call nu_correction(tf3_6 ,Gk3_6 ,box/nn/nnt/nns)
+         pm%nwork = nft(5);call nu_correction(tf3_8 ,Gk3_8 ,box/nn/nnt/nns)
+         call toc(98)
       else
          if(head) print*,'  Pk_step',sPk_step(1,istep)**2,sPk_step(npbin/3,istep)**2,sPk_step(npbin/3*2,istep)**2,sPk_step(npbin,istep)**2
          return
       endif
 
-      sPk_nu = (f_nus(1)*f_nr(1)*sPk_nus(:,1)+f_nus(2)*f_nr(2)*sPk_nus(:,2)+f_nus(3)*f_nr(3)*sPk_nus(:,3))**2
-      tf_F = ((1-f_nu)*sPk_step(:,istep)+f_nu*abs(sPk_nu))/sPk_step(:,istep)
-      if (calculate_PK > -1) call tf_F_correction
-      call toc(97)
-
-      if(head) then
-         write(str_z,'(f8.4)') 1/a_step(istep)-1
-         print*,'  Pk_step',sPk_step(1,istep)**2,sPk_step(npbin/3,istep)**2,sPk_step(npbin/3*2,istep)**2,sPk_step(npbin,istep)**2
-         print*,'  Pk_nu',sPk_nu(1)**2,sPk_nu(npbin/3)**2,sPk_nu(npbin/3*2)**2,sPk_nu(npbin)**2
-         if (m_nu(1)>0) print*,'  Pk_nu1',sPk_nus(1,1)**2,sPk_nus(npbin/3,1)**2,sPk_nus(npbin/3*2,1)**2,sPk_nus(npbin,1)**2
-         if (m_nu(2)>0) print*,'  Pk_nu2',sPk_nus(1,2)**2,sPk_nus(npbin/3,2)**2,sPk_nus(npbin/3*2,2)**2,sPk_nus(npbin,2)**2
-         if (m_nu(3)>0) print*,'  Pk_nu3',sPk_nus(1,3)**2,sPk_nus(npbin/3,3)**2,sPk_nus(npbin/3*2,3)**2,sPk_nus(npbin,3)**2
-         print*,'  tf_F',tf_F(1),tf_F(npbin/3),tf_F(npbin/3*2),tf_F(npbin)
-         print*,'  path',nupath//'*/*_'//trim(adjustl(str_z))//'.txt'
-         open(211,file=nupath//'a_step.txt',status='replace',access='stream'); write(211) a_step(:istep); close(211)
-         open(311,file=nupath//'Pk_nu/Pk_nu_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(311) sPk_nu**2; close(311)
-         open(312,file=nupath//'Pk_nus/Pk_nus_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(312) sPk_nus**2; close(312)
-         open(411,file=nupath//'Pk_m/Pk_m_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(411) sPk_step(:,istep)**2; close(411)
-         open(511,file=nupath//'tf/Tf_nu_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(511) tf_F; close(511)
-         open(313,file=nupath//'sqrt_pk_nu1/sqrt_pk_nu1_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream');write(313) sqrt_pk_nu1(:,1);close(313)
-         open(314,file=nupath//'sqrt_pk_nu2/sqrt_pk_nu2_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream');write(314) sqrt_pk_nu2(:,1);close(314)
-
-         if (minval(tf_F) < 1-f_nu-1e-6 .or. any((ieee_is_nan(tf_F)))) then
-            if(head) print*,'tf_F err',minval(tf_F),1-f_nu
-            if(head) print*,'Pk_nu'
-            if(head) print*,sPk_nu**2
-            if(head) print*,'Pk_cdm'
-            if(head) print*,sPk_step(:,istep)**2
-            if(head) print*,'Tf_nu'
-            if(head) print*,tf_F
-            error stop 'tf_F err'
-         endif
-      endif
-      sPk_step(:,istep) = tf_F*sPk_step(:,istep) !sPk_step_cdm --> sPk_step_matter
-
-      call tic(98)
-      tf_F_log = log(tf_F(:)[1])
-      call nu_correction_coarse()
-      pm%nwork = ngt   ;call nu_correction(tf2   ,Gk2   ,box/nn/nnt    )
-      pm%nwork = nft(2);call nu_correction(tf3_2 ,Gk3_2 ,box/nn/nnt/nns)
-      pm%nwork = nft(3);call nu_correction(tf3_4 ,Gk3_4 ,box/nn/nnt/nns)
-      pm%nwork = nft(4);call nu_correction(tf3_6 ,Gk3_6 ,box/nn/nnt/nns)
-      pm%nwork = nft(5);call nu_correction(tf3_8 ,Gk3_8 ,box/nn/nnt/nns)
-      sync all; call toc(98)
    endsubroutine
 
    subroutine nu_correction(tfk,Gk,size)
