@@ -7,11 +7,11 @@ module variables
    ! integer(8) nntpk,nnspk
    ! integer(4),allocatable :: ntpk(:),nspk(:)
    ! real(4),allocatable :: rand_num(:)pic
-   real stime(istep_max),s2a(istep_max),s2tau(istep_max),s2H(istep_max)
+   real stime(istep_max),s2a(istep_max),s2tau(istep_max)
    real dtau,H_i,H_0
    character(20) str_z,str_i
    ! real tf_nu(nk),
-   real(4) Pk_cb_check(npbin,nmax_redshift),Pk_nu_check(npbin,nmax_redshift),Pk_step(npbin,0:istep_max),Pk_nus(npbin,3),Pk_nu(npbin),Pk_nu_ic(npbin,3),sq_Pk_nu_ic(npbin,3)
+   real(4) Pk_cb_check(npbin,nmax_redshift),Pk_nu_check(npbin,nmax_redshift),sPk_step(npbin,0:istep_max),sPk_nus(npbin,3),sPk_nu(npbin),Pk_nu_ic(npbin,3),sPk_nu_ic(npbin,3)
 
 
    real(8) k_mnu_2d(npbin,3)

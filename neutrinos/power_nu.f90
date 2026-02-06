@@ -42,24 +42,6 @@ contains
       ! da2=(a0-a_x)/2
    endfunction
 
-   real function H_a(a0)
-      use variables
-      implicit none
-      real a0,Hdot,t_x,tdoa
-      integer i1,i2
-
-      i1 = 1
-      do while(s2a(i1+1)>a0 .and. i1 < istep_max)
-         i1 = i1+1
-      enddo
-      i2=i1+1
-      tdoa = (stime(i2)-stime(i1))/(s2a(i2)-s2a(i1))
-      t_x = stime(i1)+tdoa*(a0-s2a(i1))
-
-      Hdot = (s2H(i2)-s2H(i1))/(stime(i2)-stime(i1))
-      H_a = s2H(i1)+Hdot*(t_x-stime(i1))
-   endfunction
-
    real function dtau_a(da0)
       use variables
       implicit none
@@ -162,7 +144,7 @@ contains
       real spk(npbin)
 
       real a1(npbin), a2(npbin), k2(npbin), b2(npbin), c2(npbin)
-      real log_a, la(3), lpk(npbin,3) 
+      real log_a, la(3), lpk(npbin,3)
 
 
       la(1) = log(1 / (z_point(cur_powerpoint) + 1))
@@ -174,7 +156,7 @@ contains
       lpk(:,3) = log(Pk(:, cur_powerpoint - 2))
 
       a1 = (lpk(:,1) - lpk(:,2)) / (la(1) - la(2))
-      a2 = (lpk(:,2) - lpk(:,3)) / (la(2) - la(3))      
+      a2 = (lpk(:,2) - lpk(:,3)) / (la(2) - la(3))
       k2 = (a1 - a2) / (la(1) - la(3))
       b2 = a1 - k2 * (la(1) + la(2))
       ! 强制曲率为非负：若为负，则退化为线性插值
@@ -229,12 +211,6 @@ contains
       c2 = tf_F_log(i1)-k2*k_lin_log(i1)**2-b2*k_lin_log(i1)
       interp_tf_F = exp(k2*k_need_log**2+b2*k_need_log+c2)
 
-      ! print*,'interp:++++++++++++++'
-      ! print*,i1,i2,i3
-      ! print*,kh_lin(i1),kh_lin(i2),kh_lin(i3),k_need
-      ! print*,tf_F(i1),tf_F(i2),tf_F(i3),interp_tf_F
-      ! print*,'interp,done'
-
    endfunction
 
    subroutine tf_F_correction
@@ -265,7 +241,7 @@ contains
    endsubroutine
 
    function get_sqrt_pk_nu1() result(spk)
-      use variables, only: s_f,a_step,sq_Pk_nu_ic,k_mnu_2d,H_i,H_0
+      use variables, only: s_f,a_step,sPk_nu_ic,k_mnu_2d,H_i,H_0
       use parameters
       implicit none
       real  spk(npbin,3)
@@ -277,11 +253,11 @@ contains
       f=omega_m_zi**(4.0/7.0)+omega_l_zi/70.0*(1+omega_m_zi/2.0)
       X = s_f*k_mnu_2d*T_nu0*C
 
-      spk = ((1+0.0168*X**2+0.0407*X**4)/(1+2.1734*X**2+1.6787*X**4.1811+0.1467*X**8))*sq_Pk_nu_ic*(1+s_f*a_step(0)**2*H_i*f)
+      spk = ((1+0.0168*X**2+0.0407*X**4)/(1+2.1734*X**2+1.6787*X**4.1811+0.1467*X**8))*sPk_nu_ic*(1+s_f*a_step(0)**2*H_i*f)
    endfunction
 
    function get_L(i_step) result(L)
-      use variables, only: s_f,sf_step,Pk_step,k_mnu_2d
+      use variables, only: s_f,sf_step,sPk_step,k_mnu_2d
       use parameters
       implicit none
       integer i_step
@@ -289,7 +265,7 @@ contains
       real(16) X(npbin,3),L(npbin,3)
       si = s_f-sf_step(i_step)
       X = si*k_mnu_2d*T_nu0*C
-      L = ((1+0.0168*X**2+0.0407*X**4)/(1+2.1734*X**2+1.6787*X**4.1811+0.1467*X**8))*spread(Pk_step(:,i_step), dim=2, ncopies=3)*si
+      L = ((1+0.0168*X**2+0.0407*X**4)/(1+2.1734*X**2+1.6787*X**4.1811+0.1467*X**8))*spread(sPk_step(:,i_step), dim=2, ncopies=3)*si
    endfunction
 
    function get_sqrt_pk_nu2() result(spk)
@@ -297,8 +273,8 @@ contains
       use parameters
       implicit none
       real spk(npbin,3)
-      real(16) dtau21,dtau10,dtau20 
-      real(16) spk16(npbin,3),L0(npbin,3),L1(npbin,3),L2(npbin,3)     
+      real(16) dtau21,dtau10,dtau20
+      real(16) spk16(npbin,3),L0(npbin,3),L1(npbin,3),L2(npbin,3)
       real(16) a1(npbin,3), a2(npbin,3), k2(npbin,3), b2(npbin,3)
 
       integer is
@@ -322,7 +298,7 @@ contains
       enddo
       spk16 =  spk16 +  (k2/3 * (dtau20*(dtau20+dtau10) + dtau10**2)  + b2/2 * (dtau20+dtau10) + L0)*(dtau20-dtau10)
 
-      spk = spk16 
+      spk = spk16
    endfunction
 
    subroutine interp_Pk_CDM
@@ -347,7 +323,7 @@ contains
             if(head)print*,'',a_post,interp_powerpoint
             do while (a_step(i) >= a_post .and. i >= 0)
                print*,'      interp',1/a_step(i)-1,sim%cur_powerpoint,i
-               Pk_step(:,i) =  interp_quad(a_step(i),interp_powerpoint,Pk_cb_check,z_powerpoint)
+               sPk_step(:,i) =  interp_quad(a_step(i),interp_powerpoint,Pk_cb_check,z_powerpoint)
                i = i-1
             enddo
          endif
@@ -356,11 +332,11 @@ contains
       endif
 
       interp_powerpoint = merge(sim%cur_powerpoint-1,3,sim%cur_powerpoint > 3)
-      Pk_step(:,istep) = interp_quad(a_step(istep),interp_powerpoint,Pk_cb_check,z_powerpoint)
+      sPk_step(:,istep) = interp_quad(a_step(istep),interp_powerpoint,Pk_cb_check,z_powerpoint)
       if (calculate_PK == -1) then
-         Pk_nus(:,1) = interp_quad(a_step(istep),interp_powerpoint,Pk_nu_check,z_powerpoint)
-         Pk_nus(:,2) = interp_quad(a_step(istep),interp_powerpoint,Pk_nu_check,z_powerpoint)
-         Pk_nus(:,3) = interp_quad(a_step(istep),interp_powerpoint,Pk_nu_check,z_powerpoint)
+         sPk_nus(:,1) = interp_quad(a_step(istep),interp_powerpoint,Pk_nu_check,z_powerpoint)
+         sPk_nus(:,2) = interp_quad(a_step(istep),interp_powerpoint,Pk_nu_check,z_powerpoint)
+         sPk_nus(:,3) = interp_quad(a_step(istep),interp_powerpoint,Pk_nu_check,z_powerpoint)
       endif
       if (head) print*,'      interp',1/a_step(istep)-1,sim%cur_powerpoint,istep
    endsubroutine
@@ -407,75 +383,52 @@ contains
          if(head) then
             if (calculate_PK > -1) then
                sqrt_pk_nu1 = get_sqrt_pk_nu1()
-               sqrt_pk_nu2 = 0.75*sim%omega_m*H_0**2*get_sqrt_pk_nu2() ! 0.75 = (3/2)/2 
+               sqrt_pk_nu2 = 0.75*sim%omega_m*H_0**2*get_sqrt_pk_nu2() ! 0.75 = (3/2)/2
 
 
 
-               Pk_nus = (sqrt_pk_nu1+sqrt_pk_nu2)
-
-               if ((minval(Pk_nu(:ifs)) < -1e-5) .or. any((ieee_is_nan(Pk_nu(:ifs)))))then
-                  if(head) then
-                     print*,''
-                     print*,''
-                     print*,''
-                     print*,'Pk_nu err ',minval(Pk_nu),1/a_step(istep)-1
-                     print*,'Pk_check(-1 0) is nan ',any((ieee_is_nan(Pk_cb_check(:,sim%cur_powerpoint)))),any((ieee_is_nan(Pk_cb_check(:,sim%cur_powerpoint-1))))
-                     print*,'Pk_step(-1 0) is nan ',any((ieee_is_nan(Pk_step(:,istep-1)))),any((ieee_is_nan(Pk_step(:,istep))))
-                     print*,' a,tau',a_step(istep),a_step(istep-1),tau_step(istep),tau_step(istep-1)
-                     print*,'Pk_m -1',Pk_step(:,istep-1)
-                     print*,''
-                     print*,''
-                     print*,''
-                     print*,'Pk_m 0',Pk_step(:,istep)
-                     print*,''
-                     print*,''
-                     print*,''
-                     print*,'Pk_nu',Pk_nu(:ifs)
-                  endif
-                  error stop 'Pk_nu err '
-               endif
+               sPk_nus = (sqrt_pk_nu1+sqrt_pk_nu2)
             endif
          endif
       else
-         Pk_nus=sq_Pk_nu_ic
+         if(head) print*,'  Pk_step',sPk_step(1,istep)**2,sPk_step(npbin/3,istep)**2,sPk_step(npbin/3*2,istep)**2,sPk_step(npbin,istep)**2
+         return
       endif
 
-      ! print*,'  Pk_nu',(f_nus(1)*f_nr(1)*1+f_nus(2)*f_nr(2)*1+f_nus(3)*f_nr(3)*1)**2
-      Pk_nu = (f_nus(1)*f_nr(1)*Pk_nus(:,1)+f_nus(2)*f_nr(2)*Pk_nus(:,2)+f_nus(3)*f_nr(3)*Pk_nus(:,3))**2
-      Pk_nus = Pk_nus**2
-      tf_F = ((1-f_nu)*Pk_step(:,istep)+f_nu*sqrt(abs(Pk_nu)))/Pk_step(:,istep)
+      sPk_nu = (f_nus(1)*f_nr(1)*sPk_nus(:,1)+f_nus(2)*f_nr(2)*sPk_nus(:,2)+f_nus(3)*f_nr(3)*sPk_nus(:,3))**2
+      tf_F = ((1-f_nu)*sPk_step(:,istep)+f_nu*abs(sPk_nu))/sPk_step(:,istep)
       if (calculate_PK > -1) call tf_F_correction
       call toc(97)
 
       if(head) then
          write(str_z,'(f8.4)') 1/a_step(istep)-1
-         print*,'  Pk_step',Pk_step(1,istep)**2,Pk_step(npbin/3,istep)**2,Pk_step(npbin/3*2,istep)**2,Pk_step(npbin,istep)**2
-         print*,'  Pk_nu',Pk_nu(1),Pk_nu(npbin/3),Pk_nu(npbin/3*2),Pk_nu(npbin)
-         if (m_nu(1)>0) print*,'  Pk_nu1',Pk_nus(1,1),Pk_nus(npbin/3,1),Pk_nus(npbin/3*2,1),Pk_nus(npbin,1)
-         if (m_nu(2)>0) print*,'  Pk_nu2',Pk_nus(1,2),Pk_nus(npbin/3,2),Pk_nus(npbin/3*2,2),Pk_nus(npbin,2)
-         if (m_nu(3)>0) print*,'  Pk_nu3',Pk_nus(1,3),Pk_nus(npbin/3,3),Pk_nus(npbin/3*2,3),Pk_nus(npbin,3)
+         print*,'  Pk_step',sPk_step(1,istep)**2,sPk_step(npbin/3,istep)**2,sPk_step(npbin/3*2,istep)**2,sPk_step(npbin,istep)**2
+         print*,'  Pk_nu',sPk_nu(1)**2,sPk_nu(npbin/3)**2,sPk_nu(npbin/3*2)**2,sPk_nu(npbin)**2
+         if (m_nu(1)>0) print*,'  Pk_nu1',sPk_nus(1,1)**2,sPk_nus(npbin/3,1)**2,sPk_nus(npbin/3*2,1)**2,sPk_nus(npbin,1)**2
+         if (m_nu(2)>0) print*,'  Pk_nu2',sPk_nus(1,2)**2,sPk_nus(npbin/3,2)**2,sPk_nus(npbin/3*2,2)**2,sPk_nus(npbin,2)**2
+         if (m_nu(3)>0) print*,'  Pk_nu3',sPk_nus(1,3)**2,sPk_nus(npbin/3,3)**2,sPk_nus(npbin/3*2,3)**2,sPk_nus(npbin,3)**2
          print*,'  tf_F',tf_F(1),tf_F(npbin/3),tf_F(npbin/3*2),tf_F(npbin)
          print*,'  path',nupath//'*/*_'//trim(adjustl(str_z))//'.txt'
          open(211,file=nupath//'a_step.txt',status='replace',access='stream'); write(211) a_step(:istep); close(211)
-         open(311,file=nupath//'Pk_nu/Pk_nu_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(311) Pk_nu; close(311)
-         open(312,file=nupath//'Pk_nus/Pk_nus_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(312) Pk_nus; close(312)
-         open(411,file=nupath//'Pk_m/Pk_m_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(411) Pk_step(:,istep)**2; close(411)
+         open(311,file=nupath//'Pk_nu/Pk_nu_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(311) sPk_nu**2; close(311)
+         open(312,file=nupath//'Pk_nus/Pk_nus_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(312) sPk_nus**2; close(312)
+         open(411,file=nupath//'Pk_m/Pk_m_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(411) sPk_step(:,istep)**2; close(411)
          open(511,file=nupath//'tf/Tf_nu_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(511) tf_F; close(511)
          open(313,file=nupath//'sqrt_pk_nu1/sqrt_pk_nu1_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream');write(313) sqrt_pk_nu1(:,1);close(313)
          open(314,file=nupath//'sqrt_pk_nu2/sqrt_pk_nu2_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream');write(314) sqrt_pk_nu2(:,1);close(314)
 
-         if (minval(tf_F) < 1-1e-6-f_nu .or. any((ieee_is_nan(tf_F)))) then
+         if (minval(tf_F) < 1-f_nu-1e-6 .or. any((ieee_is_nan(tf_F)))) then
             if(head) print*,'tf_F err',minval(tf_F),1-f_nu
             if(head) print*,'Pk_nu'
-            if(head) print*,Pk_nu
+            if(head) print*,sPk_nu**2
             if(head) print*,'Pk_cdm'
-            if(head) print*,Pk_step(:,istep)
+            if(head) print*,sPk_step(:,istep)**2
             if(head) print*,'Tf_nu'
             if(head) print*,tf_F
             error stop 'tf_F err'
          endif
       endif
-      Pk_step(:,istep) = tf_F*Pk_step(:,istep) !Pk_step_cdm --> Pk_step_matter
+      sPk_step(:,istep) = tf_F*sPk_step(:,istep) !sPk_step_cdm --> sPk_step_matter
 
       call tic(98)
       tf_F_log = log(tf_F(:)[1])

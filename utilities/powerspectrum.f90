@@ -326,7 +326,6 @@ subroutine cdm_2_nu(fn_tf)
     integer i,j,k,ig,jg,kg
     real kr,kx(3)
     character(20) str_z
-    real(4) Pk_step(npbin),Pk_nu(npbin)
     real kh_lin(npbin),kh_lin_log(npbin),tf_F(npbin),tf_F_log(npbin)
     real tf1(nw_global/2+1,nw,npen),k_tf1(nw_global/2+1,nw,npen)
 
@@ -369,7 +368,6 @@ subroutine cdm_2_nu(fn_tf)
 
     cxyz=cxyz*tf1
     call pencil_fft_backward
-
 endsubroutine 
 
 real function interp_tf_F(k_lin_log,k_need,tf_F_log)

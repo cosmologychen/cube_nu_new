@@ -155,7 +155,7 @@ module parameters
 
 
    !nu
-   character(*),parameter :: nupath=trim(adjustl(opath))//'neutrinos/' !path for Pk_nu from camb
+   character(*),parameter :: nupath=trim(adjustl(opath))//'neutrinos/' !path for neutrino
    real z_powerpoint(nmax_redshift)[*] ! calculate Pk
    integer(8) n_powerpoint[*]
    logical power_step[*]

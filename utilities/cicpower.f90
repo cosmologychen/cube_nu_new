@@ -28,7 +28,7 @@ program cicpower
 #endif
 
    real(4),allocatable :: xv(:,:),rho_grid(:,:,:)[:,:,:],rho_c(:,:,:)[:,:,:],rho_etc(:,:,:),proj_xy(:,:)
-   real kh_lin(npbin),kh_lin_log(npbin),tf_F(npbin),tf_F_log(npbin),Pk_nu(npbin),Pk_nu_log(npbin)
+   real kh_lin(npbin),kh_lin_log(npbin),tf_F(npbin),tf_F_log(npbin)
 
 
 
@@ -194,7 +194,6 @@ program cicpower
                open(11,file=nupath//'tf/Tf_nu_'//trim(adjustl(str_z))//'.txt',status='old',access='stream'); read(11) tf_F;close(11)
             endif
             ! open(11,file=nupath//'tf/Tf_nu_0.0203.txt',status='old',access='stream'); read(11) tf_F; close(11)
-            ! open(12,file=output_name('Pk_nu'),status='old',access='stream'); read(12) Pk_nu; close(12)
             kh_lin = -1
             open(13,file=nupath//'k_values.txt',status='old')
             do i=1,npbin
@@ -204,10 +203,7 @@ program cicpower
             kh_lin_log = log(kh_lin)
             ! print*,'k',kh_lin(1),kh_lin(2),kh_lin(npbin),icx,icy,icz,npen,nw,nyquist
             tf_F_log = log(tf_F)
-            ! Pk_nu_log = log(Pk_nu)
             do i=1,nbin
-               ! xi(3:5,i) = xi(3:5,i)*interp_tf_F(kh_lin_log,xi(2,i),tf_F_log)
-               ! xi(6,i) = interp_tf_F(kh_lin_log,xi(2,i),Pk_nu_log)
                xi(7,i) = xi(5,i)*(interp_tf_F(kh_lin_log,xi(2,i),tf_F_log))**2
             enddo
             xi(8,:) = (f_nu*sqrt(xi(6,:))+(1-f_nu)*sqrt(xi(5,:)))**2

@@ -353,12 +353,10 @@ print('calculating Expansion History')
 n_a = int(istep_max)
 dt0 = 5e-4
 t = -np.arange(n_a)*dt0
-H_ex = np.ones(n_a)*H0
 a_ex = np.ones(n_a)
 a_ex[0] = 1
 for i in range(n_a-1):
     Hai = Ha(a_ex[i])
-    H_ex[i] = Hai
     a_ex[i+1] = -omHsq*Hai*a_ex[i]**3 * dt0 +a_ex[i]
     dz = 1/a_ex[i]-1/a_ex[i+1]
 
@@ -367,8 +365,9 @@ for i in range(n_a-1):
 i_end = i
 T2 = time.time()
 tau =  result.conformal_time(1/a_ex-1)/299792.458
+tau[-1] = Hz(z_max) ### 用tau的最后一个值来存H_i
 os.system('rm '+nupath+'/*.txt')
-np.savetxt(nupath+'/s_a_tau_H.txt',np.array([t,a_ex,tau,H_ex]))
+np.savetxt(nupath+'/s_a_tau_H.txt',np.array([t,a_ex,tau]))
 print("EH:\n\n      time:   %.2f seconds\n      step:   %d\n      save:   '%s'\n\n\n"%(T2-T1,i_end,nupath+'/s_a_tau_H.txt'))
 
 print('get Pk')

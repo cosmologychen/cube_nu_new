@@ -7,7 +7,7 @@ subroutine initialize
 
    include 'fftw3.f'
 
-   logical,parameter :: read_Gks=.true.
+   logical,parameter :: read_Gks=.false.
    integer i,j,k,l
    istep=0; tictoc=0; tcat=0;
    sync all
@@ -80,33 +80,28 @@ subroutine initialize
    read(10,*) stime
    read(10,*) s2a
    read(10,*) s2tau
-   read(10,*) s2H
    close(10)
+   H_0 = h0*100
+   H_i = s2tau(istep_max)
    s_fi = 0
    s_fi = sf_a(1./(1+z_checkpoint(1)))
 
    !nu
    s_f=0
+   sim%cur_powerpoint=1
    z_powerpoint=-9999
    power_step=.false.
-   a_step = 0
-   tau_step = 0
-   Pk_step = 0
+   a_step = -1
+   tau_step = -1
+   sPk_step = -1
    Pk_cb_check =0
    Pk_nu_check =0
    if (Mass_nu > 0) then
-      sim%cur_powerpoint=1
       if (head) then
          print*,'init nu_info'
-         if (calculate_PK == 2) then
-            print*,'  nfg nfg_global,npbin',nfg,nfg_global,npbin
-         endif
          print*,'  z_nu_start f_nu',1/a_nu-1,f_nu
          print*,'  nupath:',nupath
       endif
-
-      H_i = H_a(1/(z_checkpoint(1)+1))
-      H_0 = h0*100
 
       open(16,file=nupath//'z_powerpoint.txt',status='old')
       do i=1,nmax_redshift-1
@@ -118,7 +113,7 @@ subroutine initialize
       n_powerpoint=n_powerpoint[1]
       z_powerpoint(:)=z_powerpoint(:)[1]
 
-      do i=1,n_powerpoint ! Read the three earliest Pk_nu for linear interpolation
+      do i=1,3 ! Read the three earliest Pk_nu for linear interpolation
          write(str_z,'(f8.4)') z_powerpoint(i)
          open(10,file=nupath//'Pk_cb_'//trim(adjustl(str_z))//'.txt',form='formatted')
          read(10,*) Pk_cb_check(:,i)
@@ -127,16 +122,12 @@ subroutine initialize
          read(10,*) Pk_nu_check(:,i)
          close(10)
       enddo
-      Pk_step(:,0)=Pk_cb_check(:,1)
+      sPk_step(:,0)=sqrt(Pk_cb_check(:,1))
 
       open(10,file=nupath//'IC/Pnu_ic.txt',form='formatted')
       read(10,*) Pk_nu_ic
       close(10)
-      ! print*,'  Pk_nu_ic1',Pk_nu_ic(1,1),Pk_nu_ic(npbin/3,1),Pk_nu_ic(npbin/3*2,1),Pk_nu_ic(npbin,1)
-      ! print*,'  Pk_nu_ic2',Pk_nu_ic(1,2),Pk_nu_ic(npbin/3,2),Pk_nu_ic(npbin/3*2,2),Pk_nu_ic(npbin,2)
-      ! print*,'  Pk_nu_ic3',Pk_nu_ic(1,3),Pk_nu_ic(npbin/3,3),Pk_nu_ic(npbin/3*2,3),Pk_nu_ic(npbin,3)
-      ! stop
-      sq_Pk_nu_ic = sqrt(Pk_nu_ic)
+      sPk_nu_ic = sqrt(Pk_nu_ic)
 
       kh_lin = -1
       open(13,file=nupath//'k_values.txt',status='old')
@@ -151,8 +142,6 @@ subroutine initialize
          k_mnu_2d(:,i)=spread(0, dim=1, ncopies=npbin)
          if (m_nu(i) /= 0) k_mnu_2d(:,i)=kh_lin/spread(m_nu(i), dim=1, ncopies=npbin)
       enddo
-   else
-      sim%cur_powerpoint = -1
    endif
 
 
@@ -283,7 +272,7 @@ subroutine initialize
       !close(10)
 
    endif
-   ! if (head) print*,'  Gk3_8 ',minval(Gk3_8 ),maxval(Gk3_8 )
+   if (head) print*,'  Gk3_8 ',minval(Gk3_8 ),maxval(Gk3_8 )
    ! if (head) print*,'  Gk3_12',minval(Gk3_12),maxval(Gk3_12)
    !print*,'Gk3',Gk3(1:3,1,1)
    !allocate(Gk0(ng/2+1,ng,ng))
