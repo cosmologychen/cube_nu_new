@@ -13,7 +13,7 @@ mem=300
 
 code_path=/home/cossim/cube_nu/test/output/code   
 output=/home/cossim/cube_nu/test/output
-z_path="None"
+z_path="/home/junjie/work/code/analysis/Pk_nu_check/code/test2_v5_pos_200_512_cpk2/z_checkpoint.txt"
 h_path="None"
 s_path="/home/cossim/cube_nu/test/200_1024_v2/env_seed_taka_200_256_2_0.0_2" #"None"
 n_path="None"

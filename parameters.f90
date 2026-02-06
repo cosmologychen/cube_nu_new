@@ -2,7 +2,7 @@ module parameters
    implicit none
 
    ! output directory
-  character(*),parameter :: opath='/home/cossim/cube_nu/test/output/v8_test_200_256_2_0.06_2/'
+  character(*),parameter :: opath='/home/cossim/cube_nu/test/output/v5_f_grow_200_256_2_0.06_2/'
 
    ! zip parameters
    integer,parameter :: ndim=3

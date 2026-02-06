@@ -7,7 +7,7 @@ subroutine initialize
 
    include 'fftw3.f'
 
-   logical,parameter :: read_Gks=.false.
+   logical,parameter :: read_Gks=.true.
    integer i,j,k,l
 
    real omega_m_zi,omega_l_zi
@@ -97,8 +97,7 @@ subroutine initialize
    H_i = s2H(ia) + ((s2H(ia+1)-s2H(ia))/(s2a(ia+1)-s2a(ia)))*(sim%a-s2a(ia))
    H_0 = h0*100
    s_fi = 0
-   s_fi = sf_a(merge(real(a_nu,4),1./(1+z_checkpoint(1)),a_nu>0.0))
-   if (head) print*,'a_sf',merge(real(a_nu,4),1./(1+z_checkpoint(1)),a_nu>0.0),s_fi, sf_a(real(a_nu,4)), sf_a(1./58)
+   s_fi = sf_a(1./(1+z_checkpoint(1)))
 
    !nu
    s_f=0

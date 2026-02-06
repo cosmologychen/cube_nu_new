@@ -108,7 +108,6 @@ program initial_conditions
       print*, 'python ./neutrinos/Pk.py'
       call system('python ./neutrinos/Pk.py')
    endif
-   stop
 
 
    allocate(phi(-nb:ngic+nb+1,-nb:ngic+nb+1,-nb:ngic+nb+1)[nn,nn,*])
