@@ -145,7 +145,7 @@ subroutine auto_power(xi,cube1,n_particle,n_interp)
 
   integer i,j,k,ig,jg,kg,ibin,n_interp
   integer(8) n_particle
-  real alpha,kr,kx(3),sincx,sincy,sincz,sinc,rbin,C1k(3),Dk,amp11,cube1(nw,nw,nw),xi(10,0:nbin)[*]
+real alpha,kr,kx(3),sincx,sincy,sincz,sinc,rbin,C1k(3),Dk,amp11,cube1(nw,nw,nw),xi(10,0:nbin)[*]
   alpha=0
   xi=0
   rho1=cube1
@@ -159,7 +159,7 @@ subroutine auto_power(xi,cube1,n_particle,n_interp)
   call system_clock(t_xi1,t_xi_rate)
   do k=1,npen
   do j=1,nw
-  do i=1,nyquist+1
+    do i=1,nyquist+1
     kg=(nn*(icz-1)+icy-1)*npen+k
     jg=(icx-1)*nw+j
     ig=i

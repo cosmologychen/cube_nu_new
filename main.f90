@@ -72,7 +72,7 @@ use variables
       enddo
    endif
 #else
-   sim%cur_checkpoint=1
+   sim%cur_checkpoint=61
    call initialize
    call particle_initialization
    call buffer_grid
@@ -105,10 +105,10 @@ use variables
          if (checkpoint_step) then
             call checkpoint
             sim%cur_checkpoint = sim%cur_checkpoint+1
-            if (sim%cur_checkpoint .eq. 73) then
-               final_step=.true.
-               print*, '  final checkpoint'
-            endif
+            !if (sim%cur_checkpoint .eq. 73) then
+            !   final_step=.true.
+            !   print*, '  final checkpoint'
+            !endif
          endif
          call buffer_grid
          call buffer_x

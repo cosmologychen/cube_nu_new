@@ -1,7 +1,7 @@
 !#define gadget
 !#define RSD
 ! #define merge_projection
-#define density_nu
+!#define density_nu
 ! #define density_matter
 ! #define power_matter
 
@@ -50,8 +50,8 @@ program cicpower
    call create_penfft_plan
 
    ! do cur_checkpoint= 1,n_checkpoint
-   do cur_checkpoint= n_checkpoint,n_checkpoint
-  !  do cur_checkpoint= 1,n_checkpoint
+   !do cur_checkpoint= n_checkpoint,n_checkpoint
+    do cur_checkpoint= 60,n_checkpoint
       sim%cur_checkpoint=cur_checkpoint
       if (head) print*, ''
       if (head) print*, '==========================================='

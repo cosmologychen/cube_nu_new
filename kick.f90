@@ -7,7 +7,7 @@ subroutine kick
    implicit none
 
   logical,parameter :: PM3=.true.
-  logical,parameter :: PP=.true.
+   logical,parameter :: PP=.true.
    logical,parameter :: PP_corr=.true.
    logical,parameter :: speedtest=.false.
    integer inode,itile,np_phy,nl(3),nh(3),i1,i2,it,i3,isort(ns3),ires(ns3),rcp,npgrid,nptile

@@ -60,7 +60,6 @@ subroutine timestep
          enddo
       endif
 
-      if (da < 1e-6) stop
 
       ra=da/(sim%a+da)
       a_mid=sim%a+(da/2)
@@ -70,7 +69,7 @@ subroutine timestep
       tcat(43,istep)=sim%a+da
 
       !nu
-      dtau = dtau_a(sim%a+da)
+      dtau = dtau_a(da)
 
       print*, 'tau         :',sim%tau,sim%tau+dtau
       print*, 'z         :',1.0/sim%a-1.0,1.0/(sim%a+da)-1.0

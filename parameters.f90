@@ -2,7 +2,7 @@ module parameters
    implicit none
 
    ! output directory
-  character(*),parameter :: opath='/home/cossim/cube_nu/output/GP600_256_2_0.06_2/'
+   character(*),parameter :: opath='/home/cossim/cube_nu/test/output/test3_v5_pos_200_256_2_0.06_2/'
 
   ! zip parameters
   integer,parameter :: ndim=3
@@ -15,12 +15,12 @@ module parameters
   integer, parameter :: izipi = 8 ! if pids are on, size to store as
 
   ! cell resolution parameters
-  integer,parameter :: nn=2
-  real,parameter :: box=600
-  integer,parameter :: ncore=32
-  integer,parameter :: nteam=8
-  integer,parameter :: nnest=4
-  integer(8),parameter :: ng=256
+   integer,parameter :: nn=2
+   real,parameter :: box=200
+   integer,parameter :: ncore=32
+   integer,parameter :: nteam=8
+   integer,parameter :: nnest=4
+   integer(8),parameter :: ng=256
 
   integer,parameter :: ratio_cs=4
   integer,dimension(7),parameter :: ratio_sf=[1,2,4,6,8,12,16]
@@ -30,7 +30,7 @@ module parameters
 
    ! particle resolution parameters
    integer(8),parameter :: np_nc=ratio_cs
-   integer,parameter :: nic=1   ! refined resolution for IC
+   integer,parameter :: nic=2   ! refined resolution for IC
    integer,parameter :: ngic=ng*nic
    logical,parameter :: body_centered_cubic=.false.
 
@@ -169,7 +169,7 @@ module parameters
    real(8),parameter :: C=299792.458*h0 ! speed of light
    real(8),parameter :: sigma_nu = 0.71649 !the neutrino to photon temperature ratio today
    real(8),parameter :: k_b = 8.617342e-5 !the Boltzmann’s con-stant
-   real(8),parameter :: a_nu=0 ! 1./(595./5.47*(Mass_nu/3)/0.1+0.01) ! nu is matter in a_nu
+   real(8),parameter :: a_nu=0.016667 ! 1./(595./5.47*(Mass_nu/3)/0.1+0.01) ! nu is matter in a_nu
 
    real(8),parameter :: k_smooth=max(10.0,ng_global*pi/box) !smooth the tf in k >k_smooth
    integer(8),parameter :: tf_smooth=100 !smooth the tf in k >tf_smooth*k_fs

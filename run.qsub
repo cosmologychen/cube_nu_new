@@ -1,67 +1,63 @@
 #!/bin/bash
-#PBS -N GP12001024_0.1_2
-#PBS -l nodes=1:ppn=64
+#PBS -N test3_v5_pos_200512_0.06_2
+#PBS -l nodes=4:ppn=64
 #PBS -l mem=300gb
-#PBS -q debug
+#PBS -q normal
 #PBS -j oe
 #PBS -o ./run.log
 
+module purge 
+module load compiler/intel-2018u3 && echo "intel-2018u3 LOADED"
+module load mpi/mpich-3.2.1 && echo "mpich-3.2.1 LOADED"
+module load mkl/intel-mkl && echo "intel-mkl LOADED"
+module load fftw/3.3.8 && echo "fftw-3.3.8 LOADED"
+module load hdf5/1.12.1-with-cxx-fort && echo "hdf5-1.12.1 LOADED"
+module load boost/1_73_0 && echo "boost-1_73_0 LOADED"
+module load python/python-3.8.5 && echo "python/python-3.8.5 LOADED"
 
-
-cd $PBS_O_WORKDIR
-date > ./run.log
-export FC='ifort'
+export FC='/opt/intel2018update3/bin/ifort'
 export XFLAG_NO_OMP='-O3 -fpp -q -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt'
 export XFLAG='-O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt'
 export OFLAG_NO_OMP=$XFLAG_NO_OMP' -c'
 export OFLAG=$XFLAG' -c'
 export FFTFLAG='-I/opt/intel2018update3/mkl/include/fftw -mkl'
-export OMP_STACKSIZE=20000M
+export LD_LIBRARY_PATH="/opt/intel2018update3/mkl/lib/intel64:/opt/fftw/3.3.8/lib:/opt/hdf5/1.12.1/lib:/opt/mpich-3.2.1/lib:$LD_LIBRARY_PATH"
+export OMP_STACKSIZE=2G
 export OMP_NUM_THREADS=64
-export FOR_COARRAY_NUM_IMAGES=1
+export FOR_COARRAY_NUM_IMAGES=8
+export PYTHONPATH=/home/junjie/software:$PYTHONPATH 
 ulimit
 ulimit -s unlimited
 ulimit -u unlimited 
 ulimit -v unlimited 
 
+cd $PBS_O_WORKDIR
+date
 
-echo ""
-echo ""
-echo ""
-echo ""
-export PROCS=1
-export ntasks_per_node=1
+make clean &&make 
+cd utilities && make clean && make && cd .. 
+
+echo make done
+echo
+echo
+echo
+echo
+export PROCS=8
+export ntasks_per_node=2
 sort $PBS_NODEFILE | uniq -c | awk -v npn=$ntasks_per_node  '{print \$2":"npn}' > ./hostfile_$PROCS 
 HOST_FILE=./hostfile_$PROCS
 pwd
-
-run_program() {
-    local cmd="$1"
-    echo "Running $cmd"
-    echo "-genvall -machinefile $HOST_FILE -n $PROCS $cmd"   > cafconfig.txt 
-    $cmd
-    echo "Finish $cmd"
-}
-
-### RUN ###
+ 
+### RUN ###.
 echo running with ${PBS_NP} processes on ${PBS_NUM_NODES} nodes
 echo "###############################################"
 echo "Start Running"
-umask 002
-IC=./utilities/ic.x
-cic=./utilities/cic.x
-MAIN=./main.x
-CIC=./utilities/cicpower.x
-OCIC=./utilities/ocicpower.x
-FOF=./utilities/fof.x
-DSP=./utilities/dsp.x
-C2U=./utilities/cdm2nu.x
-# run_program $IC
-# run_program $cic
-run_program $MAIN
-run_program $CIC
-# run_program $FOF
-# run_program $DSP
-# run_program $C2U
+#GADGET="./utilities/write_gadget_format.x" &&echo "Running $GADGET"  &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $GADGET"  > cafconfig.txt &&$GADGET  && echo "Finish $GADGET"
+# IC="./utilities/ic.x"        &&echo "Running $IC"   &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $IC"   > cafconfig.txt &&$IC   && echo "Finish $IC"
+# cic="./utilities/cicpower.x" &&echo "Running $cic"  &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $cic"  > cafconfig.txt &&$cic  && echo "Finish $cic"
+MAIN="./main.x"              &&echo "Running $MAIN" &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $MAIN" > cafconfig.txt &&$MAIN && echo "Finish $MAIN"
+CIC="./utilities/cicpower.x" &&echo "Running $CIC"  &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $CIC"  > cafconfig.txt &&$CIC  && echo "Finish $CIC"
+# OCIC="./utilities/cicpower.x" &&echo "Running $OCIC"  &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $OCIC"  > cafconfig.txt &&$OCIC  && echo "Finish $OCIC"
+# FOF="./utilities/gadget_snap_fof.x" &&echo "Running $FOF"  &&echo "-genvall -machinefile $HOST_FILE -n $PROCS $FOF"  > cafconfig.txt &&$FOF  && echo "Finish $FOF"
 echo "Finish ALL"
 date
