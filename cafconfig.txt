@@ -1,1 +1,0 @@
--genvall -machinefile ./hostfile_8 -n 8 ./main.x
