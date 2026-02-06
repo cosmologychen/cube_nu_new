@@ -25,7 +25,7 @@ subroutine kick
    if (Mass_nu > 0) then
       call tic(99)
       call get_tf_cb2matter
-      sync all; call toc(99); if (head) print*,'  real time =  ',tcat(99,istep),'secs';
+      call toc(99); if (head) print*,'  real time =  ',tcat(99,istep),'secs';
       if (head) print*,''
       if (head) print*,''
    endif
