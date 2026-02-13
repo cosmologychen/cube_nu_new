@@ -117,7 +117,7 @@ def interp_pk(z,s,k_new):
     return new_Pk0
 
 def get_f_nr(z):
-    y = Mass_nu/3/(sigma_nu*N_eff*k_b*T_gama*(1+z))
+    y = Mass_nu/(sigma_nu*N_eff*K_b*T_gama*(1+z))
     Fy=integrate.quad(lambda u: (u**2*np.sqrt(u**2+y**2))/(1+np.exp(u)), 0,300)[0]
     f1=integrate.quad(lambda u: (u**2)/((1+np.exp(u))*np.sqrt(u**2+y**2)), 0,300)[0]
     f_nr = y**2*f1/Fy#*f_nu
@@ -130,12 +130,14 @@ def get_Pk_nonlin_CDM(n):
     for i in range(0,nz):
         z_n=z_nonlin[i*n_PK:(i+1)*n_PK]
         pars = camb.CAMBparams()
-        pars.set_cosmology(H0=H0, ombh2=ombh2, omch2=omch2, omk=omk, neutrino_hierarchy=neutrino_hierarchy, num_massive_neutrinos=num_massive_neutrinos, mnu=mnu, nnu=nnu, standard_neutrino_neff=standard_neutrino_neff)
+        pars.set_cosmology(H0=H0, ombh2=ombh2, omch2=omch2, omk=omk, neutrino_hierarchy=neutrino_hierarchy, num_massive_neutrinos=num_massive_neutrinos, mnu=mnu, nnu=nnu, standard_neutrino_neff=standard_neutrino_neff,tau=0.0611,YHe=0.245383,Alens=1.0026)
         pars.omch2=omch2-pars.omnuh2
         pars.InitPower.set_params(As=As,ns=ns)
         print('i = %d/%d;z_max = %.3f;len = %d'%(i+1,nz,z_n[-1],len(z_n)))
         pars.set_matter_power(redshifts=z_n, kmax=k_ic_max, nonlinear=True)
         pars.NonLinear = camb.model.NonLinear_both
+        pars.NonLinearModel.set_params(halofit_version='takahashi')
+        print(pars)
         results = camb.get_results(pars)
         kh_nonlin, z_nonlin[i*n_PK:i*n_PK+len(z_n)],Pk_nonlin_CDM[i*n_PK:i*n_PK+len(z_n)]= results.get_matter_power_spectrum(minkh=k_ic_min, maxkh=k_ic_max, npoints = npbin,var1='delta_nonu',var2='delta_nonu')
         _, _                                        ,Pk_nonlin_nu[i*n_PK:i*n_PK+len(z_n)]= results.get_matter_power_spectrum(minkh=k_ic_min, maxkh=k_ic_max, npoints = npbin,var1='delta_nu'  ,var2='delta_nu')
@@ -168,15 +170,17 @@ if (1):
 
     mnu=m_nus.sum()
     if (mnu>0) :
-        if (np.all(m_nus == m_nus[0])):
-            neutrino_hierarchy = 'degenerate'
-            num_massive_neutrinos=3
-        elif (m_nus[0] < m_nus[2]):
-            neutrino_hierarchy = 'normal'
-            num_massive_neutrinos=3
-        elif (m_nus[0] > m_nus[2]):
-            neutrino_hierarchy = 'inverted'
-            num_massive_neutrinos=2
+    #    if (np.all(m_nus == m_nus[0])):
+    #        neutrino_hierarchy = 'degenerate'
+    #        num_massive_neutrinos=3
+    #    elif (m_nus[0] < m_nus[2]):
+    #        neutrino_hierarchy = 'normal'
+    #        num_massive_neutrinos=3
+    #   elif (m_nus[0] > m_nus[2]):
+    #       neutrino_hierarchy = 'inverted'
+    #       num_massive_neutrinos=2
+        neutrino_hierarchy = 'degenerate'
+        num_massive_neutrinos=1
     else:
         neutrino_hierarchy = 'degenerate'
         num_massive_neutrinos=0
@@ -194,31 +198,23 @@ if (1):
     nns = match_para('nns')
     nnt = match_para('nnt')
     nn = match_para('nn')
-    ngp = ng/nnt
     ngb = match_para('ngb')
     istep_max = match_para('istep_max')
-    ngt=ngp+2*ngb 
-    nfp=(ngp/nns)*ratio_sf
-    nfb=ratio_sf*ratio_cs
-    nft=nfp+2*nfb
-    cic_iapm = 6-1#int(match_para('cic_iapm'))-1
-    tile = box/nn/nnt*ngt/ngp
-    nw = ng/ratio_cs
-    nw_global=nw*nn
-    nyquist=nw_global/2
-    subtile = box/nn/nnt/nns*(nft[cic_iapm]/nfp[cic_iapm])
-    ncbin = int(nyquist*np.sqrt(3.))+1
-    nnbin= int(np.max([nft[cic_iapm],ngt])/2*np.sqrt(3.))+1
-    npbin  = ncbin+nnbin+21
+    nc =  ng/nnt
+    ng_global = ng*nn
+    k_smooth = max(10.0,ng_global*pi/box)
+    nfg = min(np.ceil((k_smooth*box/pi/nn) / nc)*nc,ng*1.)
+    nfg_global=nfg*nn
+    npbin=int(nfg_global/2*np.sqrt(3.))+22
     kmin = 2*pi/box
-    kmax = 2*pi/(box/nn/nnt/nns/nfp[cic_iapm]*2/np.sqrt(3))
+    kmax = pi/box*nfg_global*np.sqrt(3)
     ombh2 = omega_bar*(H0/100)**2
     omch2 = omega_cdm*(H0/100)**2
 
     sigma_nu = (4/11)**(1/3)
     N_nu = 3
     N_eff = standard_neutrino_neff
-    k_b = 8.617342e-5
+    K_b = 8.617342e-5
     T_gama = 2.7255
     Mass_nu = mnu
     omega_m = omega_bar+omega_cdm
@@ -241,7 +237,7 @@ if (1):
     print(f"Variable value of nupath : {nupath}")
     print('\n'+('+'*40+'\n')*2)
     print('Cosmology  Paras:\n\n   omega_r:   %.6f\n   omega_b:   %.6f\n   omega_c:   %.6f\n   omega_l:   %.6f\n   mass_nu:   %.3f              eV\n  mass_nus:   %.3f %.3f %.3f %s  eV\n      f_nu:   %.6f\n\n'%(omega_r,omega_bar,omega_cdm,omega_l,Mass_nu,m_nus[0],m_nus[1],m_nus[2],neutrino_hierarchy,f_nu))
-    print('Simulation Paras:\n\n     npbin:   %d\n     ncbin:   %d\n     nnbin:   %d\n      kmin:   %.3f\n      kmax:   %.3f\n\n\n'%(npbin,ncbin,nnbin,kmin,kmax))
+    print('Simulation Paras:\n\n     nfg:   %d\n     npbin:   %d\n     kmin:   %.3f\n      kmax:   %.3f\n\n\n'%(nfg,npbin,kmin,kmax))
 
 
 
@@ -267,6 +263,8 @@ try:
     os.system('mkdir -p '+nupath+'/Pk_m')
     os.system('mkdir -p '+nupath+'/Pk_nu')
     os.system('mkdir -p '+nupath+'/Pk_nus')
+    os.system('mkdir -p '+nupath+'/sqrt_pk_nu1')
+    os.system('mkdir -p '+nupath+'/sqrt_pk_nu2')
     os.system('mkdir -p %s/IC'%(nupath))
 except:
     None
@@ -288,30 +286,35 @@ z_nonlin=get_z(n)
 if (all_camb):
     print('all_camb')
     par = camb.CAMBparams()
-    par.set_cosmology(H0=H0, ombh2=ombh2, omch2=omch2, omk=omk, neutrino_hierarchy=neutrino_hierarchy, num_massive_neutrinos= num_massive_neutrinos, mnu= mnu, nnu= nnu, standard_neutrino_neff= standard_neutrino_neff)
+    par.set_cosmology(H0=H0, ombh2=ombh2, omch2=omch2, omk=omk, neutrino_hierarchy=neutrino_hierarchy, num_massive_neutrinos= num_massive_neutrinos, mnu= mnu, nnu= nnu, standard_neutrino_neff= standard_neutrino_neff,tau=0.0611,YHe=0.245383,Alens=1.0026)
     par.omch2=omch2-par.omnuh2
     par.InitPower.set_params(As=As,ns=ns)
     par.set_matter_power(redshifts=[z_max], kmax=k_ic_max, nonlinear=True)
     par.NonLinear = camb.model.NonLinear_both
+    par.NonLinearModel.set_params(halofit_version='takahashi')
+    print(par)
     result = camb.get_results(par)
     kh_ic, _,Pk_cb_ic= result.get_matter_power_spectrum(minkh=k_ic_min, maxkh=k_ic_max, npoints = npbin,var1='delta_nonu',var2='delta_nonu')
     Pk_cb_ic = Pk_cb_ic[0]
-    if (neutrino_hierarchy == 'degenerate'):
-        print('neutrino_hierarchy = degenerate')
-        kh_ic, _,Pk_nu_ic= result.get_matter_power_spectrum(minkh=k_ic_min, maxkh=k_ic_max, npoints = npbin,var1='delta_nu'  ,var2='delta_nu')
-        Pk_nu_ic = [Pk_nu_ic[0],Pk_nu_ic[0],Pk_nu_ic[0]]#list(np.zeros(npbin)),list(np.zeros(npbin))]
-    else :
+    if (1):
+    #if (neutrino_hierarchy == 'degenerate'):
+    #    print('neutrino_hierarchy = degenerate')
+    #    kh_ic, _,Pk_nu_ic= result.get_matter_power_spectrum(minkh=k_ic_min, maxkh=k_ic_max, npoints = npbin,var1='delta_nu'  ,var2='delta_nu')
+    #    Pk_nu_ic = [Pk_nu_ic[0],Pk_nu_ic[0],Pk_nu_ic[0]]#list(np.zeros(npbin)),list(np.zeros(npbin))]
+    #else :
         Pk_nu_ic=[0,0,0]
         i=0
         for m_nu_i in m_nus:
-            print(i,'m_nu = ',m_nu_i)
             if (m_nu_i >0):
+                print(i,'m_nu = ',m_nu_i)
                 par = camb.CAMBparams()
-                par.set_cosmology(H0=H0, ombh2=ombh2, omch2=omch2, omk=omk, neutrino_hierarchy='degenerate', num_massive_neutrinos=1, mnu=m_nu_i, nnu=nnu, standard_neutrino_neff=standard_neutrino_neff)
+                par.set_cosmology(H0=H0, ombh2=ombh2, omch2=omch2, omk=omk, neutrino_hierarchy='degenerate', num_massive_neutrinos=1, mnu=m_nu_i, nnu=nnu, standard_neutrino_neff=standard_neutrino_neff,tau=0.0611,YHe=0.245383,Alens=1.0026)
                 par.omch2=omch2-par.omnuh2
                 par.InitPower.set_params(As=As,ns=ns)
                 par.set_matter_power(redshifts=[z_max], kmax=k_ic_max, nonlinear=True)
                 par.NonLinear = camb.model.NonLinear_both
+                par.NonLinearModel.set_params(halofit_version='takahashi')
+                print(par)
                 result1 = camb.get_results(par)
                 kh_ic, _,Pk_nu_ic_i= result1.get_matter_power_spectrum(minkh=k_ic_min, maxkh=k_ic_max, npoints = npbin,var1='delta_nu'  ,var2='delta_nu')
                 Pk_nu_ic[i]=Pk_nu_ic_i[0]
@@ -350,26 +353,21 @@ print('calculating Expansion History')
 n_a = int(istep_max)
 dt0 = 5e-4
 t = -np.arange(n_a)*dt0
-H_ex = np.ones(n_a)*H0
-tau = np.ones(n_a)
-a_ex = np.zeros(n_a)
+a_ex = np.ones(n_a)
 a_ex[0] = 1
-tau[0] = taua(1)
 for i in range(n_a-1):
     Hai = Ha(a_ex[i])
-    H_ex[i] = Hai
     a_ex[i+1] = -omHsq*Hai*a_ex[i]**3 * dt0 +a_ex[i]
     dz = 1/a_ex[i]-1/a_ex[i+1]
-    tau[i+1]  = tau[i]+(1/Hz(1/a_ex[i]-1)+2/Hz(1/a_ex[i]-1+dz)+2/Hz(1/a_ex[i+1]-1-dz)+1/Hz(1/a_ex[i+1]-1))*dz/6
 
     if (a_ex[i+1]<=1./301 or np.isnan(a_ex[i+1])):
         break
 i_end = i
 T2 = time.time()
-tau[-1] = taua(1/201)
-# tau = 299792.458*tau
+tau =  result.conformal_time(1/a_ex-1)/299792.458
+tau[-1] = Hz(z_max) ### 用tau的最后一个值来存H_i
 os.system('rm '+nupath+'/*.txt')
-np.savetxt(nupath+'/s_a_tau_H.txt',np.array([t,a_ex,tau,H_ex]))
+np.savetxt(nupath+'/s_a_tau_H.txt',np.array([t,a_ex,tau]))
 print("EH:\n\n      time:   %.2f seconds\n      step:   %d\n      save:   '%s'\n\n\n"%(T2-T1,i_end,nupath+'/s_a_tau_H.txt'))
 
 print('get Pk')

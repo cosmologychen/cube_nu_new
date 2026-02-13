@@ -1,11 +1,11 @@
 #OPTIONS+=-CB
 OPTIONS+=-DPID
-OPTIONS+=-DZIPX
+#OPTIONS+=-DZIPX
 #OPTIONS+=-DHALOFIND
 #OPTIONS+=-DSPEEDTEST
 
 MODFILE:=$(wildcard *.f90)
-OBJFILE:= Green.o  power_nu.o $(addprefix ,$(notdir $(MODFILE:.f90=.o))) cicpower_segment.o
+OBJFILE:= Green.o  power_nu.o $(addprefix ,$(notdir $(MODFILE:.f90=.o))) cicpower_global.o
 
 all: main.x
 	@echo "done"
@@ -20,9 +20,9 @@ parameters.o: Makefile basic_functions.f08
 variables.o: parameters.o
 pencil_fft.o: parameters.o
 pencil_fft_global.o: parameters.o
-cicpower_segment.o: ./neutrinos/cicpower_segment.f90 variables.o cubefft.o pencil_fft.o pencil_fft_global.o parameters.o
+cicpower_global.o: ./neutrinos/cicpower_global.f90 variables.o cubefft.o pencil_fft.o pencil_fft_global.o parameters.o
 	$(FC) $(OFLAG) $(OPTIONS) $< -o $@ $(FFTFLAG)
-power_nu.o: ./neutrinos/power_nu.f90 pencil_fft.o cicpower_segment.o
+power_nu.o: ./neutrinos/power_nu.f90 pencil_fft.o cicpower_global.o
 	$(FC) $(OFLAG) $(OPTIONS) $< -o $@ $(FFTFLAG)
 timestep.0: power_nu.o variables.o 
 particle_mesh.o: variables.o pencil_fft.o cubefft.o power_nu.o

@@ -8,11 +8,13 @@ subroutine finalize
   include 'fftw3.f'
   istep = istep+1
   a_step(istep)=1
-  ! if (Mass_nu > 0) call get_tf_cb2matter
   call destroy_cubefft_plan
   call destroy_penfft_plan
   
-  if (Mass_nu > 0) deallocate(Gk1,Gk2,Gk3_2,Gk3_4,Gk3_6,Gk3_8,Gk3_12)!,Gk3_16)
+  if (Mass_nu > 0) then
+    call get_tf_cb2matter
+    deallocate(Gk1,Gk2,Gk3_2,Gk3_4,Gk3_6,Gk3_8)!,Gk3_12)!,Gk3_16)
+  endif
   deallocate(xp,xp_new,vp,vp_new,rhoc)
 #ifdef PID
   deallocate(pid,pid_new)

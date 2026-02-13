@@ -5,7 +5,7 @@ subroutine particle_initialization
 #else
    use variables, only: xp,xp_new,vp,vp_new
 #endif
-   use variables, only: sigma_vi,np_image_max,np_tile_max,Pk_step,Pk_cb_check,Pk_nu_check,a_step,tau_step,sf_step,kh_lin,s_f
+   use variables, only: sigma_vi,np_image_max,np_tile_max,sPk_step,Pk_cb_check,Pk_nu_check,a_step,tau_step,sf_step,kh_lin,s_f,sPk_nu_ic
 ! #ifdef ZIPX
    use variables, only: rhoc
 ! #endif
@@ -95,11 +95,13 @@ subroutine particle_initialization
       if (head) print*,Mass_nu
       ! sim%cur_powerpoint = sim%cur_powerpoint-1
       open(16,file=output_name('steps'),status='old',access='stream')
-      read(16) Pk_step
+      read(16) sPk_step
       read(16) Pk_cb_check
       read(16) a_step
       read(16) tau_step
       read(16) sf_step
+      read(16) kh_lin
+      read(16) sPk_nu_ic
       close(16)
 
       if (calculate_PK == -1) then
@@ -114,8 +116,8 @@ subroutine particle_initialization
       if (head) then
          print*,'init '
          print*,' s_f     :',sf_step(sim%timestep-1),sim%timestep
-         print*,' Pk_0    :',Pk_step(1:4,sim%timestep)
-         print*,' Pk_-1   :',Pk_step(1:4,sim%timestep-1)
+         print*,' Pk_0    :',sPk_step(1:4,sim%timestep)**2
+         print*,' Pk_-1   :',sPk_step(1:4,sim%timestep-1)**2
          print*,' Pk_check:',Pk_cb_check(1:4,sim%cur_powerpoint)
          print*,' a       :',a_step(1),a_step(sim%timestep-2:sim%timestep)
          print*,' tau     :',tau_step(1),tau_step(sim%timestep-2:sim%timestep)

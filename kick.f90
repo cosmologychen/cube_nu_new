@@ -6,7 +6,7 @@ subroutine kick
    use power_nu
    implicit none
 
-   logical,parameter :: PM3=.true.
+  logical,parameter :: PM3=.true.
    logical,parameter :: PP=.true.
    logical,parameter :: PP_corr=.true.
    logical,parameter :: speedtest=.false.
@@ -25,7 +25,7 @@ subroutine kick
    if (Mass_nu > 0) then
       call tic(99)
       call get_tf_cb2matter
-      sync all; call toc(99); if (head) print*,'  real time =  ',tcat(99,istep),'secs';
+      call toc(99); if (head) print*,'  real time =  ',tcat(99,istep),'secs';
       if (head) print*,''
       if (head) print*,''
    endif
@@ -135,8 +135,8 @@ subroutine kick
       enddo
       call indexed_sort(ns3,-npc_max,isort)
       !print*,npc_max
-      print*,isort
-      print*,npc_max(isort)
+      ! print*,isort
+      ! print*,npc_max(isort)
    endif  ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    sync all
 

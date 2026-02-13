@@ -7,17 +7,17 @@ module variables
    ! integer(8) nntpk,nnspk
    ! integer(4),allocatable :: ntpk(:),nspk(:)
    ! real(4),allocatable :: rand_num(:)pic
-   real stime(istep_max),s2a(istep_max),s2tau(istep_max),s2H(istep_max)
+   real stime(istep_max),s2a(istep_max),s2tau(istep_max)
    real dtau,H_i,H_0
    character(20) str_z,str_i
    ! real tf_nu(nk),
-   real(4) Pk_cb_check(npbin,nmax_redshift),Pk_nu_check(npbin,nmax_redshift),Pk_step(npbin,0:istep_max),Pk_nus(npbin,3),Pk_nu(npbin),Pk_nu_ic(npbin,3),sq_Pk_nu_ic(npbin,3)
+   real(4) Pk_cb_check(npbin,nmax_redshift),Pk_nu_check(npbin,nmax_redshift),sPk_step(npbin,0:istep_max),sPk_nus(npbin,3),sPk_nu(npbin),Pk_nu_ic(npbin,3),sPk_nu_ic(npbin,3)
 
 
-   real(8) m_nu_2d(npbin,3)
+   real(8) k_mnu_2d(npbin,3)
    real s_f,s_fi,k_fs,f_nr(3)
    real a_step(0:istep_max)[*],tau_step(0:istep_max)[*],sf_step(0:istep_max)[*]
-   real kh_lin(npbin),kh_lin_log(npbin),kh_lin_2d(npbin,3)
+   real kh_lin(npbin),kh_lin_log(npbin)
    real tf_F(npbin)[*],tf_F_log(npbin),tf_pp! transfer function array for neutrinos
    real tf1(nw_global/2+1,nw,npen),tf2(ngt/2+1,ngt,ngt),tf3_2(nft(2)/2+1,nft(2),nft(2))
    real tf3_4(nft(3)/2+1,nft(3),nft(3)),tf3_6(nft(4)/2+1,nft(4),nft(4)),tf3_8(nft(5)/2+1,nft(5),nft(5))!,tf3_12(nft(6)/2+1,nft(6),nft(6))
@@ -31,7 +31,7 @@ module variables
    real,parameter :: G_grid=1.0/6.0/pi
 
    integer ifs,itx,ity,itz,ifx,ify,ifz,iapm,napm(7)[*]
-   integer(8) plan1,plan2(nteam),plan3(nteam,2:7),iplan1,iplan2(nteam),iplan3(nteam,2:7),plan0,iplan0,plan2p(nteam),plan3p(nteam)!,iplan2p(nteam),iplan3p(nteam,2:7) ! FFT plans
+   integer(8) plan1,plan2(nteam),plan3(nteam,2:7),iplan1,iplan2(nteam),iplan3(nteam,2:7),plan0,iplan0 ! FFT plans
    integer(4) ijk(3,n_neighbor),iteam,ipm2,ipm3,ixyz2(3,nnt**3),ixyz3(6,(nnt*nns)**3)
    integer(OMP_integer_kind) ith,nth
 
@@ -40,7 +40,7 @@ module variables
    real(8) testrho,std_vsim_c[*],std_vsim_res[*],std_vsim[*]
 
    real,allocatable :: Gk1(:,:,:),Gk2(:,:,:),Gk3_2(:,:,:),Gk3_4(:,:,:)
-   real,allocatable :: Gk3_6(:,:,:),Gk3_8(:,:,:),Gk3_12(:,:,:),Gk3_16(:,:,:),Gk0(:,:,:) ! Green's functions
+   real,allocatable :: Gk3_6(:,:,:),Gk3_8(:,:,:)!,Gk3_12(:,:,:),Gk3_16(:,:,:),Gk0(:,:,:) ! Green's functions
 
    integer(4),allocatable :: rhoc(:,:,:,:,:,:)[:,:,:]
 #ifdef ZIPX
@@ -70,28 +70,24 @@ module variables
    real rho2(1-ngb:ngp+ngb+2,1-ngb:ngp+ngb,1-ngb:ngp+ngb,nteam)
    complex rho2k(ngt/2+1,ngt,ngt,nteam)
    equivalence(rho2,rho2k)
-   real rho2p(ngp+2,ngp,ngp,nteam),rho3p(nfp(cic_iapm)+2,nfp(cic_iapm),nfp(cic_iapm),nteam)
-   complex rho2kp(ngp/2+1,ngp,ngp,nteam),rho3kp(nfp(cic_iapm)/2+1,nfp(cic_iapm),nfp(cic_iapm),nteam)
-   equivalence(rho2p,rho2kp)
-   equivalence(rho3p,rho3kp)
 !#ifdef skip
    real rho3_2(1-nfb(2):nfp(2)+nfb(2)+2,1-nfb(2):nfp(2)+nfb(2),1-nfb(2):nfp(2)+nfb(2),nteam)
    real rho3_4(1-nfb(3):nfp(3)+nfb(3)+2,1-nfb(3):nfp(3)+nfb(3),1-nfb(3):nfp(3)+nfb(3),nteam)
    real rho3_6(1-nfb(4):nfp(4)+nfb(4)+2,1-nfb(4):nfp(4)+nfb(4),1-nfb(4):nfp(4)+nfb(4),nteam)
    real rho3_8(1-nfb(5):nfp(5)+nfb(5)+2,1-nfb(5):nfp(5)+nfb(5),1-nfb(5):nfp(5)+nfb(5),nteam)
-   real rho3_12(1-nfb(6):nfp(6)+nfb(6)+2,1-nfb(6):nfp(6)+nfb(6),1-nfb(6):nfp(6)+nfb(6),nteam)
+   !real rho3_12(1-nfb(6):nfp(6)+nfb(6)+2,1-nfb(6):nfp(6)+nfb(6),1-nfb(6):nfp(6)+nfb(6),nteam)
    !real rho3_16(1-nfb(7):nfp(7)+nfb(7)+2,1-nfb(7):nfp(7)+nfb(7),1-nfb(7):nfp(7)+nfb(7))
    complex rho3k_2(nft(2)/2+1,nft(2),nft(2),nteam)
    complex rho3k_4(nft(3)/2+1,nft(3),nft(3),nteam)
    complex rho3k_6(nft(4)/2+1,nft(4),nft(4),nteam)
    complex rho3k_8(nft(5)/2+1,nft(5),nft(5),nteam)
-   complex rho3k_12(nft(6)/2+1,nft(6),nft(6),nteam)
+   !complex rho3k_12(nft(6)/2+1,nft(6),nft(6),nteam)
    !complex rho3k_16(nft(7)/2+1,nft(7),nft(7))
    equivalence(rho3_2,rho3k_2)
    equivalence(rho3_4,rho3k_4)
    equivalence(rho3_6,rho3k_6)
    equivalence(rho3_8,rho3k_8)
-   equivalence(rho3_12,rho3k_12)
+   !equivalence(rho3_12,rho3k_12)
    !equivalence(rho3_16,rho3k_16)
 !#endif
 

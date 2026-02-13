@@ -80,8 +80,9 @@ subroutine initialize
    read(10,*) stime
    read(10,*) s2a
    read(10,*) s2tau
-   read(10,*) s2H
    close(10)
+   H_0 = h0*100
+   H_i = s2tau(istep_max)
    s_fi = 0
    s_fi = sf_a(1./(1+z_checkpoint(1)))
 
@@ -90,30 +91,17 @@ subroutine initialize
    sim%cur_powerpoint=1
    z_powerpoint=-9999
    power_step=.false.
-   a_step = 0
-   tau_step = 0
-   Pk_step = 0
+   a_step = -1
+   tau_step = -1
+   sPk_step = -1
    Pk_cb_check =0
    Pk_nu_check =0
    if (Mass_nu > 0) then
       if (head) then
          print*,'init nu_info'
-         if (calculate_PK <2) then
-            print*,'  npb ncb nnb',npbin,ncbin,nnbin
-            print*,'  tile subtile',tile,subtile
-         else
-            print*,'  nft,ngt',nfp(cic_iapm),ngp
-            print*,'  nftg,ngtg',(nfp(cic_iapm)*nnt*nns*1.),(ngp*nnt*1.)
-            print*,'  npb ncb nnb',npbin,ncbin,nnbin
-            print*,'  npb ngb',npbin,ngbin
-            print*,'  nfg nfg_global',nfg,nfg_global
-         endif
          print*,'  z_nu_start f_nu',1/a_nu-1,f_nu
          print*,'  nupath:',nupath
       endif
-
-      H_i = H_a(1/(z_checkpoint(1)+1))
-      H_0 = h0*100
 
       open(16,file=nupath//'z_powerpoint.txt',status='old')
       do i=1,nmax_redshift-1
@@ -134,16 +122,12 @@ subroutine initialize
          read(10,*) Pk_nu_check(:,i)
          close(10)
       enddo
-      Pk_step(:,0)=Pk_cb_check(:,1)
+      sPk_step(:,0)=sqrt(Pk_cb_check(:,1))
 
       open(10,file=nupath//'IC/Pnu_ic.txt',form='formatted')
       read(10,*) Pk_nu_ic
       close(10)
-      ! print*,'  Pk_nu_ic1',Pk_nu_ic(1,1),Pk_nu_ic(npbin/3,1),Pk_nu_ic(npbin/3*2,1),Pk_nu_ic(npbin,1)
-      ! print*,'  Pk_nu_ic2',Pk_nu_ic(1,2),Pk_nu_ic(npbin/3,2),Pk_nu_ic(npbin/3*2,2),Pk_nu_ic(npbin,2)
-      ! print*,'  Pk_nu_ic3',Pk_nu_ic(1,3),Pk_nu_ic(npbin/3,3),Pk_nu_ic(npbin/3*2,3),Pk_nu_ic(npbin,3)
-      ! stop
-      sq_Pk_nu_ic = sqrt(Pk_nu_ic)
+      sPk_nu_ic = sqrt(Pk_nu_ic)
 
       kh_lin = -1
       open(13,file=nupath//'k_values.txt',status='old')
@@ -152,14 +136,12 @@ subroutine initialize
       enddo
 75    close(13)
       kh_lin_log = log(kh_lin)
-      kh_lin_2d = spread(kh_lin, dim=2, ncopies=3)
       if (head) print*,'k',kh_lin(1),kh_lin(2),kh_lin(npbin)
 
       do i=1,3
-         m_nu_2d(:,i)=spread(1, dim=1, ncopies=npbin)
-         if (m_nu(i) /= 0) m_nu_2d(:,i)=spread(m_nu(i), dim=1, ncopies=npbin)
+         k_mnu_2d(:,i)=spread(0, dim=1, ncopies=npbin)
+         if (m_nu(i) /= 0) k_mnu_2d(:,i)=kh_lin/spread(m_nu(i), dim=1, ncopies=npbin)
       enddo
-      if(head) print*, 'm_nu_2d',m_nu_2d(1,:)
    endif
 
 

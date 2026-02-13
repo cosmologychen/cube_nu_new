@@ -25,54 +25,54 @@ contains
       call system_clock(tt1,t_rate)
       call c2x_global
       sync all; call system_clock(tt2,t_rate); if (head) print*,'     c2x_global',real(tt2-tt1)/t_rate
-      call flush(6)
+      !call flush(6)
       sync all
 
       call system_clock(tt1,t_rate)
       call sfftw_execute(planx_global)
       sync all; call system_clock(tt2,t_rate); if (head) print*,'     xtran_global',real(tt2-tt1)/t_rate
-      call flush(6)
+      !call flush(6)
       sync all
 
       call system_clock(tt1,t_rate)
       call x2y_global
       sync all; call system_clock(tt2,t_rate); if (head) print*,'     x2y_global',real(tt2-tt1)/t_rate
-      call flush(6)
+      !call flush(6)
       sync all
 
       call system_clock(tt1,t_rate)
       call sfftw_execute(plany_global)
       sync all; call system_clock(tt2,t_rate); if (head) print*,'     ytran_global',real(tt2-tt1)/t_rate
-      call flush(6)
+      !call flush(6)
       sync all
 
       call system_clock(tt1,t_rate)
       call y2z_global
       sync all; call system_clock(tt2,t_rate); if (head) print*,'     y2z_global',real(tt2-tt1)/t_rate
-      call flush(6)
+      !call flush(6)
       sync all
 
       call system_clock(tt1,t_rate)
       call sfftw_execute(planz_global)
       sync all; call system_clock(tt2,t_rate); if (head) print*,'     ztran_global',real(tt2-tt1)/t_rate
-      call flush(6)
+      !call flush(6)
       sync all
 
       call system_clock(tt1,t_rate)
       call z2y_global
       sync all; call system_clock(tt2,t_rate); if (head) print*,'     z2y_global',real(tt2-tt1)/t_rate
-      call flush(6)
+      !call flush(6)
       sync all
 
       call system_clock(tt1,t_rate)
       call y2x_global
       sync all; call system_clock(tt2,t_rate); if (head) print*,'     y2x_global',real(tt2-tt1)/t_rate
-      call flush(6)
+      !call flush(6)
       sync all
       
       cxyz_global=cxyz_global/nfg_global/nfg_global/nfg_global
       sync all; call system_clock(ttt2,t_rate); if (head) print*,'     pen_forward_global time',real(ttt2-ttt1)/t_rate
-      call flush(6)
+      !call flush(6)
       sync all
       ! stop
    endsubroutine
@@ -101,8 +101,8 @@ contains
       integer(8) i1,islab
       complex,allocatable :: ctransfer(:,:,:)[:,:,:]
 
-      print*,image
-      call flush(6)
+     ! print*,image
+      !call flush(6)
       sync all
 
       rho1k_global=cmplx(rho1_global(1::2,:,:),rho1_global(2::2,:,:))
@@ -120,8 +120,8 @@ contains
          sync all
       enddo
       deallocate(ctransfer)
-      print*,'a',image
-      call flush(6)
+      !print*,'a',image
+      !call flush(6)
       sync all
    endsubroutine
 
@@ -132,8 +132,8 @@ contains
       integer(8) i1,islab
       complex,allocatable :: ctransfer(:,:,:)[:,:,:]
 
-      print*,image
-      call flush(6)
+     ! print*,image
+      !call flush(6)
       sync all
 
       allocate(ctransfer(nfg,nfg/2+1,nn)[nn,nn,*])
@@ -150,8 +150,8 @@ contains
       enddo
       deallocate(ctransfer)
       sync all
-      print*,'a',image
-      call flush(6)
+      !print*,'a',image
+      !call flush(6)
       sync all
    endsubroutine
 
@@ -162,8 +162,8 @@ contains
       integer(8) i1,i2,islab
       complex,allocatable :: ctransfer(:,:,:,:)[:,:,:]
 
-      print*,image
-      call flush(6)
+     ! print*,image
+      !call flush(6)
       sync all
 
       allocate(ctransfer((nfg/nn),(nfg/nn),nn,nn)[nn,nn,*])
@@ -184,8 +184,8 @@ contains
       enddo
       deallocate(ctransfer)
       sync all
-      print*,'a',image
-      call flush(6)
+      !print*,'a',image
+      !call flush(6)
       sync all
    endsubroutine
 
@@ -195,8 +195,8 @@ contains
       integer(8) i1,i2,islab
       complex,allocatable :: ctransfer(:,:,:,:)[:,:,:]
 
-      print*,image
-      call flush(6)
+     ! print*,image
+      !call flush(6)
       sync all
 
       allocate(ctransfer((nfg/nn),(nfg/nn),nn,nn)[nn,nn,*])
@@ -218,8 +218,8 @@ contains
       enddo
       deallocate(ctransfer)
       sync all
-      print*,'a',image
-      call flush(6)
+      !print*,'a',image
+      !call flush(6)
       sync all
    endsubroutine
 
@@ -229,8 +229,8 @@ contains
       integer(8) i1,islab
       complex,allocatable :: ctransfer(:,:,:)[:,:,:]
 
-      print*,image
-      call flush(6)
+     ! print*,image
+      !call flush(6)
       sync all
 
       allocate(ctransfer(nfg/2+1,nfg,nn)[nn,nn,*])
@@ -247,8 +247,8 @@ contains
       enddo
       deallocate(ctransfer)
       sync all
-      print*,'a',image
-      call flush(6)
+      !print*,'a',image
+      !call flush(6)
       sync all
    endsubroutine
 
@@ -294,11 +294,8 @@ contains
                czzzxy_global((nfg/nn),nn,nn,nfg/2+1,(nfg/nn))[nn,nn,*])
 
       call sfftw_plan_many_dft_r2c(planx_global,1,nfg_global,nfg*(nfg/nn),cxyz_global,NULL_global,1,nfg_global+2,cxyz_global,NULL_global,1,nfg_global/2+1,FFTW_MEASURE)
-      ! call sfftw_plan_many_dft_c2r(iplanx_global,1,nfg_global,nfg*(nfg/nn),cxyz_global,NULL_global,1,nfg_global/2+1,cxyz_global,NULL_global,1,nfg_global+2,FFTW_MEASURE)
       call sfftw_plan_many_dft(plany_global,1,nfg_global,(nfg/2+1)*(nfg/nn),cyyxz_global,NULL_global,1,nfg_global,cyyxz_global,NULL_global,1,nfg_global,FFTW_FORWARD,FFTW_MEASURE)
-      ! call sfftw_plan_many_dft(iplany_global,1,nfg_global,(nfg/2+1)*(nfg/nn),cyyxz_global,NULL_global,1,nfg_global,cyyxz_global,NULL_global,1,nfg_global,FFTW_BACKWARD,FFTW_MEASURE)
       call sfftw_plan_many_dft(planz_global,1,nfg_global,(nfg/2+1)*(nfg/nn),czzzxy_global,NULL_global,1,nfg_global,czzzxy_global,NULL_global,1,nfg_global,FFTW_FORWARD,FFTW_MEASURE)
-      ! call sfftw_plan_many_dft(iplanz_global,1,nfg_global,(nfg/2+1)*(nfg/nn),czzzxy_global,NULL_global,1,nfg_global,czzzxy_global,NULL_global,1,nfg_global,FFTW_BACKWARD,FFTW_MEASURE)
       sync all
    endsubroutine
 
@@ -310,11 +307,8 @@ contains
       deallocate(rho1_global,rho1k_global,cxyz_global,cyyxz_global,czzzxy_global)
 
       call sfftw_destroy_plan(planx_global)
-      ! call sfftw_destroy_plan(iplanx_global)
       call sfftw_destroy_plan(plany_global)
-      ! call sfftw_destroy_plan(iplany_global)
       call sfftw_destroy_plan(planz_global)
-      ! call sfftw_destroy_plan(iplanz_global)
       sync all
    endsubroutine
 endmodule

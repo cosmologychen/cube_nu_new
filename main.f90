@@ -72,12 +72,17 @@ use variables
       enddo
    endif
 #else
-   sim%cur_checkpoint=1
+   sim%cur_checkpoint=61
    call initialize
    call particle_initialization
    call buffer_grid
    call buffer_x
    call buffer_v
+   if (sim%cur_powerpoint == 1 .and. Mass_nu > 0 ) then
+      power_step = .true.
+      call interp_Pk_CDM
+      sim%cur_powerpoint = 2
+   endif
    sim%cur_checkpoint = sim%cur_checkpoint+1
    sim%cur_halofind = sim%cur_halofind+1
    ! print*,'checkpoint ',sim%cur_checkpoint
@@ -100,10 +105,10 @@ use variables
          if (checkpoint_step) then
             call checkpoint
             sim%cur_checkpoint = sim%cur_checkpoint+1
-            if (sim%cur_checkpoint .eq. 73) then
-               final_step=.true.
-               print*, '  final checkpoint'
-            endif
+            !if (sim%cur_checkpoint .eq. 73) then
+            !   final_step=.true.
+            !   print*, '  final checkpoint'
+            !endif
          endif
          call buffer_grid
          call buffer_x

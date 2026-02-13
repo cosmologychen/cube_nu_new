@@ -10,12 +10,12 @@ OBJFILE:=$(addprefix ,$(notdir $(MODEFILE:.f90=.o)))
 
 all: test.x
 	@echo "made:" $^
-test.x: variables.o cubefft.o pencil_fft.o powerspectrum.o parameters.o power_nu.o test.o cicpower_segment.o
+test.x: variables.o cubefft.o pencil_fft.o powerspectrum.o parameters.o power_nu.o test.o cicpower_global.o
 	$(FC) $(XFLAG) $(OPTIONS) $(FFTFLAG) $^ -o $@
 
 parameters.o: Makefile ../basic_functions.f08
 variables.o: parameters.o
-power_nu.o: variables.o parameters.o cicpower_segment.o
+power_nu.o: variables.o parameters.o cicpower_global.o
 test.o: power_nu.o variables.o parameters.o power_nu.o
 
 parameters.o: ../parameters.f90
@@ -28,9 +28,9 @@ cubefft.o: ../cubefft.f90 parameters.o variables.o
 	$(FC) $(OFLAG) $(OPTIONS) $< -o $@ $(FFTFLAG)
 powerspectrum.o: ../utilities/powerspectrum.f90  pencil_fft.o
 	$(FC) $(OFLAG) $(OPTIONS) $< -o $@ $(FFTFLAG)
-cicpower_segment.o: cicpower_segment.f90 cubefft.o pencil_fft.o powerspectrum.o parameters.o variables.o
+cicpower_global.o: cicpower_global.f90 cubefft.o pencil_fft.o powerspectrum.o parameters.o variables.o
 	$(FC) $(OFLAG) $(OPTIONS) $< -o $@ $(FFTFLAG)
-power_nu.o: power_nu.f90 variables.o parameters.o cicpower_segment.o
+power_nu.o: power_nu.f90 variables.o parameters.o cicpower_global.o
 	$(FC) $(OFLAG) $(OPTIONS) $<
 test.o: test.f90 power_nu.o variables.o parameters.o
 	$(FC) $(OFLAG) $(OPTIONS) $<

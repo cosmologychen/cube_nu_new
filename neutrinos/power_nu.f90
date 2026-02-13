@@ -1,13 +1,8 @@
 module power_nu
-   use cicpower_segment
+   use cicpower_global
    use parameters
    use ieee_arithmetic
    implicit none
-
-   ! real k_tf1(nw_global/2+1,nw,npen),k_tf2(ngt/2+1,ngt,ngt),k_tf3_2(nft(2)/2+1,nft(2),nft(2)),k_tf3_4(nft(3)/2+1,nft(3),nft(3)),k_tf3_6(nft(4)/2+1,nft(4),nft(4)),k_tf3_8(nft(5)/2+1,nft(5),nft(5))
-   ! real X_temp(npbin)
-   ! integer(4) t_nu
-
 contains
 
    real function expansion(a0,dt0)
@@ -45,26 +40,6 @@ contains
       expansion=a_x-a8_0
       ! da1=(a0-a_x)/2
       ! da2=(a0-a_x)/2
-   endfunction
-
-   real function H_a(a0)
-      use variables
-      implicit none
-      real a0,Hdot,t_x,tdoa
-      integer i1,i2
-
-      i1 = 1
-      do while(s2a(i1+1)>a0 .and. i1 < istep_max)
-         i1 = i1+1
-      enddo
-      i2=i1+1
-      tdoa = (stime(i2)-stime(i1))/(s2a(i2)-s2a(i1))
-      t_x = stime(i1)+tdoa*(a0-s2a(i1))
-
-      Hdot = (s2H(i2)-s2H(i1))/(stime(i2)-stime(i1))
-      H_a = s2H(i1)+Hdot*(t_x-stime(i1))
-      ! print*,H_a,'H    i1',i1,stime(i1),s2H(i1)
-      ! print*,t_x,'H    i2',i2,s2a(i2),s2H(i2),a0-s2a(i1)
    endfunction
 
    real function dtau_a(da0)
@@ -108,7 +83,7 @@ contains
 
    endfunction
 
-   subroutine get_f_nr(a,f_nr_a)
+   function get_f_nr(a) result(f_nr_a)
       use omp_lib
       use parameters
       implicit none
@@ -117,12 +92,11 @@ contains
       real(8) :: x(3),y(3), Fy(3) , dFy(3)
       real(8) ::  k1(3), k2(3), k3(3), k4(3), h
       integer ix,n
-
       ! print*,'para',Mass_nu,a,sigma_nu,N_eff,k_b,T_gama
 
       if (a_nu == 0) then
          y = m_nu*a/(sigma_nu*N_eff*k_b*T_gama)
-         ! print*,'y',y
+         print*,'y',y
 
          ! 定义步长和循环变量
          h = 1./2
@@ -159,85 +133,42 @@ contains
       else
          f_nr_a=0
       endif
-   endsubroutine
+   endfunction
 
-   subroutine interp_quad(a, cur_powerpoint, Pk, z_point, result)
-      use variables, only: ifs
-      use parameters
-      implicit none
-      integer(8) cur_powerpoint
-      real, intent(in) :: a, Pk(npbin, nmax_redshift), z_point(nmax_redshift)
-      real, intent(out) :: result(npbin)
-      real a1(npbin), a2(npbin), k2(npbin), b2(npbin), c2(npbin)
-      real log_a, log_a1, log_a2
-
-      log_a = log(a)
-      log_a1 = log(1 / (z_point(1) + 1))
-      log_a2 = log(1 / (z_point(2) + 1))
-
-      a1 = (log(Pk(:, 1)) - log(Pk(:, 2))) / (log_a1 - log_a2)
-      b2 = log(Pk(:, 1)) - a1 * log_a1
-      result = exp(a1 * log_a + b2)
-
-      if ((minval(result(:ifs)) < -1e-5) .or. any((ieee_is_nan(result(:ifs))))) then
-         if (head) then
-            print *, ''
-            print *, ''
-            print *, ''
-            print *, 'Pk interp err ', minval(result), 1. / a - 1, ifs
-            print *, 'cur_powerpoint', cur_powerpoint, z_point(cur_powerpoint)
-            print *, 'Pk', result
-            print *, 'a1', a1
-            print *, 'b', b2
-            print *, 'Pk1',Pk(:, 1)
-            print *, 'Pk2',Pk(:, 2)
-         endif
-         error stop 'Pk interp err '
-      endif
-   endsubroutine
-
-   subroutine exterp_quad(a, cur_powerpoint, Pk, z_point, result)
+   function interp_quad(a, cur_powerpoint, Pk, z_point) result(spk)
       use variables
       use parameters
       implicit none
-      integer(8) cur_powerpoint
+      integer, intent(in) ::  cur_powerpoint
       real, intent(in) :: a, Pk(npbin, nmax_redshift), z_point(nmax_redshift)
-      real, intent(out) :: result(npbin)
+      real spk(npbin)
+
       real a1(npbin), a2(npbin), k2(npbin), b2(npbin), c2(npbin)
-      real log_a, log_ap, log_ap1, log_ap2
+      real log_a, la(3), lpk(npbin,3)
 
-      log_a = log(a)
-      log_ap = log(1 / (z_point(cur_powerpoint) + 1))
-      log_ap1 = log(1 / (z_point(cur_powerpoint - 1) + 1))
-      log_ap2 = log(1 / (z_point(cur_powerpoint - 2) + 1))
 
-      a1 = (log(Pk(:, cur_powerpoint)) - log(Pk(:, cur_powerpoint - 1))) / (log_ap - log_ap1)
-      a2 = (log(Pk(:, cur_powerpoint - 1)) - log(Pk(:, cur_powerpoint - 2))) / (log_ap1 - log_ap2)
-      k2 = (a1 - a2) / (log_ap - log_ap2)
-      b2 = a1 - k2 * (log_ap + log_ap1)
-      c2 = log(Pk(:, cur_powerpoint)) - k2 * log_ap ** 2 - b2 * log_ap
-      result = exp(k2 * log_a ** 2 + b2 * log_a + c2)
+      la(1) = log(1 / (z_point(cur_powerpoint) + 1))
+      la(2) = log(1 / (z_point(cur_powerpoint - 1) + 1))
+      la(3) = log(1 / (z_point(cur_powerpoint - 2) + 1))
 
-      if ((minval(result(:ifs)) < -1e-5) .or. any((ieee_is_nan(result(:ifs))))) then
-         if (head) then
-            print *, ''
-            print *, ''
-            print *, ''
-            print *, 'Pk exterp err ', minval(result(:ifs)), 1. / a - 1, ifs
-            print *, 'cur_powerpoint', cur_powerpoint, z_point(cur_powerpoint)
-            print *, 'Pk0', exp(Pk(:, cur_powerpoint))
-            print *, 'Pk-1', exp(Pk(:, cur_powerpoint - 1))
-            print *, 'Pk-2', exp(Pk(:, cur_powerpoint - 2))
-            print *, 'a1', a1
-            print *, 'a2', a2
-            print *, 'k', k2
-            print *, 'b', b2
-            print *, 'c', c2
-            print *, 'result', result(:ifs)
-         endif
-         error stop 'Pk exterp err '
-      endif
-   endsubroutine
+      lpk(:,1) = log(Pk(:, cur_powerpoint))
+      lpk(:,2) = log(Pk(:, cur_powerpoint - 1))
+      lpk(:,3) = log(Pk(:, cur_powerpoint - 2))
+
+      a1 = (lpk(:,1) - lpk(:,2)) / (la(1) - la(2))
+      a2 = (lpk(:,2) - lpk(:,3)) / (la(2) - la(3))
+      k2 = (a1 - a2) / (la(1) - la(3))
+      b2 = a1 - k2 * (la(1) + la(2))
+      ! 强制曲率为非负：若为负，则退化为线性插值
+      where (k2 < 0.0d0 .or. -b2/2/k2 > la(1))
+         k2 = 0.0d0
+         b2 = (lpk(:,1) - lpk(:,3)) / (la(1) - la(3))
+      end where
+      c2 = lpk(:,1)
+      log_a = log(a)-la(1)
+      spk = exp((k2 * log_a ** 2 + b2 * log_a + c2)/2)
+
+   endfunction
 
    real function interp_tf_F(k_lin_log,k_need)
       use variables
@@ -280,12 +211,6 @@ contains
       c2 = tf_F_log(i1)-k2*k_lin_log(i1)**2-b2*k_lin_log(i1)
       interp_tf_F = exp(k2*k_need_log**2+b2*k_need_log+c2)
 
-      ! print*,'interp:++++++++++++++'
-      ! print*,i1,i2,i3
-      ! print*,kh_lin(i1),kh_lin(i2),kh_lin(i3),k_need
-      ! print*,tf_F(i1),tf_F(i2),tf_F(i3),interp_tf_F
-      ! print*,'interp,done'
-
    endfunction
 
    subroutine tf_F_correction
@@ -315,225 +240,107 @@ contains
 
    endsubroutine
 
-   subroutine get_L(sf,k_lin_2d,Pk,Lx)
-      use variables, only: ifs,m_nu_2d
+   function get_sqrt_pk_nu1() result(spk)
+      use variables, only: s_f,a_step,sPk_nu_ic,k_mnu_2d,H_i,H_0
       use parameters
       implicit none
-      real, intent(in) ::  k_lin_2d(npbin,3),Pk(npbin),sf
-      real(8), intent(out) ::  Lx(npbin,3)
-      real(8) X(npbin,3)
-      real(8) sq_Pk_2d(npbin,3)
-
-      sq_Pk_2d = spread(sqrt(Pk), dim=2, ncopies=3)  ! reshape Pk to a 2D array
-      X = sf*k_lin_2d/(m_nu_2d)*T_nu0*C
-      Lx = ((1+0.0168*X**2+0.0407*X**4)/(1+2.1734*X**2+1.6787*X**4.1811+0.1467*X**8))*sq_Pk_2d*sf
-
-
-      ! print*,'  Pk',Pk(1),Pk(npbin/3),Pk(npbin/3*2),Pk(npbin)
-      ! print*,'  sq_Pk_2d1',sq_Pk_2d(1,1),sq_Pk_2d(npbin/3,1),sq_Pk_2d(npbin/3*2,1),sq_Pk_2d(npbin,1)
-      ! print*,'  sq_Pk_2d2',sq_Pk_2d(1,2),sq_Pk_2d(npbin/3,2),sq_Pk_2d(npbin/3*2,2),sq_Pk_2d(npbin,2)
-      ! print*,'  sq_Pk_2d3',sq_Pk_2d(1,3),sq_Pk_2d(npbin/3,3),sq_Pk_2d(npbin/3*2,3),sq_Pk_2d(npbin,3)
-      ! X=(k_lin_2d/m_nu_2d)
-      ! print*,'  (k_lin_2d/m_nu_2d)',X(1,1),X(npbin/3,1),X(npbin/3*2,1),X(npbin,1)
-
-      ! print*,'  X1',X(1,1),X(npbin/3,1),X(npbin/3*2,1),X(npbin,1)
-      ! print*,'  X2',X(1,2),X(npbin/3,2),X(npbin/3*2,2),X(npbin,2)
-      ! print*,'  X3',X(1,3),X(npbin/3,3),X(npbin/3*2,3),X(npbin,3)
-      ! print*,'  Lx1',Lx(1,1),Lx(npbin/3,1),Lx(npbin/3*2,1),Lx(npbin,1)
-      ! print*,'  Lx2',Lx(1,2),Lx(npbin/3,2),Lx(npbin/3*2,2),Lx(npbin,2)
-      ! print*,'  Lx3',Lx(1,3),Lx(npbin/3,3),Lx(npbin/3*2,3),Lx(npbin,3)
-      if ((minval(Lx(:ifs,:)) < -1e-5) .or. any((ieee_is_nan(Lx(:ifs,:)))))then
-         if(head) then
-            print*,''
-            print*,''
-            print*,''
-            print*,'get_L err ',minval(Lx),sf
-            print*,'Pk is nan ',any((ieee_is_nan(Pk)))
-            print*,'X',X(npbin-40:npbin,:)
-            X = ((1+0.0168*X**2+0.0407*X**4)/(1+2.1734*X**2+1.6787*X**4.1811+0.1467*X**8))
-            print*,''
-            print*,''
-            print*,''
-            print*,' XX',X(npbin-40:npbin,:)
-            print*,''
-            print*,''
-            print*,''
-            print*,' (Pk)',Pk(:ifs)
-            print*,' (sqrt(Pk))',sqrt(Pk(:ifs))
-            print*,'Lx',Lx(ifs-40:ifs,:)
-         endif
-         error stop 'get_L err '
-      endif
-      ! stop
-   endsubroutine
-
-   subroutine get_sqrt_pk_nu1(sf,a0,Lx)
-      use variables, only: ifs,sq_Pk_nu_ic,Pk_nu_ic,kh_lin_2d,m_nu_2d,H_i,H_0
-      use parameters
-      implicit none
-      real, intent(in) ::  sf,a0
-      real, intent(out) ::  Lx(npbin,3)
+      real  spk(npbin,3)
       real(8) X(npbin,3)
       real f,omega_m_zi,omega_l_zi
 
-      omega_m_zi=(H_0/H_i)**2*sim%omega_m*(1/a0)**3
+      omega_m_zi=(H_0/H_i)**2*sim%omega_m*(1/a_step(0))**3
       omega_l_zi=(H_0)**2/H_i**2*sim%omega_l
       f=omega_m_zi**(4.0/7.0)+omega_l_zi/70.0*(1+omega_m_zi/2.0)
-      X = sf*kh_lin_2d/(m_nu_2d)*T_nu0*C
-      Lx = ((1+0.0168*X**2+0.0407*X**4)/(1+2.1734*X**2+1.6787*X**4.1811+0.1467*X**8))*sq_Pk_nu_ic*(1+sf*a0**2*H_i*f)
+      X = s_f*k_mnu_2d*T_nu0*C
 
-      ! print*,'  Lx0',Lx0(1,1),Lx0(npbin/3,1),Lx0(npbin/3*2,1),Lx0(npbin,1)
+      spk = ((1+0.0168*X**2+0.0407*X**4)/(1+2.1734*X**2+1.6787*X**4.1811+0.1467*X**8))*sPk_nu_ic*(1+s_f*a_step(0)**2*H_i*f)
+   endfunction
 
-      ! print*,'  sq_Pk_nu_ic',sq_Pk_nu_ic(1,2),sq_Pk_nu_ic(npbin/3,2),sq_Pk_nu_ic(npbin/3*2,2),sq_Pk_nu_ic(npbin,2)
-      ! print*,'  X',X(1,1),X(npbin/3,1),X(npbin/3*2,1),X(npbin,1)
-      if ((minval(Lx(:ifs,:)) < -1e-5) .or. any((ieee_is_nan(Lx(:ifs,:)))))then
-         if(head) then
-            print*,''
-            print*,''
-            print*,''
-            print*,'get_Lic err ',minval(Lx),sf
-            print*,'Pk_ic is nan ',any((ieee_is_nan(Pk_nu_ic)))
-            print*,'X',X(npbin-40:npbin,:)
-            X = ((1+0.0168*X**2+0.0407*X**4)/(1+2.1734*X**2+1.6787*X**4.1811+0.1467*X**8))
-            print*,''
-            print*,''
-            print*,''
-            print*,' XX',X(npbin-40:npbin,:)
-            print*,''
-            print*,''
-            print*,''
-            print*,' (Pk)',Pk_nu_ic(npbin-40:npbin,:)
-            print*,' (sqrt(Pk))',sq_Pk_nu_ic(npbin-40:npbin,:)
-            print*,'Lx',Lx(npbin-40:npbin,:)
-         endif
-         error stop 'get_Lic err '
-      endif
-   endsubroutine
-
-   subroutine interp_line_pk2(k_lin_2d,Pk1,Pk2,s1,s2,tau1,tau2,a1,a2,n,Pk_out)
-      use variables, only: ifs
+   function get_L(i_step) result(L)
+      use variables, only: s_f,sf_step,sPk_step,k_mnu_2d
       use parameters
       implicit none
-      real, intent(in) ::  k_lin_2d(npbin,3),Pk1(npbin),Pk2(npbin),s1,s2,tau1,tau2,a1,a2
-      integer, intent(in) ::  n
-      real, intent(inout) ::  Pk_out(npbin,3)
-      real(8) L0(npbin,3),L1(npbin,3),Pk_a(npbin),Pk_b(npbin)
-      real Pk_now(npbin)
-      real ai,si,s_b,a_i,s_a,tau_i
-      integer ipk
+      integer i_step
+      real si
+      real(16) X(npbin,3),L(npbin,3)
+      si = s_f-sf_step(i_step)
+      X = si*k_mnu_2d*T_nu0*C
+      L = ((1+0.0168*X**2+0.0407*X**4)/(1+2.1734*X**2+1.6787*X**4.1811+0.1467*X**8))*spread(sPk_step(:,i_step), dim=2, ncopies=3)*si
+   endfunction
 
-      ! print*,s1,s2,tau1,tau2,a1,a2,n
-      if (abs(a1/a2-1)>1e-7) then
-         Pk_a = (Pk1-Pk2)/(a1-a2)
-         Pk_b = Pk1 - Pk_a*a1
-         s_a = (s1-s2)/(1/a1-1/a2)
-         s_b = s1 - s_a*(1/a1-1)
-         a_i = (a2-a1)/n
-         tau_i = (tau2-tau1)/n
-         ! print*,s_a,s_b,a_i,tau_i
+   function get_sqrt_pk_nu2() result(spk)
+      use variables, only: tau_step
+      use parameters
+      implicit none
+      real spk(npbin,3)
+      real(16) dtau21,dtau10,dtau20
+      real(16) spk16(npbin,3),L0(npbin,3),L1(npbin,3),L2(npbin,3)
+      real(16) a1(npbin,3), a2(npbin,3), k2(npbin,3), b2(npbin,3)
 
-         call get_L(s1,k_lin_2d,Pk1,L1)
-         do ipk=1,n
-            ! print*,'       ipk',ipk
-            ai = (a1+a_i*ipk)
-            si = s_a*(1/ai-1)+s_b
-            Pk_now = Pk_a*ai+Pk_b
-            if (si<=0) then
-               if (si<-1e-4) then
-                  if (head) print*,'si           =',si,s1,s2
-                  if (head) print*,'sa/sb        =',s_a,s_b
-                  if (head) print*,'a_i/tau_i/ai =',a_i,tau_i,ai
-                  error stop 'si is nagtive in interp_line_pk2'
-               endif
-               print*,'si is nagtive in interp_line_pk2',si,s_a,s_b,s1,s2,a1
-               si = 0
-            endif
-            if (isnan(si)) then
-               if (head) print*,'si           =',si
-               if (head) print*,'sa/sb        =',s_a,s_b
-               if (head) print*,'a_i/tau_i/ai =',a_i,tau_i,ai
-               if (head) print*,'a1/a2        =',a1,a2,a1 < a2,a2/a1-1
-               error stop 'si is nan in interp_line_pk2'
-            endif
-            ! if (minval(Pk_now(:ifs)) < -1e-5) Pk_now(:ifs) = Pk_now(:ifs) - spread(minval(Pk_now(:ifs)) ,dim=1,ncopies=ifs)
-            if ((minval(Pk_now(:ifs)) < -1e-5) .or. any((ieee_is_nan(Pk_now(:ifs)))))then
-               if(head) then
-                  print*,''
-                  print*,''
-                  print*,''
-                  print*,'interp_line_pk2 Pk_interp err ',minval(Pk_now),ai
-                  print*,'Pk is nan ',any((ieee_is_nan(Pk_now)))
-                  print*,' a,tau',a1,a2,tau2,tau1
-                  print*,' (Pk_a)',Pk_a
-                  print*,' (Pk_b)',Pk_b
-                  print*,' (Pk_1)',Pk1
-                  print*,' (Pk)',Pk_now
-                  print*,' (Pk_2)',Pk2
-               endif
-               error stop 'interp_line_pk2 Pk_interp err '
-            endif
+      integer is
 
-            L0 = L1
-            call get_L(si,k_lin_2d,abs(Pk_now),L1)
-            Pk_out = Pk_out+(L0+L1)*tau_i
-         enddo
+      if (istep == 1) then
+         spk = (get_L(1)+get_L(0))*(tau_step(1)-tau_step(0))
+         return
       endif
-   endsubroutine
+
+      L1 = get_L(0); L2 = get_L(1); L0 = get_L(2)
+
+      dtau21 = tau_step(2) - tau_step(1); dtau10 = tau_step(1) - tau_step(0); dtau20 = tau_step(2) - tau_step(0)
+      a1 = (L0 - L2) / dtau21; a2 = (L2 - L1) / dtau10; k2 = (a1 - a2) / dtau20; b2 = a2 - k2 * dtau10
+      spk16 = dtau10**3/3*k2 + dtau10**2/2*b2 + L1*dtau10
+
+      do is = 2,istep
+         L0 = L1; L1 = L2; L2 = get_L(is)
+         dtau21 = tau_step(is)-tau_step(is-1); dtau10 = tau_step(is-1)-tau_step(is-2); dtau20 = tau_step(is)-tau_step(is-2)
+         a1 = (L2 - L1) / dtau21; a2 = (L1 - L0) / dtau10; k2 = (a1 - a2) / dtau20; b2 = a2 - k2 * dtau10
+         spk16 =  spk16 + dtau20**3/3*k2 + dtau20**2/2*b2 + L0*dtau20
+      enddo
+      spk16 =  spk16 +  (k2/3 * (dtau20*(dtau20+dtau10) + dtau10**2)  + b2/2 * (dtau20+dtau10) + L0)*(dtau20-dtau10)
+
+      spk = spk16
+   endfunction
 
    subroutine interp_Pk_CDM
       use omp_lib
       use variables
       use parameters
       implicit none
+      integer :: i,interp_powerpoint
+      real a_post
 
+      call tic(96)
       if (power_step) then
          if (head) print*,''
          if (head) print*,'Power_step'
          if (calculate_PK > 0)then
-            call get_power
+            call system_clock(tp1,tpr)
+            call global_power
             Pk_cb_check(:,sim%cur_powerpoint) = xi_cdm(5,1:)[1]
-
-            ! if ( sim%cur_powerpoint > 3 .and. z_powerpoint(sim%cur_powerpoint)>=0) then
-            !    write(str_z,'(f8.4)') z_powerpoint(sim%cur_powerpoint)
-            !    open(11,file=nupath//'Pk_cb_'//trim(adjustl(str_z))//'.txt',form='formatted')
-            !    read(11,*) Pk_cb_check(:,sim%cur_powerpoint)
-            !    close(11)
-            ! endif
-         else
-            if ( sim%cur_powerpoint > 3 .and. z_powerpoint(sim%cur_powerpoint)>=0) then
-               write(str_z,'(f8.4)') z_powerpoint(sim%cur_powerpoint)
-               open(11,file=nupath//'Pk_cb_'//trim(adjustl(str_z))//'.txt',form='formatted')
-               read(11,*) Pk_cb_check(:,sim%cur_powerpoint)
-               close(11)
-               if (calculate_PK == -1) then
-                  open(11,file=nupath//'Pk_nu_'//trim(adjustl(str_z))//'.txt',form='formatted')
-                  read(11,*) Pk_nu_check(:,sim%cur_powerpoint)
-                  close(11)
-               endif
-            endif
-            if (head) print*,'      Pk_check',sim%cur_powerpoint,z_powerpoint(sim%cur_powerpoint),str_z
-            print*,''
+            sync all; call system_clock(tp2,tpr); if (head) print*,'     global_power elapsed time =',real(tp2-tp1)/tpr
+            i = istep-1
+            interp_powerpoint = merge(sim%cur_powerpoint,3,sim%cur_powerpoint > 2)
+            a_post = 1/(z_powerpoint(sim%cur_powerpoint-1)+1)! merge(1/(z_powerpoint(interp_powerpoint-1)+1),1/(z_powerpoint(1)+1),sim%cur_powerpoint == 2)
+            if(head)print*,'',a_post,interp_powerpoint
+            do while (a_step(i) >= a_post .and. i >= 0)
+               print*,'      interp',1/a_step(i)-1,sim%cur_powerpoint,i
+               sPk_step(:,i) =  interp_quad(a_step(i),interp_powerpoint,Pk_cb_check,z_powerpoint)
+               i = i-1
+            enddo
          endif
          sim%cur_powerpoint=sim%cur_powerpoint+1
+         power_step = .false.
       endif
 
-      if (sim%cur_powerpoint <= 3) then
-         if (head) print*,'      interp',1/a_step(istep)-1,sim%cur_powerpoint,istep,a_step(istep),sim%a
-         call interp_quad(a_step(istep),sim%cur_powerpoint-1,Pk_cb_check,z_powerpoint,Pk_step(:,istep))
-         if (calculate_PK == -1) then
-            call interp_quad(a_step(istep),sim%cur_powerpoint-1,Pk_nu_check,z_powerpoint,Pk_nus(:,1))
-            call interp_quad(a_step(istep),sim%cur_powerpoint-1,Pk_nu_check,z_powerpoint,Pk_nus(:,2))
-            call interp_quad(a_step(istep),sim%cur_powerpoint-1,Pk_nu_check,z_powerpoint,Pk_nus(:,3))
-         endif
-      else
-         if (head) print*,'      exterp',1/a_step(istep)-1,sim%cur_powerpoint,istep
-         call exterp_quad(a_step(istep),sim%cur_powerpoint-1,Pk_cb_check,z_powerpoint,Pk_step(:,istep))
-         if (calculate_PK == -1) then
-            call exterp_quad(a_step(istep),sim%cur_powerpoint-1,Pk_nu_check,z_powerpoint,Pk_nus(:,1))
-            call exterp_quad(a_step(istep),sim%cur_powerpoint-1,Pk_nu_check,z_powerpoint,Pk_nus(:,2))
-            call exterp_quad(a_step(istep),sim%cur_powerpoint-1,Pk_nu_check,z_powerpoint,Pk_nus(:,3))
-         endif
+      interp_powerpoint = merge(sim%cur_powerpoint-1,3,sim%cur_powerpoint > 3)
+      sPk_step(:,istep) = interp_quad(a_step(istep),interp_powerpoint,Pk_cb_check,z_powerpoint)
+      if (calculate_PK == -1) then
+         sPk_nus(:,1) = interp_quad(a_step(istep),interp_powerpoint,Pk_nu_check,z_powerpoint)
+         sPk_nus(:,2) = interp_quad(a_step(istep),interp_powerpoint,Pk_nu_check,z_powerpoint)
+         sPk_nus(:,3) = interp_quad(a_step(istep),interp_powerpoint,Pk_nu_check,z_powerpoint)
       endif
+      if (head) print*,'      interp',1/a_step(istep)-1,sim%cur_powerpoint,istep
+      call toc(96)
    endsubroutine
 
    subroutine get_tf_cb2matter
@@ -543,21 +350,17 @@ contains
 
       integer is,n
       real s_pre,s_post
-      real sqrt_pk_nu1(npbin,3),sqrt_pk_nu2(npbin,3),sqrt_pk_nu2_step(npbin,3)
+      real sqrt_pk_nu1(npbin,3),sqrt_pk_nu2(npbin,3)
       real(8) Lx0(npbin,3),Lx1(npbin,3),Lx2(npbin,3)
 
       ifs = npbin
-      k_fs = min((0.8*sqrt(a_step(istep)*sim%omega_m/0.3) * Mass_nu/3 * h0 )*tf_smooth,10.)
+      k_fs = min((0.8*sqrt(a_step(istep)*sim%omega_m/0.3) * Mass_nu * h0 )*tf_smooth,10.)
       do while (kh_lin(ifs) > k_fs)
          ifs = ifs-1
       enddo
-      call get_f_nr(a_step(istep),f_nr)
-      s_f = sf_a(a_step(istep))
+      f_nr = get_f_nr(a_step(istep))
+      s_f  = sf_a(a_step(istep))
       sf_step(istep) = s_f
-      ! if(head) print*,'      ifs = ',ifs
-
-      ! print*,'istep',istep
-      ! print*,Pk_step(:,istep)
 
       if(head) then
          print*,''
@@ -571,115 +374,70 @@ contains
          print*,'  k_fs   = ',k_fs,kh_lin(ifs)
       endif
 
-
-      call tic(96)
       call interp_Pk_CDM
-      sync all; call toc(96)
 
-      
-      Pk_step(ifs+1:,istep) = 0
-      call tic(97)
-      if (istep >0) then
-         if(head) then
-            if (calculate_PK > -1) then
-               call get_sqrt_pk_nu1(s_f,a_step(0),sqrt_pk_nu1)
-
-               s_pre = 0
-               s_post = 0
-               sqrt_pk_nu2 = 0
-               n = 2000/istep+1
-               do is=1,istep
-                  ! print*,'      is=',is
-                  ! print*,Pk_step(:,is-1)
-                  ! print*,'=================================='
-                  ! print*,Pk_step(:,is)
-                  call interp_line_pk2(kh_lin_2d,Pk_step(:,is-1),Pk_step(:,is),(s_f-sf_step(is-1)),(s_f-sf_step(is)),tau_step(is-1),tau_step(is),a_step(is-1),a_step(is),n,sqrt_pk_nu2)
-               enddo
-               sqrt_pk_nu2 = 1/2.*1.5*sim%omega_m*H_0**2*sqrt_pk_nu2
-               ! print*,'  sqrt_pk_nu2',sqrt_pk_nu2(1,2),sqrt_pk_nu2(npbin/3,2),sqrt_pk_nu2(npbin/3*2,2),sqrt_pk_nu1(npbin,2)
-               Pk_nus = (sqrt_pk_nu1+sqrt_pk_nu2)
-
-               if ((minval(Pk_nu(:ifs)) < -1e-5) .or. any((ieee_is_nan(Pk_nu(:ifs)))))then
-                  if(head) then
-                     print*,''
-                     print*,''
-                     print*,''
-                     print*,'Pk_nu err ',minval(Pk_nu),1/a_step(istep)-1
-                     print*,'Pk_check(-1 0) is nan ',any((ieee_is_nan(Pk_cb_check(:,sim%cur_powerpoint)))),any((ieee_is_nan(Pk_cb_check(:,sim%cur_powerpoint-1))))
-                     print*,'Pk_step(-1 0) is nan ',any((ieee_is_nan(Pk_step(:,istep-1)))),any((ieee_is_nan(Pk_step(:,istep))))
-                     print*,' a,tau',a_step(istep),a_step(istep-1),tau_step(istep),tau_step(istep-1)
-                     print*,'Pk_m -1',Pk_step(:,istep-1)
-                     print*,''
-                     print*,''
-                     print*,''
-                     print*,'Pk_m 0',Pk_step(:,istep)
-                     print*,''
-                     print*,''
-                     print*,''
-                     print*,'Pk_nu',Pk_nu(:ifs)
-                  endif
-                  error stop 'Pk_nu err '
-               endif
-            endif
+      if (istep > 0 .and. sim%a > a_nu) then
+         call tic(97)
+         if(head .and. calculate_PK > -1) then
+            sqrt_pk_nu1 = get_sqrt_pk_nu1()
+            sqrt_pk_nu2 = 0.75*sim%omega_m*H_0**2*get_sqrt_pk_nu2() ! 0.75 = (3/2)/2
+            sPk_nus = (sqrt_pk_nu1+sqrt_pk_nu2)
          endif
-      else
-         Pk_nus=sq_Pk_nu_ic
-      endif
 
-      ! print*,'  Pk_nu',(f_nus(1)*f_nr(1)*1+f_nus(2)*f_nr(2)*1+f_nus(3)*f_nr(3)*1)**2
-      Pk_nu = (f_nus(1)*f_nr(1)*Pk_nus(:,1)+f_nus(2)*f_nr(2)*Pk_nus(:,2)+f_nus(3)*f_nr(3)*Pk_nus(:,3))**2
-      Pk_nus = Pk_nus**2
-      tf_F = ((1-f_nu)*sqrt(abs(Pk_step(:,istep)))+f_nu*sqrt(abs(Pk_nu)))/sqrt(abs(Pk_step(:,istep)))
-      if (calculate_PK > -1) call tf_F_correction
+         sPk_nu = (f_nus(1)*f_nr(1)*sPk_nus(:,1)+f_nus(2)*f_nr(2)*sPk_nus(:,2)+f_nus(3)*f_nr(3)*sPk_nus(:,3))**2
+         tf_F = ((1-f_nu)*sPk_step(:,istep)+f_nu*abs(sPk_nu))/sPk_step(:,istep)
+         if (calculate_PK > -1) call tf_F_correction
+         call toc(97)
 
-      if (a_nu == 0 .or. a_step(istep) > a_nu) then
-         Pk_step(:,istep) = tf_F**2*Pk_step(:,istep) !Pk_step_cdm --> Pk_step_matter
-         write(str_z,'(f8.4)') 1/a_step(istep)-1
          if(head) then
-            print*,'  Pk_step',Pk_step(1,istep),Pk_step(npbin/3,istep),Pk_step(npbin/3*2,istep),Pk_step(npbin,istep)
-            print*,'  Pk_nu',Pk_nu(1),Pk_nu(npbin/3),Pk_nu(npbin/3*2),Pk_nu(npbin)
-            print*,'  Pk_nu1',Pk_nus(1,1),Pk_nus(npbin/3,1),Pk_nus(npbin/3*2,1),Pk_nus(npbin,1)
-            print*,'  Pk_nu2',Pk_nus(1,2),Pk_nus(npbin/3,2),Pk_nus(npbin/3*2,2),Pk_nus(npbin,2)
-            print*,'  Pk_nu3',Pk_nus(1,3),Pk_nus(npbin/3,3),Pk_nus(npbin/3*2,3),Pk_nus(npbin,3)
+            write(str_z,'(f8.4)') 1/a_step(istep)-1
+            print*,'  Pk_step',sPk_step(1,istep)**2,sPk_step(npbin/3,istep)**2,sPk_step(npbin/3*2,istep)**2,sPk_step(npbin,istep)**2
+            print*,'  Pk_nu',sPk_nu(1)**2,sPk_nu(npbin/3)**2,sPk_nu(npbin/3*2)**2,sPk_nu(npbin)**2
+            if (m_nu(1)>0) print*,'  Pk_nu1',sPk_nus(1,1)**2,sPk_nus(npbin/3,1)**2,sPk_nus(npbin/3*2,1)**2,sPk_nus(npbin,1)**2
+            if (m_nu(2)>0) print*,'  Pk_nu2',sPk_nus(1,2)**2,sPk_nus(npbin/3,2)**2,sPk_nus(npbin/3*2,2)**2,sPk_nus(npbin,2)**2
+            if (m_nu(3)>0) print*,'  Pk_nu3',sPk_nus(1,3)**2,sPk_nus(npbin/3,3)**2,sPk_nus(npbin/3*2,3)**2,sPk_nus(npbin,3)**2
             print*,'  tf_F',tf_F(1),tf_F(npbin/3),tf_F(npbin/3*2),tf_F(npbin)
             print*,'  path',nupath//'*/*_'//trim(adjustl(str_z))//'.txt'
-         endif
-         open(211,file=nupath//'a_step.txt',status='replace',access='stream'); write(211) a_step(:istep); close(211)
-         open(311,file=nupath//'Pk_nu/Pk_nu_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(311) Pk_nu; close(311)
-         open(311,file=nupath//'Pk_nus/Pk_nus_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(311) Pk_nus; close(311)
-         open(411,file=nupath//'Pk_m/Pk_m_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(411) Pk_step(:,istep); close(411)
-         open(511,file=nupath//'tf/Tf_nu_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(511) tf_F; close(511)
-         if (minval(tf_F) < 1-1e-6-f_nu .or. any((ieee_is_nan(tf_F)))) then
-            if(head) print*,'tf_F err',minval(tf_F),1-f_nu
-            if(head) print*,'Pk_nu'
-            if(head) print*,Pk_nu
-            if(head) print*,'Pk_cdm'
-            if(head) print*,Pk_step(:,istep)
-            if(head) print*,'Tf_nu'
-            if(head) print*,tf_F
-            error stop 'tf_F err'
-         endif
-      endif
-      call toc(97)
+            open(211,file=nupath//'a_step.txt',status='replace',access='stream'); write(211) a_step(:istep); close(211)
+            open(311,file=nupath//'Pk_nu/Pk_nu_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(311) sPk_nu**2; close(311)
+            open(312,file=nupath//'Pk_nus/Pk_nus_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(312) sPk_nus**2; close(312)
+            open(411,file=nupath//'Pk_m/Pk_m_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(411) sPk_step(:,istep)**2; close(411)
+            open(511,file=nupath//'tf/Tf_nu_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream'); write(511) tf_F; close(511)
+            open(313,file=nupath//'sqrt_pk_nu1/sqrt_pk_nu1_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream');write(313) sqrt_pk_nu1(:,1);close(313)
+            open(314,file=nupath//'sqrt_pk_nu2/sqrt_pk_nu2_'//trim(adjustl(str_z))//'.txt',status='replace',access='stream');write(314) sqrt_pk_nu2(:,1);close(314)
 
-      call tic(98)
-      if (sim%a < 1) then
+            if (minval(tf_F) < 1-f_nu-1e-6 .or. any((ieee_is_nan(tf_F)))) then
+               if(head) then
+                  print*,'tf_F err',minval(tf_F),1-f_nu
+                  print*,'Pk_nu'
+                  print*,sPk_nu**2
+                  print*,'Pk_cdm'
+                  print*,sPk_step(:,istep)**2
+                  print*,'Tf_nu'
+                  print*,tf_F
+               endif
+               error stop 'tf_F err'
+            endif
+         endif
+         sPk_step(:,istep) = tf_F*sPk_step(:,istep) !sPk_step_cdm --> sPk_step_matter
+
+         call tic(98)
          tf_F_log = log(tf_F(:)[1])
          call nu_correction_coarse()
-         pm%nwork = ngt   ;call nu_correction(tf2   ,Gk2   ,tile   )!,k_tf2   )
-         pm%nwork = nft(2);call nu_correction(tf3_2 ,Gk3_2 ,subtile)!,k_tf3_2 )
-         pm%nwork = nft(3);call nu_correction(tf3_4 ,Gk3_4 ,subtile)!,k_tf3_4 )
-         pm%nwork = nft(4);call nu_correction(tf3_6 ,Gk3_6 ,subtile)!,k_tf3_6 )
-         pm%nwork = nft(5);call nu_correction(tf3_8 ,Gk3_8 ,subtile)!,k_tf3_8 )
-         pm%nwork = nft(6);call nu_correction(tf3_12,Gk3_12,subtile)!,k_tf3_12)
-         ! if (head) print*,'  tf3_8 ',minval(tf3_8),maxval(tf3_8),interp_tf_F(kh_lin_log,real(pm%nwork*pi/subtile))
-         ! if (head) print*,'  tf3_12',minval(tf3_12),maxval(tf3_12),interp_tf_F(kh_lin_log,real(pm%nwork*pi/subtile))
-         ! stop
+         pm%nwork = ngt   ;call nu_correction(tf2   ,Gk2   ,box/nn/nnt    )
+         pm%nwork = nft(2);call nu_correction(tf3_2 ,Gk3_2 ,box/nn/nnt/nns)
+         pm%nwork = nft(3);call nu_correction(tf3_4 ,Gk3_4 ,box/nn/nnt/nns)
+         pm%nwork = nft(4);call nu_correction(tf3_6 ,Gk3_6 ,box/nn/nnt/nns)
+         pm%nwork = nft(5);call nu_correction(tf3_8 ,Gk3_8 ,box/nn/nnt/nns)
+         call toc(98)
+      else
+         if(head) print*,'  Pk_step',sPk_step(1,istep)**2,sPk_step(npbin/3,istep)**2,sPk_step(npbin/3*2,istep)**2,sPk_step(npbin,istep)**2
+         return
       endif
-      sync all; call toc(98)
+
    endsubroutine
 
-   subroutine nu_correction(tfk,Gk,size)!,k_tf)
+   subroutine nu_correction(tfk,Gk,size)
       use omp_lib
       use variables
       use parameters

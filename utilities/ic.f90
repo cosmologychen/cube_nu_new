@@ -5,7 +5,7 @@
 ! #define WRITE_K_HALF
 
 !! read same random noise to generate same initial conditions
-! #define READ_NOISE
+!#define READ_NOISE
 !#define macbook
 !#define ELUCID_big
 
@@ -78,7 +78,7 @@ program initial_conditions
    open(16,file='./z_checkpoint.txt',status='old') !! open redshift list to do checkpoint
    read(16,fmt='(f8.4)') z_checkpoint(sim%cur_checkpoint)
    close(16)
-   call system('cp -v /home/ChenBH/output_backup/600_256_2_0.1_1/image'//image2str(image)//'/*seed_* '//opath//'image'//image2str(image))
+   call system('cp -v /home/cossim/cube_nu/test/200_1024_v2/env_seed_taka_200_256_2_0.0_2/image'//image2str(image)//'/*seed_* '//opath//'image'//image2str(image))
 
    if (head) then
       print*, ''

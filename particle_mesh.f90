@@ -112,17 +112,17 @@ subroutine particle_mesh(density)
 
    if (head .and. pm%pm_layer==1) print*, '  assign density done'
    selectcase(pm%pm_layer) ! solve Poisson Eq. in Fourier space, diff potential to get force field
-    case(0) ! single PM on standard grid
-      call sfftw_execute(plan0)
-      rho0k=rho0k*Gk0
-      call sfftw_execute(iplan0)
-      rho0=rho0/real(ng)/real(ng)/real(ng)
-      allocate(phi(-2:ng+3,-2:ng+3,-2:ng+3)[nn,nn,*])
-      phi(1:ng,1:ng,1:ng)=rho0(:ng,:,:)
-      call buffer_potential(phi,ng)
-      allocate(force(ndim,0:pm%nforce+1,0:pm%nforce+1,0:pm%nforce+1))
-      call grad(force,phi)
-      deallocate(phi)
+   !  case(0) ! single PM on standard grid
+   !    call sfftw_execute(plan0)
+   !    rho0k=rho0k*Gk0
+   !    call sfftw_execute(iplan0)
+   !    rho0=rho0/real(ng)/real(ng)/real(ng)
+   !    allocate(phi(-2:ng+3,-2:ng+3,-2:ng+3)[nn,nn,*])
+   !    phi(1:ng,1:ng,1:ng)=rho0(:ng,:,:)
+   !    call buffer_potential(phi,ng)
+   !    allocate(force(ndim,0:pm%nforce+1,0:pm%nforce+1,0:pm%nforce+1))
+   !    call grad(force,phi)
+   !    deallocate(phi)
     case(1) ! coarse grid PM
       if (head) print*, '     forward start'
       call system_clock(t1,t_rate)
