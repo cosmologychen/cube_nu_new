@@ -41,17 +41,6 @@ subroutine particle_mesh(density)
                            if ( xpos(1) == nbb ) xpos(1)= 1-pm%nex
                            if ( xpos(2) == nbb ) xpos(2)= 1-pm%nex
                            if ( xpos(3) == nbb ) xpos(3)= 1-pm%nex
-                            
-                           ! xpos = xp(:,ip)-pm%tile_shift*([ix,iy,iz]-1)*nt*ratio_cs
-                           ! xpos = xpos/pm%gridsize-pm%utile_shift*([ifx,ify,ifz]-1)*nfp(iapm)
-                           ! if (minval(xpos) < -pm%nex .or. maxval(xpos) > pm%nphy+pm%nex) then
-                           !    print*,'particle out of range'
-                           !    print*,'tile',ix,iy,iz,i,j,k,l
-                           !    print*,'xp',xp(:,ip)
-                           !    print*,'xpos',xpos
-                           !    error stop
-                           ! endif
-                           ! xpos = modulo(xpos+spread(real(pm%nex),dim=1,ncopies=3),real(pm%nphy+2*pm%nex))-spread(real(pm%nex),dim=1,ncopies=3)
 #endif
                            idx(:,2)=floor(xpos)+1
                            idx(:,1)=idx(:,2)-1
@@ -66,19 +55,7 @@ subroutine particle_mesh(density)
                               print*,ip,pm%nex,pm%nphy
                               print*,ip, xp(:,ip)
 #ifdef ZIPX
-                              print*,ip,  ([i,j,k]-1)+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
-! #else
-!                               print*, ([ix,iy,iz]-1)*nt*ratio_cs
-!                               print*,ip,'a', (xp(:,ip)-([ix,iy,iz]-1)*nt*ratio_cs)
-!                               print*,ip,'b', (xp(:,ip)-([ix,iy,iz]-1)*nt*ratio_cs)/pm%gridsize &
-!                                              -pm%utile_shift*([ifx,ify,ifz]-1)*nfp(iapm)       &
-!                                              +spread(real(pm%nex-1),dim=1,ncopies=3)                         
-!                               print*,ip, modulo(                                                     &
-!                                                    (xp(:,ip)-([ix,iy,iz]-1)*nt*ratio_cs)/pm%gridsize &
-!                                                    -pm%utile_shift*([ifx,ify,ifz]-1)*nfp(iapm)       &
-!                                                    +spread(real(pm%nex-1),dim=1,ncopies=3) ,         &
-!                                                    real(pm%nphy+2*pm%nex-2)                &
-!                                                 )    
+                              print*,ip,  ([i,j,k]-1)+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution 
 #endif
                               print*,ip,'xpos',xpos
                               print*,ip,'idx',idx

@@ -33,7 +33,7 @@ module variables
    integer ifs,itx,ity,itz,ifx,ify,ifz,iapm,napm(7)[*]
    integer(8) plan1,plan2(nteam),plan3(nteam,2:7),iplan1,iplan2(nteam),iplan3(nteam,2:7),plan0,iplan0 ! FFT plans
    integer(4) ijk(3,n_neighbor),iteam,ipm2,ipm3,ixyz2(3,nnt**3),ixyz3(6,(nnt*nns)**3)
-   integer(OMP_integer_kind) ith,nth
+   ! integer(OMP_integer_kind) ith,nth
 
    real dt[*],dt_old[*],dt_mid[*],dt_e,da[*],a_mid[*],f2_max_pp[*]
    real vmax(3),vmax_team(3),f2max,f2max_team,overhead_tile[*],overhead_image[*],sigma_vi,sigma_vi_new,svz(500,2),svr(100,2)

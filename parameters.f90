@@ -120,8 +120,8 @@ module parameters
    ! initial conditions
    real,parameter :: f_nl=0
    real,parameter :: g_nl=0
-  real,parameter :: n_s=0.9693
-  real,parameter :: A_s=2.122e-09
+   real,parameter :: n_s=0.9693
+   real,parameter :: A_s=2.122e-09
    real,parameter :: k_o=0.05/h0
 
    integer(8),parameter :: istep_max=100000
