@@ -5,8 +5,8 @@ program CUBE_FoF
   character(len = 4) str_refine
   ! integer(8),parameter:: n_refine = 5
   integer,parameter:: fofcore = ncore
-  integer(8),parameter:: fof_buffer = ceiling(15.0/box*nc*nn)
-  integer(8),parameter:: nfof = ceiling((nc+2*fof_buffer)*ratio_cs/100.)*100
+  integer(8),parameter:: fof_buffer = ceiling(20.0/box*nc*nn)
+  integer(8),parameter:: nfof = (nc+2*fof_buffer)*ratio_cs
   real(8),parameter:: n_refine = nfof*1d0/(nc + fof_buffer*2 + b_link/ratio_cs)
   real(8),parameter:: L_b    = fof_buffer
   real(8),parameter:: L_bL   = L_b  + nc
@@ -39,7 +39,7 @@ program CUBE_FoF
   endif
   ft = 0
 
-  nlayer = ceiling(fof_buffer*n_refine*2)
+  nlayer = ceiling(fof_buffer*n_refine*2)+1
   do while (mod(nfof,nlayer) /= 0)
      nlayer = nlayer + 1
   enddo
@@ -206,9 +206,12 @@ program CUBE_FoF
                  !   write(log_unit, *)  'particle index error'
                  !   error stop 'particle index error'
                  ! endif
-
+#ifdef ZIPX
                  xv(:,jp+1:jp+np)=(int(xp_new(:,nlast+1:nlast+np)+ishift,izipx)+rshift)*x_resolution &
                     +spread(nt*((/itx,ity,itz/)-1)+((/i,j,k/)-1)+[fof_buffer,fof_buffer,fof_buffer]+ijk_neighbor(3,:),dim=2,ncopies=np)
+#else
+                xv(:,jp+1:jp+np)=xp_new(:,nlast+1:nlast+np)+spread([fof_buffer,fof_buffer,fof_buffer]+ijk_neighbor(3,:),dim=2,ncopies=np)
+#endif
                  jp = jp+np
               enddo
               enddo
