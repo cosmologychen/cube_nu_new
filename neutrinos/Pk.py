@@ -256,42 +256,6 @@ def taua(a):
     z=1/a-1
     return integrate.quad(lambda z0: 1/Hz(z0), z,10000)[0]
 
-def get_f_rate_5pt(name, z_target, delta_lna=0.02):
-    """
-    五点中心差分版：计算指定组分的线性增长率 f(k)
-    delta_lna: ln(a) 空间的步长，建议 0.01 - 0.05
-    """
-    # 1. 在 ln(a) 空间构建 5 个对称采样点
-    lna_target = -np.log(1 + z_target)
-    lna_samples = lna_target + np.array([-2, -1, 0, 1, 2]) * delta_lna
-    z_samples = np.exp(-lna_samples) - 1
-    
-    # 2. 调用 CAMB 获取这 5 个红移点的传递函数
-    pars_local = par.copy()
-    pars_local.set_matter_power(redshifts=list(z_samples), kmax=k_ic_max)
-    pars_local.NonLinear = camb.model.NonLinear_none 
-    results_local = camb.get_results(pars_local)
-    transfers = results_local.get_matter_transfer_data()
-    
-    # 3. 提取 k 轴和 Mask
-    h0 = pars_local.H0 / 100.0
-    q_mpc = transfers.q 
-    kh = q_mpc / h0 
-    mask = (kh >= k_ic_min) & (kh <= k_ic_max)
-    kh_calc = kh[mask]
-    
-    # 4. 提取 5 个点的 delta (注意顺序：0->z_max(早), 4->z_min(晚))
-    d0 = np.log(np.abs(transfers.transfer_z(name, 0)[mask]))
-    d1 = np.log(np.abs(transfers.transfer_z(name, 1)[mask]))
-    d3 = np.log(np.abs(transfers.transfer_z(name, 3)[mask]))
-    d4 = np.log(np.abs(transfers.transfer_z(name, 4)[mask]))
-    
-    # 5. 五点法一阶导数公式
-    f_k = (d0 - 8*d1 + 8*d3 - d4) / (12 * delta_lna)
-    
-    # 清洗异常值
-    f_k = np.nan_to_num(f_k, nan=0.0, posinf=0.0, neginf=0.0)
-    return kh_calc, f_k
 
 T1 = time.time()
 
@@ -319,7 +283,6 @@ os.system('rm '+nupath+'/*.txt')
 np.savetxt(nupath+'/s_a_tau_H.txt',np.array([t,a_ex,tau,H_ex]))
 print("EH:\n\n      time:   %.2f seconds\n      step:   %d\n      save:   '%s'\n\n\n"%(T2-T1,i_end,nupath+'/s_a_tau_H.txt'))
 
-kh_calc, f_nu_raw_5pt = get_f_rate_5pt('delta_nu', z_nu_i, delta_lna=0.02)
 
 print('get Pk')
 n=int(z_nonlin.shape[0])

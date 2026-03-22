@@ -1,6 +1,19 @@
 #!/bin/bash
 RUNtype=local
-newdir=true
+newdir=false
+
+# ==================== Environment Setup ====================
+# Please set the following environment variables manually before running:
+#
+# umask 002
+#
+# Compiler:   ifort
+# MPI/FFTW/MKL: Standard HPC environment
+# OpenMP:     export OMP_STACKSIZE=2G
+#             export OMP_NUM_THREADS=<cores per node>
+# Coarray:    export FOR_COARRAY_NUM_IMAGES=<nn**3>
+# Python:     Python environment with CAMB
+# ==================== Environment Setup END ====================
 
 #### set_pbs ####
 # q='debug'
@@ -11,11 +24,11 @@ ncore=64
 nnest=4
 mem=300
 
-code_path=/home/cossim/cube_nu/test/output/code   
-output=/home/cossim/cube_nu/test/output
-z_path="/home/junjie/work/code/analysis/Pk_nu_check/code/test2_v5_pos_200_512_cpk2/z_checkpoint.txt"
+code_path=/home/cbh/cube_nu
+output=/home/cbh/cube_nu/output
+z_path="None"
 h_path="None"
-s_path="/home/cossim/cube_nu/test/200_1024_v2/env_seed_taka_200_256_2_0.0_2" #"None"
+s_path="None"
 n_path="None"
 r_path="None"
 flag=''
@@ -56,29 +69,6 @@ Cpk=2
 z1=1
 z2=n_checkpoint
 
-umask 002
-
-module purge 
-module load compiler/intel-2018u3 && echo "intel-2018u3 LOADED"
-module load mpi/mpich-3.2.1 && echo "mpich-3.2.1 LOADED"
-module load mkl/intel-mkl && echo "intel-mkl LOADED"
-module load fftw/3.3.8 && echo "fftw-3.3.8 LOADED"
-module load hdf5/1.12.1-with-cxx-fort && echo "hdf5-1.12.1 LOADED"
-module load boost/1_73_0 && echo "boost-1_73_0 LOADED"
-module load python/python-3.8.5 && echo "python/python-3.8.5 LOADED"
-
-export FC='/opt/intel2018update3/bin/ifort'
-export XFLAG_NO_OMP='-O3 -fpp -q -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt'
-export XFLAG='-O3 -fpp -qopenmp -coarray=distributed -mcmodel=large -coarray-config-file=cafconfig.txt'
-export OFLAG_NO_OMP=$XFLAG_NO_OMP' -c'
-export OFLAG=$XFLAG' -c'
-export FFTFLAG='-I/opt/intel2018update3/mkl/include/fftw -mkl'
-export LD_LIBRARY_PATH="/opt/intel2018update3/mkl/lib/intel64:/opt/fftw/3.3.8/lib:/opt/hdf5/1.12.1/lib:/opt/mpich-3.2.1/lib:$LD_LIBRARY_PATH"
-export OMP_STACKSIZE=2G
-export OMP_NUM_THREADS=64
-export FOR_COARRAY_NUM_IMAGES=8
-export PYTHONPATH=/home/junjie/software:$PYTHONPATH
-echo $LD_LIBRARY_PATH
 
 # 帮助函数
 usage() {
@@ -155,9 +145,9 @@ info() {
     echo ""
     echo -e "${CYAN}--------------------------------  运行参数  --------------------------------${NC}"
     echo ''
-    echo -e "${CYAN}运行目录${NC}${PURPLE}           : $code_path/$opath/${NC}"
+    echo -e "${CYAN}运行目录${NC}${PURPLE}           : $code_path/code/$opath/${NC}"
     if [ "$log_name" != "None" ]; then
-        echo -e "${CYAN}日志文件${NC}${PURPLE}           : $code_path/$opath/$log_name${NC}"
+        echo -e "${CYAN}日志文件${NC}${PURPLE}           : $code_path/code/$opath/$log_name${NC}"
     fi
 
     echo -e "${CYAN}数据目录${NC}${PURPLE}           : $output/$opath/${NC}"
@@ -383,29 +373,29 @@ para_2_code() {
 
 # 创建运行目录
 copy_code() {
-    target_dir="$code_path/$opath"  # 定义实际操作的目录路径
+    target_dir="$code_path/code/$opath"  # 定义实际操作的目录路径
     # 如果目标目录已存在则备份日志
     if [ -d "$target_dir" ]; then
         timestamp=$(date +"%Y%m%d_%H%M%S")
         backup_file="${timestamp}.log"
         
         if [ -f "$target_dir/run.log" ]; then
-            echo -e "${YELLOW}发现历史日志: 备份为 /home/cossim/cube_nu/log_backup/${opath}/${backup_file}${NC}"
-            mkdir -pv /home/cossim/cube_nu/log_backup/$opath
-            cp -v "$target_dir/run.log" "/home/cossim/cube_nu/log_backup/$opath/$backup_file"
+            echo -e "${YELLOW}发现历史日志: 备份为 $code_path/log_backup/${opath}/${backup_file}${NC}"
+            mkdir -pv $code_path/log_backup/$opath
+            cp -v "$target_dir/run.log" "$code_path/log_backup/$opath/$backup_file"
         fi
     fi
 
     # 根据模式操作目录
     if [ "$RunIC" == true ] || [ "$RunMain" == true ]; then
         echo -e "${CYAN}全量模式: 重建目录[ $target_dir ]${NC}"
-        rm -r $code_path/$opath/*
-        mkdir -p $code_path/$opath
-        cp -r ./* $code_path/$opath
+        rm -r $target_dir/*
+        mkdir -p $target_dir
+        cp -r ./* $target_dir
     else
         echo -e "${CYAN}增量模式: 更新CIC文件${NC}"
-        cp -r ./run.qsub $code_path/$opath
-        cp -r ./utilities/*  $code_path/$opath/utilities
+        cp -r ./run.qsub $target_dir
+        cp -r ./utilities/*  $target_dir/utilities
     fi
 
     # 目录切换保护
@@ -434,7 +424,7 @@ local_run() {
     else
         echo ""
         echo ""
-        echo eval "$cmd >> $(pwd)/$log_name 2>&1"
+        echo eval "$cmd >> $log_name 2>&1"
         eval "$cmd >> $log_name 2>&1"
     fi
 }
@@ -557,7 +547,7 @@ pbs_run() {
 
     qsub_ini
     if [ -n "$newdir" ]; then 
-        log_name=$code_path/$opath/$log_name
+        log_name=$code_path/code/$opath/$log_name
     fi
 
     rm -v *.log
@@ -979,7 +969,7 @@ run_para_ini(){
     if [ "$checkpoint" -ne 1 ]; then
         rawpath=$(pwd)
         echo $rawpath
-        cd $code_path/$opath
+        cd $code_path/code/$opath
 
         if [ "$checkpoint" -ne -1 ]; then
             # ======== 统一文件验证 ========
@@ -1103,6 +1093,11 @@ run_para_ini(){
 }
 
 main(){
+
+    export OMP_STACKSIZE=2G
+    export OMP_NUM_THREADS=$ncore
+    export FOR_COARRAY_NUM_IMAGES=$nnn
+
     make clean && cd utilities && make clean && cd ..
 
     if [ "$RunIC" == true ] || [ "$RunMain" == true ]; then
@@ -1117,7 +1112,13 @@ main(){
         rm -v *.log
 
 
+        if [ -n "$newdir" ]; then  # 正确判断是否启用创建新目录模式
+            copy_code
+        fi
         # 输出运行信息
+        if [ -n "$newdir" ]; then 
+            log_name=$code_path/code/$opath/$log_name
+        fi
         if [ "$log_name" != "None" ]; then
             date > "$log_name"
             info >> "$log_name"

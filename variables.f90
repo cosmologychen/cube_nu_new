@@ -266,7 +266,7 @@ contains
       i2=100
       do while (i2-i1>1)
          ii=(i1+i2)/2
-         if (rr>svz(ii,1)) then
+         if (rr>svr(ii,1)) then
             i1=ii
          else
             i2=ii

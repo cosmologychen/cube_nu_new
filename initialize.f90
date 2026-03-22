@@ -7,7 +7,7 @@ subroutine initialize
 
    include 'fftw3.f'
 
-   logical,parameter :: read_Gks=.true.
+   logical,parameter :: read_Gks=.false.
    integer i,j,k,l
 
    real omega_m_zi,omega_l_zi
@@ -342,7 +342,7 @@ subroutine initialize
    if (head) print*, '  call create_penfft_plan nw = ',nw
    call tic(39)
    call create_penfft_plan
-   call tic(39)
+   call toc(39)
    if (head) print*, '    elapsed time =',tcat(4,0),'secs'
    sync all
 

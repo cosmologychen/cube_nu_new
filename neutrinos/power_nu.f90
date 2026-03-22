@@ -14,7 +14,7 @@ contains
 
       a8_0=sim%a
       i1 = ia
-      do while(s2a(i1) <= a8_0 .and. i1 < istep_max)
+      do while(s2a(i1) <= a8_0 .and. i1 > 1)
          i1 = i1-1
       enddo
       ia = i1
@@ -60,7 +60,7 @@ contains
       integer i1,i2
 
       i1 = 1
-      do while(s2a(i1+1)>=a0 .and. i1 < istep_max)
+      do while(s2a(i1+1)>=a0 .and. i1 < istep_max-1)
          i1 = i1+1
       enddo
       i2=i1+1

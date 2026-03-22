@@ -72,7 +72,7 @@ program CUBE
       enddo
    endif
 #else
-   sim%cur_checkpoint=2
+   sim%cur_checkpoint=1
    call initialize
    call particle_initialization
    call buffer_grid
@@ -125,7 +125,7 @@ program CUBE
    call finalize
 #endif
 
-   sim%cur_checkpoint=2
+   sim%cur_checkpoint=1
    ! call initialize
    ! call particle_initialization
    ! sim%cur_powerpoint = 2

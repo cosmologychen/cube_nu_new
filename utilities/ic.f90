@@ -1,5 +1,5 @@
 !! read existing random seed to generate random numbers
-#define READ_SEED
+!#define READ_SEED
 #define USE_PKIC
 ! #define READ_K_HALF
 ! #define WRITE_K_HALF
