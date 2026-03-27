@@ -30,6 +30,12 @@ program CUBE_FoF
    type(type_halo_catalog_header) halo_header
    type(type_halo_catalog_array),allocatable :: hcat(:)
 
+   ! 用于保存 halo 粒子信息的变量
+   type(type_halo_particle) halo_particles
+   integer(8),allocatable :: pid_all(:), pid_new(:)
+   integer,allocatable :: halo_pid_map(:)
+   integer np_halo_total
+
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    total_images = num_images()
    layer_image = nn**3/total_images
@@ -146,11 +152,16 @@ program CUBE_FoF
 
 
 
+
          !  initialize particles
          write(log_unit, *)' initialize particles', np_max
 
          allocate(xv(3,np_max))
          xv = 0
+#ifdef PID
+         allocate(pid_all(np_max))
+         pid_all = 0
+#endif
          nlast = 0
          do iq1 = 1, 3;  do iq2 = 1, 3; do iq3 = 1, 3
             offset_nei(iq1,iq2,iq3) =  nlast
@@ -173,8 +184,14 @@ program CUBE_FoF
             open(iteam,file=output_name('info'),access='stream'); read(iteam) sim; close(iteam)
             sim%cur_checkpoint=cur_checkpoint
             allocate(xp_new(3,sim%nplocal),rhoc_local(nt,nt,nt,nnt,nnt,nnt),offset_map(nt,nt,nt,nnt,nnt,nnt))
+#ifdef PID
+            allocate(pid_new(sim%nplocal))
+#endif
             open(iteam,file=output_name('xp'),access='stream'); read(iteam) xp_new; close(iteam)
             open(iteam,file=output_name('np'),access='stream'); read(iteam) rhoc_local; close(iteam)
+#ifdef PID
+            open(iteam,file=output_name('pid'),access='stream'); read(iteam) pid_new; close(iteam)
+#endif
 
             nlast = 0
             do itz=1,nnt; do ity=1,nnt; do itx=1,nnt; do k=1,nt; do j=1,nt; do i=1,nt
@@ -198,19 +215,14 @@ program CUBE_FoF
                do i = merge(1, mod(ijk_neighbor(1, 1)+1, nt), itx*nt-nt >= ijk_neighbor(1, 1)),merge(nt, mod(ijk_neighbor(2, 1)+1, nt)-1, itx*nt <= ijk_neighbor(2, 1))
                   np=rhoc_local(i,j,k,itx,ity,itz)
                   nlast = offset_map(i,j,k,itx,ity,itz)
-
-                  ! if (jp+np > np_max .or. nlast+np > sim%nplocal ) then
-                  !   write(log_unit, *)  iq1-2,iq2-2,iq3-2,image
-                  !   write(log_unit, *)  i,j,k,itx,ity,itz
-                  !   write(log_unit, *)  nlast,np,np_neighbors(iq1,iq2,iq3),jp
-                  !   write(log_unit, *)  'particle index error'
-                  !   error stop 'particle index error'
-                  ! endif
 #ifdef ZIPX
                   xv(:,jp+1:jp+np)=(int(xp_new(:,nlast+1:nlast+np)+ishift,izipx)+rshift)*x_resolution &
                      +spread(nt*((/itx,ity,itz/)-1)+((/i,j,k/)-1)+[fof_buffer,fof_buffer,fof_buffer]+ijk_neighbor(3,:),dim=2,ncopies=np)
 #else
-                 xv(:,jp+1:jp+np)=xp_new(:,nlast+1:nlast+np)+spread([fof_buffer,fof_buffer,fof_buffer]+ijk_neighbor(3,:),dim=2,ncopies=np)
+                  xv(:,jp+1:jp+np)=xp_new(:,nlast+1:nlast+np)+spread([fof_buffer,fof_buffer,fof_buffer]+ijk_neighbor(3,:),dim=2,ncopies=np)
+#endif
+#ifdef PID
+                  pid_all(jp+1:jp+np) = pid_new(nlast+1:nlast+np)
 #endif
                   jp = jp+np
                enddo
@@ -220,6 +232,9 @@ program CUBE_FoF
             enddo
             enddo
             deallocate(xp_new,rhoc_local,offset_map)
+#ifdef PID
+            deallocate(pid_new)
+#endif
             n2 = jp-n1+1
             if (n2 /= np_neighbors(iq1,iq2,iq3) ) then
                write(log_unit, *)  iq1-2,iq2-2,iq3-2,image
@@ -231,7 +246,6 @@ program CUBE_FoF
                print*,image
                stop 'particle len error'
             endif
-            ! write(log_unit,'(5I4,I10)')  iq3+(iq2-1)*3+(iq1-1)*9,iq1-2,iq2-2,iq3-2,image,sim%nplocal
          enddo
          enddo
          enddo
@@ -356,12 +370,21 @@ program CUBE_FoF
          write(log_unit, '(A, F10.3, A)') '    real time =',real(ft(5,image_now)-ft(4,image_now))/ftr(image_now),'secs';write(log_unit, *) ''
 
 
-         ! count halos
+         ! count halos and collect particle info
          nlast = np_max/np_halo_min/2
          allocate(xv_mean_team(3, nlast, fofcore),np_halo_team(nlast, fofcore))
+#ifdef PID
+         ! 用于保存每个halo的头部粒子索引和PID列表
+         integer, allocatable :: halo_head_ip_team(:,:)
+         integer, allocatable :: halo_pid_list_team(:,:,:)
+         allocate(halo_head_ip_team(nlast, fofcore))
+         allocate(halo_pid_list_team(np_max, nlast, fofcore))
+         halo_head_ip_team = 0
+         halo_pid_list_team = 0
+#endif
          write(log_unit, *)  'Count halos'
          np_iso = 0; np_head = 0; np_halo_team=0; xv_mean_team=0
-         !$omp parallel do private(i, iteam, ip, jp, np, dxv) default(shared)
+         !$omp parallel do private(i, iteam, ip, jp, np, dxv, jpart) default(shared)
          do i=1,np_max
             iteam = omp_get_thread_num()+1
             if (hcgp(i)==i) then
@@ -378,11 +401,21 @@ program CUBE_FoF
                   np_head(iteam)=np_head(iteam)+1
                   np_halo_team(np_head(iteam),iteam) = np
                   xv_mean_team(:,np_head(iteam),iteam) =  (dxv + shift_xv)*box/nn/nc
+#ifdef PID
+                  ! 同时保存这个halo的头部粒子和所有粒子PID
+                  halo_head_ip_team(np_head(iteam),iteam) = ip
+                  jp = ip
+                  jpart = 1
+                  do while (jp /= 0)
+                     halo_pid_list_team(jpart, np_head(iteam), iteam) = jp
+                     jpart = jpart + 1
+                     jp = llgp(jp)
+                  enddo
+#endif
                endif
             endif
          enddo
          !$omp end parallel do
-         deallocate(xv,hcgp,llgp)
 
          offset_team = 0; nlast = 0
          do i = 1,fofcore
@@ -403,6 +436,26 @@ program CUBE_FoF
          enddo
          deallocate(xv_mean_team)
 
+#ifdef PID
+         ! 收集所有halo的PID列表
+         integer, allocatable :: halo_pid_list(:,:)
+         np_halo_total = sum(np_halo(1:nlast))
+         allocate(halo_pid_list(np_halo_total, nlast))
+         halo_pid_list = 0
+         integer global_idx
+         global_idx = 1
+         do i = 1,fofcore
+            do j = 1, np_head(i)
+               do k = 1, np_halo_team(j,i)
+                  if (halo_pid_list_team(k,j,i) > 0) then
+                     halo_pid_list(global_idx, offset_team(i)+j) = halo_pid_list_team(k,j,i)
+                     global_idx = global_idx + 1
+                  endif
+               enddo
+            enddo
+         enddo
+         deallocate(halo_pid_list_team, halo_head_ip_team)
+#endif
 
          np_head(1) = nlast
          np_head(2) = sum(np_halo)
@@ -434,7 +487,71 @@ program CUBE_FoF
          write(21) nh
          write(21) np_halo(1:nh)
          close(21)
+
+         ! 保存 halo 粒子信息并输出
+#ifdef PID
+         if(nh > 0) then
+            write(log_unit, *) 'Saving halo particle information'
+            np_halo_total = sum(np_halo(1:nh))
+
+            halo_particles%box = box
+            halo_particles%linking_parameter = b_link
+            halo_particles%nh = nh
+            halo_particles%nz = 1
+            halo_particles%np_halo_all = np_halo_total
+
+            allocate(halo_particles%np_halo(nh))
+            allocate(halo_particles%xv_mean(6,nh,1))
+            allocate(halo_particles%iq(np_halo_total))
+            allocate(halo_particles%z_list(1))
+            allocate(halo_particles%z_in(np_halo_total))
+
+            halo_particles%np_halo(1:nh) = np_halo(1:nh)
+            halo_particles%xv_mean(1:3,1:nh,1) = xv_mean(1:3,1:nh)
+            halo_particles%xv_mean(4:6,1:nh,1) = 0.0
+            halo_particles%z_list(1) = z_checkpoint(cur_checkpoint)
+            halo_particles%z_in(1:np_halo_total) = 1
+
+            ! 直接使用收集好的halo_pid_list来填充PID
+            write(log_unit, *) 'Filling particle PIDs'
+            integer ihalo, ipart, pos
+            pos = 1
+            do ihalo = 1, nh
+               do ipart = 1, np_halo(ihalo)
+                  if (halo_pid_list(ipart, ihalo) > 0) then
+                     halo_particles%iq(pos) = real(pid_all(halo_pid_list(ipart, ihalo)))
+                     pos = pos + 1
+                  endif
+               enddo
+            enddo
+
+            deallocate(halo_pid_list)
+
+            write(log_unit, *) output_name(trim('halo_particles_'//trim(adjustl(str_refine))))
+            open(22,file=output_name(trim('halo_particles_'//trim(adjustl(str_refine)))),status='replace',access='stream')
+            write(22) halo_particles%box
+            write(22) halo_particles%linking_parameter
+            write(22) halo_particles%nh
+            write(22) halo_particles%nz
+            write(22) halo_particles%np_halo_all
+            write(22) halo_particles%np_halo
+            write(22) halo_particles%xv_mean
+            write(22) halo_particles%iq
+            write(22) halo_particles%z_list
+            write(22) halo_particles%z_in
+            close(22)
+
+            deallocate(halo_particles%np_halo, halo_particles%xv_mean, halo_particles%iq)
+            deallocate(halo_particles%z_list, halo_particles%z_in)
+         endif
+#endif
+
+         deallocate(xv,hcgp,llgp)
+
          deallocate(np_halo,xv_mean)
+#ifdef PID
+         if(allocated(pid_all)) deallocate(pid_all)
+#endif
 
          deallocate(hcat)
          halo_images(image_now) = np_head(1)

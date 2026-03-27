@@ -6,6 +6,7 @@ newdir=false
 # Please set the following environment variables manually before running:
 #
 # umask 002
+# ulimit -s unlimited
 #
 # Compiler:   ifort
 # MPI/FFTW/MKL: Standard HPC environment
@@ -51,7 +52,6 @@ checkpoint=1
 
 box=1200
 nn=1
-# nic=1
 ng=1024
 
 h0=0.6817
@@ -125,7 +125,6 @@ usage() {
     echo "                            2 = 使用全局功率谱                      (default: $Cpk)"
 
     echo "                                                                               "
-    # echo "  -nic       <num>         using nic times rho for ic             (default: 512)"
     echo "  -cp        <num>         checkpoint for runin [0=auto        ]  (default: $cp)"
     echo "  -z1        <int>         halo/power start point                 (default: 1)"
     echo "  -z2        <int>         halo/power end point [0=n_checkpoint]  (default: 0)"

@@ -120,8 +120,8 @@ module parameters
    ! initial conditions
    real,parameter :: f_nl=0
    real,parameter :: g_nl=0
-  real,parameter :: n_s=0.9693
-  real,parameter :: A_s=2.122e-09
+   real,parameter :: n_s=0.9693
+   real,parameter :: A_s=2.122e-09
    real,parameter :: k_o=0.05/h0
 
    integer(8),parameter :: istep_max=100000
@@ -218,6 +218,21 @@ module parameters
    type type_halo_catalog_array
       real hmass ! number of particles ! 1:1
       real xv(6)
+   endtype
+   type type_halo_particle
+      real box ! box size
+      real linking_parameter
+      integer nh
+      integer nz
+      integer np_halo_all ! number of particles in all halos ,sum(np_halo)
+      integer, allocatable :: np_halo(:) ! np_halo(nh) number of particles in this halo
+
+      real, allocatable :: xv_mean(:,:,:) ! xv_mean(6,nh,nz) position of particles in this halo
+      real, allocatable :: iq(:) ! iq(np_halo_all) PID of particles in this halo
+      real, allocatable :: z_list(:) ! z_list(nz) number of z_checkpoint
+      integer, allocatable :: z_in(:) ! z_in(np_halo_all) particle fall into halo in z_list(z_in)
+      ! optional
+      real, allocatable :: xv_z(:,:,:) ! xv_z(6,np_halo_all,nz) position of particles in this halo in each z_checkpoint, nan if particle not in this halo in this z_checkpoint
    endtype
    integer,parameter :: ninfo=7 ! number of real numbers per halo in the halo catalog
    character(4) b_link_string
