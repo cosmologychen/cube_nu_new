@@ -19,7 +19,7 @@ program fof_time_slide
    character(len=64) :: log_filename
 
    integer total_images,layer_image,image_now,i,j,k,l,nlayer,layer_core
-   integer cur_checkpoint,iz_checkpoint,np,n1,n2,idx(3),nh,im
+   integer cur_checkpoint,iz_checkpoint,np,n1,n2,idx3(3),nh,im
    integer idx1(3),idx2(3),ft(6,nn*3),ftr(nn*3)
    integer(8) iq1,iq2,iq3,i_neighbor,jq(3),ijk_neighbor(3,3),neighbor_b(3,3)
    integer(4) nlast,ip,jp,np_iso(fofcore),np_head(fofcore),np_max
@@ -29,20 +29,22 @@ program fof_time_slide
    integer(4),allocatable :: hoc(:,:,:),ll(:),llgp(:),hcgp(:),ecgp(:)
    real rsq,pos1(3),dx1(3),dx2(3),shift_xv(3)
    real(8) rho8,dxv(3)
-   real,allocatable :: xp_all(:,:),xp_new(:,:)
-   integer(8),allocatable :: pid_new(:),pid_all(:)
-   real,allocatable :: vp_new(:,:),vp_all(:,:)
+   real,allocatable :: xp_all(:,:)
+   integer(8),allocatable :: pid_all(:)
+   real,allocatable :: vp_all(:,:)
 
    ! halo粒子相关变量
    type(type_halo_particle) halo_particles
    integer,allocatable :: i_start_array(:)
-   integer,allocatable :: PID_tmp(:), idx_to_zin(:)
+   integer(8),allocatable :: PID_tmp(:), idx_to_zin(:)
    real,allocatable :: xv_halo(:,:)
    integer np_all, np_halo_total
    integer nz_current
    integer np_fof, np_temp, np_bound
    real,allocatable :: z_list_tmp(:)
    real,allocatable :: xv_mean_tmp(:,:,:)
+   real dx(3), dv(3), r, v_rel_sq
+   integer np_found, idx
 
    ! 局部FOF变量
    integer istart, ihalo
@@ -53,8 +55,6 @@ program fof_time_slide
    real L_mesh
    real :: xp_zero(3)
    integer,allocatable :: hoc_local(:,:,:), ll_local(:)
-
-   logical :: head
 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    total_images = num_images()
@@ -409,9 +409,9 @@ program fof_time_slide
 
                ! 构建局部网格，考虑周期性边界条件
                do i = 1, np
-                  idx = floor((xv_halo(1:3,istart+i-1) - xp_zero) / L_mesh) + 1
-                  ll_local(i) = hoc_local(idx(1), idx(2), idx(3))
-                  hoc_local(idx(1), idx(2), idx(3)) = istart+i-1
+                  idx3 = floor((xv_halo(1:3,istart+i-1) - xp_zero) / L_mesh) + 1
+                  ll_local(i) = hoc_local(idx3(1), idx3(2), idx3(3))
+                  hoc_local(idx3(1), idx3(2), idx3(3)) = istart+i-1
                enddo
 
                ! FOF搜索
@@ -565,11 +565,11 @@ contains
 
    recursive subroutine sort_by(arr, brr, left, right)
       integer(8), intent(inout) :: arr(:)
-      integer, intent(inout) :: brr(:)
+      integer(8), intent(inout) :: brr(:)
       integer, intent(in) :: left, right
 
       integer(8) :: key_arr,tmp
-      integer :: key_brr
+      integer(8) :: key_brr
       integer :: i, j, mid
 
       if (left >= right) return

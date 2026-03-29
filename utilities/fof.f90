@@ -32,9 +32,16 @@ program CUBE_FoF
 
    ! 用于保存 halo 粒子信息的变量
    type(type_halo_particle) halo_particles
-   integer(8),allocatable :: pid_all(:), pid_new(:)
+   integer(8),allocatable :: pid_all(:)
    integer,allocatable :: halo_pid_map(:)
    integer np_halo_total
+#ifdef PID
+   integer, allocatable :: halo_head_ip_team(:,:)
+   integer, allocatable :: halo_pid_list_team(:,:,:)
+   integer, allocatable :: halo_pid_list(:,:)
+   integer global_idx, jpart
+   integer ihalo, ipart, pos
+#endif
 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    total_images = num_images()
@@ -375,8 +382,6 @@ program CUBE_FoF
          allocate(xv_mean_team(3, nlast, fofcore),np_halo_team(nlast, fofcore))
 #ifdef PID
          ! 用于保存每个halo的头部粒子索引和PID列表
-         integer, allocatable :: halo_head_ip_team(:,:)
-         integer, allocatable :: halo_pid_list_team(:,:,:)
          allocate(halo_head_ip_team(nlast, fofcore))
          allocate(halo_pid_list_team(np_max, nlast, fofcore))
          halo_head_ip_team = 0
@@ -438,11 +443,9 @@ program CUBE_FoF
 
 #ifdef PID
          ! 收集所有halo的PID列表
-         integer, allocatable :: halo_pid_list(:,:)
          np_halo_total = sum(np_halo(1:nlast))
          allocate(halo_pid_list(np_halo_total, nlast))
          halo_pid_list = 0
-         integer global_idx
          global_idx = 1
          do i = 1,fofcore
             do j = 1, np_head(i)
@@ -514,7 +517,6 @@ program CUBE_FoF
 
             ! 直接使用收集好的halo_pid_list来填充PID
             write(log_unit, *) 'Filling particle PIDs'
-            integer ihalo, ipart, pos
             pos = 1
             do ihalo = 1, nh
                do ipart = 1, np_halo(ihalo)
