@@ -50,7 +50,7 @@ program cicpower
    call create_penfft_plan
 
    ! do cur_checkpoint= 1,n_checkpoint
-   do cur_checkpoint= n_checkpoint,n_checkpoint
+   do cur_checkpoint= 1,n_checkpoint
   !  do cur_checkpoint= 1,n_checkpoint
       sim%cur_checkpoint=cur_checkpoint
       if (head) print*, ''
@@ -65,7 +65,7 @@ program cicpower
       allocate(xp(3,nplocal))
       open(11,file=output_name('xp'),access='stream'); read(11) xp; close(11)
       open(11,file=output_name('np'),access='stream'); read(11) rhoc; close(11)
-      rho_grid=0; nlast=0; nbb =  nw
+      rho_grid=0; nlast=0; nbb = nw
       do itz=1,nnt
          do ity=1,nnt
             do itx=1,nnt
@@ -120,7 +120,6 @@ program cicpower
             enddo
          enddo
       enddo
-      deallocate(rho_grid)
 
 
       if (head) print*, 'check: min,max,sum of rho_grid = '
@@ -251,7 +250,7 @@ program cicpower
 
 #ifdef gadget
       ! read Gadget output
-      allocate(xv(6,nplocal),rho_grid(0:nw+1,0:nw+1,0:nw+1)[nn,nn,*])
+      allocate(xv(6,nplocal))
       open(11,file='../output/yuyu/0.000_gadget_xv.bin',access='stream')
       read(11) xv
       close(11)
@@ -315,11 +314,12 @@ program cicpower
          write(15) xi(:,1:nbin)
          close(15)
       endif
-      deallocate(xv,rho_grid)
+      deallocate(xv)
       sync all
 #endif
       if (head) print*,''
-   enddo
+   enddo !z done
+
    deallocate(rho_c,rhoc)
    call destroy_penfft_plan
    sync all
